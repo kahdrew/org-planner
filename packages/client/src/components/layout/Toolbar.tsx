@@ -1,0 +1,124 @@
+import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { Plus, Upload, Download, Search } from 'lucide-react';
+import { useOrgStore } from '@/stores/orgStore';
+import { exportToCSV, parseCSV } from '@/utils/csv';
+import { cn } from '@/utils/cn';
+import * as employeesApi from '@/api/employees';
+
+const STATUS_OPTIONS = ['Active', 'Planned', 'Open Req', 'Backfill'] as const;
+
+const viewNames: Record<string, string> = {
+  '/': 'Org Chart',
+  '/hierarchy': 'Hierarchy',
+  '/spreadsheet': 'Spreadsheet',
+  '/kanban': 'Kanban',
+  '/compare': 'Compare',
+};
+
+interface ToolbarProps {
+  onAddEmployee?: () => void;
+  statusFilters: string[];
+  onToggleStatus: (status: string) => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+}
+
+export default function Toolbar({
+  onAddEmployee,
+  statusFilters,
+  onToggleStatus,
+  searchQuery,
+  onSearchChange,
+}: ToolbarProps) {
+  const location = useLocation();
+  const { employees, currentScenario } = useOrgStore();
+  const viewName = viewNames[location.pathname] ?? 'Org Chart';
+
+  const handleExport = () => {
+    exportToCSV(employees, `org-planner-${currentScenario?.name ?? 'export'}.csv`);
+  };
+
+  const handleImport = async () => {
+    if (!currentScenario) return;
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      const parsed = parseCSV(text);
+      if (parsed.length > 0) {
+        await employeesApi.bulkCreateEmployees(currentScenario._id, parsed);
+        useOrgStore.getState().fetchEmployees(currentScenario._id);
+      }
+    };
+    input.click();
+  };
+
+  return (
+    <div className="flex items-center gap-3 border-b border-gray-200 bg-white px-6 py-3">
+      <h2 className="text-lg font-semibold text-gray-800">{viewName}</h2>
+
+      <div className="mx-4 h-6 w-px bg-gray-200" />
+
+      <button
+        onClick={onAddEmployee}
+        className="flex items-center gap-1.5 rounded-md bg-[var(--color-primary)] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[var(--color-primary-hover)]"
+      >
+        <Plus size={16} />
+        Add Employee
+      </button>
+
+      <div className="mx-2 h-6 w-px bg-gray-200" />
+
+      <div className="flex items-center gap-1">
+        {STATUS_OPTIONS.map((status) => (
+          <button
+            key={status}
+            onClick={() => onToggleStatus(status)}
+            className={cn(
+              'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+              statusFilters.includes(status)
+                ? 'bg-blue-100 text-blue-700'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            )}
+          >
+            {status}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1" />
+
+      <div className="relative">
+        <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Search by name or title..."
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="rounded-md border border-gray-300 py-1.5 pl-8 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        />
+      </div>
+
+      <button
+        onClick={handleImport}
+        className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+      >
+        <Upload size={16} />
+        Import CSV
+      </button>
+
+      <button
+        onClick={handleExport}
+        className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+      >
+        <Download size={16} />
+        Export CSV
+      </button>
+    </div>
+  );
+}
