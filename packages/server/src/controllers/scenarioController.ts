@@ -2,6 +2,7 @@ import { Response } from "express";
 import { z } from "zod";
 import mongoose from "mongoose";
 import { AuthRequest } from "../middleware/auth";
+import { checkScenarioAccess } from "../middleware/authorization";
 import Scenario from "../models/Scenario";
 import Employee from "../models/Employee";
 
@@ -114,6 +115,37 @@ interface DiffResult {
 
 export const diffScenarios = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const userId = req.user!.userId;
+
+    // Validate scenario IDs
+    if (
+      !mongoose.Types.ObjectId.isValid(req.params.a) ||
+      !mongoose.Types.ObjectId.isValid(req.params.b)
+    ) {
+      res.status(400).json({ error: "Invalid scenario ID" });
+      return;
+    }
+
+    // Check authorization for both scenarios
+    const [accessA, accessB] = await Promise.all([
+      checkScenarioAccess(req.params.a, userId),
+      checkScenarioAccess(req.params.b, userId),
+    ]);
+
+    // If a scenario doesn't exist, return empty diff (existing behavior)
+    // But if it exists and user has no access, return 403
+    const scenarioA = await Scenario.findById(req.params.a);
+    const scenarioB = await Scenario.findById(req.params.b);
+
+    if (scenarioA && !accessA.hasAccess) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+    if (scenarioB && !accessB.hasAccess) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
     const employeesA = await Employee.find({ scenarioId: req.params.a }).lean();
     const employeesB = await Employee.find({ scenarioId: req.params.b }).lean();
 

@@ -1,6 +1,8 @@
 import { Response } from "express";
 import { z } from "zod";
+import mongoose from "mongoose";
 import { AuthRequest } from "../middleware/auth";
+import { checkScenarioAccess } from "../middleware/authorization";
 import Employee from "../models/Employee";
 
 const employeeSchema = z.object({
@@ -59,13 +61,30 @@ export const createEmployee = async (req: AuthRequest, res: Response): Promise<v
 
 export const updateEmployee = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const updates = updateEmployeeSchema.parse(req.body);
-    const employee = await Employee.findByIdAndUpdate(req.params.id, updates, { new: true });
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      res.status(400).json({ error: "Invalid employee ID" });
+      return;
+    }
+
+    const employee = await Employee.findById(req.params.id);
     if (!employee) {
       res.status(404).json({ error: "Employee not found" });
       return;
     }
-    res.json(employee);
+
+    // Check authorization via scenario→org chain
+    const { hasAccess } = await checkScenarioAccess(
+      employee.scenarioId.toString(),
+      req.user!.userId
+    );
+    if (!hasAccess) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
+    const updates = updateEmployeeSchema.parse(req.body);
+    const updated = await Employee.findByIdAndUpdate(req.params.id, updates, { new: true });
+    res.json(updated);
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: err.errors });
@@ -77,11 +96,28 @@ export const updateEmployee = async (req: AuthRequest, res: Response): Promise<v
 
 export const deleteEmployee = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const employee = await Employee.findByIdAndDelete(req.params.id);
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      res.status(400).json({ error: "Invalid employee ID" });
+      return;
+    }
+
+    const employee = await Employee.findById(req.params.id);
     if (!employee) {
       res.status(404).json({ error: "Employee not found" });
       return;
     }
+
+    // Check authorization via scenario→org chain
+    const { hasAccess } = await checkScenarioAccess(
+      employee.scenarioId.toString(),
+      req.user!.userId
+    );
+    if (!hasAccess) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
+    await Employee.findByIdAndDelete(req.params.id);
     res.json({ message: "Employee deleted" });
   } catch {
     res.status(500).json({ error: "Internal server error" });
@@ -90,17 +126,34 @@ export const deleteEmployee = async (req: AuthRequest, res: Response): Promise<v
 
 export const moveEmployee = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { managerId, order } = moveSchema.parse(req.body);
-    const employee = await Employee.findByIdAndUpdate(
-      req.params.id,
-      { managerId, order },
-      { new: true }
-    );
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      res.status(400).json({ error: "Invalid employee ID" });
+      return;
+    }
+
+    const employee = await Employee.findById(req.params.id);
     if (!employee) {
       res.status(404).json({ error: "Employee not found" });
       return;
     }
-    res.json(employee);
+
+    // Check authorization via scenario→org chain
+    const { hasAccess } = await checkScenarioAccess(
+      employee.scenarioId.toString(),
+      req.user!.userId
+    );
+    if (!hasAccess) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+
+    const { managerId, order } = moveSchema.parse(req.body);
+    const updated = await Employee.findByIdAndUpdate(
+      req.params.id,
+      { managerId, order },
+      { new: true }
+    );
+    res.json(updated);
   } catch (err) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: err.errors });
