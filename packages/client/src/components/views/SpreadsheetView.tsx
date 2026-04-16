@@ -1,4 +1,5 @@
 import { useMemo, useCallback, useRef } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { AgGridReact } from 'ag-grid-react';
 import type {
   ColDef,
@@ -12,6 +13,12 @@ import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { useOrgStore } from '@/stores/orgStore';
 import type { Employee } from '@/types';
+
+interface OutletContext {
+  filteredEmployees: Employee[];
+  statusFilters: string[];
+  searchQuery: string;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -57,10 +64,11 @@ function numberParser(params: ValueParserParams): number | null {
 /* ------------------------------------------------------------------ */
 
 export default function SpreadsheetView() {
+  const { filteredEmployees } = useOutletContext<OutletContext>();
   const { employees, updateEmployee } = useOrgStore();
   const gridRef = useRef<AgGridReact<Employee>>(null);
 
-  /** Map of employee id → name for manager column display. */
+  /** Map of employee id → name for manager column display (uses all employees so names resolve even for filtered-out managers). */
   const managerMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const emp of employees) {
@@ -225,7 +233,7 @@ export default function SpreadsheetView() {
     <div className="ag-theme-alpine h-full w-full">
       <AgGridReact<Employee>
         ref={gridRef}
-        rowData={employees}
+        rowData={filteredEmployees}
         columnDefs={columnDefs}
         defaultColDef={defaultColDef}
         rowSelection="single"
@@ -233,6 +241,7 @@ export default function SpreadsheetView() {
         onSelectionChanged={handleSelectionChanged}
         animateRows={true}
         getRowId={(params) => params.data._id}
+        overlayNoRowsTemplate="<span class='ag-overlay-no-rows-center'>No employees match the current filters.</span>"
       />
     </div>
   );
