@@ -21,6 +21,6 @@ export async function deleteScenario(id: string): Promise<void> {
 }
 
 export async function diffScenarios(a: string, b: string): Promise<ScenarioDiff> {
-  const { data } = await client.get<ScenarioDiff>(`/scenarios/diff`, { params: { a, b } });
+  const { data } = await client.get<ScenarioDiff>(`/scenarios/${a}/diff/${b}`);
   return data;
 }

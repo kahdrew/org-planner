@@ -21,7 +21,7 @@ export default function LoginPage() {
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string; error?: string } } };
       setError(
-        axiosErr.response?.data?.message ?? axiosErr.response?.data?.error ?? 'Login failed',
+        axiosErr.response?.data?.error ?? axiosErr.response?.data?.message ?? 'Login failed',
       );
     } finally {
       setLoading(false);

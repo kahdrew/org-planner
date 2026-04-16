@@ -22,8 +22,8 @@ export default function RegisterPage() {
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string; error?: string } } };
       setError(
-        axiosErr.response?.data?.message ??
-          axiosErr.response?.data?.error ??
+        axiosErr.response?.data?.error ??
+          axiosErr.response?.data?.message ??
           'Registration failed',
       );
     } finally {

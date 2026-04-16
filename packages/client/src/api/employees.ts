@@ -26,6 +26,6 @@ export async function moveEmployee(id: string, managerId: string | null, order: 
 }
 
 export async function bulkCreateEmployees(scenarioId: string, employees: Partial<Employee>[]): Promise<Employee[]> {
-  const { data } = await client.post<Employee[]>(`/scenarios/${scenarioId}/employees/bulk`, { employees });
+  const { data } = await client.post<Employee[]>(`/scenarios/${scenarioId}/employees/bulk`, employees);
   return data;
 }
