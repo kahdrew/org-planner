@@ -4,7 +4,7 @@ commands:
   test: npm run test
   test:server: npm run test:server
   test:client: npm run test:client
-  typecheck: npx tsc --noEmit
+  typecheck: npx tsc --noEmit -p packages/server/tsconfig.json && npx tsc --noEmit -p packages/client/tsconfig.json
   lint: npm run lint
   lint:fix: npm run lint:fix
 
