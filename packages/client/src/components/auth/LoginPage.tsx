@@ -18,8 +18,11 @@ export default function LoginPage() {
     try {
       await login(email, password);
       navigate('/');
-    } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Login failed');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string; error?: string } } };
+      setError(
+        axiosErr.response?.data?.message ?? axiosErr.response?.data?.error ?? 'Login failed',
+      );
     } finally {
       setLoading(false);
     }
@@ -76,7 +79,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-500">
-          Don't have an account?{' '}
+          Don&apos;t have an account?{' '}
           <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500">
             Sign up
           </Link>

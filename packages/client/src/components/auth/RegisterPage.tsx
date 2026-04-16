@@ -19,8 +19,13 @@ export default function RegisterPage() {
     try {
       await register(email, password, name);
       navigate('/');
-    } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Registration failed');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string; error?: string } } };
+      setError(
+        axiosErr.response?.data?.message ??
+          axiosErr.response?.data?.error ??
+          'Registration failed',
+      );
     } finally {
       setLoading(false);
     }

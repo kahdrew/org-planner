@@ -42,7 +42,7 @@ export interface Employee {
   managerId?: string | null;
   order: number;
   avatarUrl?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export type DiffStatus = 'added' | 'removed' | 'moved' | 'changed' | 'unchanged';

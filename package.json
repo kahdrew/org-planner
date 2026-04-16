@@ -1,6 +1,7 @@
 {
   "name": "org-planner",
   "private": true,
+  "type": "module",
   "workspaces": [
     "packages/*"
   ],
@@ -11,10 +12,20 @@
     "build": "npm -w packages/server run build && npm -w packages/client run build",
     "test": "npm run test:server && npm run test:client",
     "test:server": "npm -w packages/server run test",
-    "test:client": "npm -w packages/client run test"
+    "test:client": "npm -w packages/client run test",
+    "lint": "eslint packages/server/src packages/client/src",
+    "lint:fix": "eslint packages/server/src packages/client/src --fix"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "concurrently": "^8.2.2",
-    "typescript": "^5.4.0"
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.0",
+    "globals": "^17.5.0",
+    "prettier": "^3.8.3",
+    "typescript": "^5.4.0",
+    "typescript-eslint": "^8.58.2"
   }
 }
