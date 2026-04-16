@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import {
   DndContext,
   DragOverlay,
@@ -18,6 +19,12 @@ import { ChevronRight, GripVertical } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { cn } from '@/utils/cn';
 import type { Employee } from '@/types';
+
+interface OutletContext {
+  filteredEmployees: Employee[];
+  statusFilters: string[];
+  searchQuery: string;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -274,13 +281,14 @@ function DragOverlayContent({ employee }: { employee: Employee }) {
 /* ------------------------------------------------------------------ */
 
 export default function HierarchyView() {
+  const { filteredEmployees } = useOutletContext<OutletContext>();
   const { employees, selectedEmployee, moveEmployee } = useOrgStore();
 
   // Tracks which nodes are *collapsed* – everything is expanded by default.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  const tree = useMemo(() => buildTree(employees), [employees]);
+  const tree = useMemo(() => buildTree(filteredEmployees), [filteredEmployees]);
   const sortableIds = useMemo(
     () => flattenIds(tree, collapsed),
     [tree, collapsed],
@@ -368,9 +376,9 @@ export default function HierarchyView() {
               activeId={activeId}
             />
           ))}
-          {employees.length === 0 && (
+          {filteredEmployees.length === 0 && (
             <div className="py-12 text-center text-gray-400">
-              No employees found. Add employees to see the hierarchy.
+              No employees match the current filters.
             </div>
           )}
         </div>
