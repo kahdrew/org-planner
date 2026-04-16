@@ -1,0 +1,24 @@
+commands:
+  install: npm install
+  build: npm run build
+  test: npm run test
+  test:server: npm run test:server
+  test:client: npm run test:client
+  typecheck: npx tsc --noEmit
+  lint: npm run lint
+  lint:fix: npm run lint:fix
+
+services:
+  api:
+    start: cd /Users/andy/Documents/GitHub/org-planner && npm run dev:server
+    stop: lsof -ti :3001 | xargs kill 2>/dev/null
+    healthcheck: curl -sf http://localhost:3001/api/auth/login -X POST -H "Content-Type:application/json" -d '{}' >/dev/null 2>&1 && echo ok
+    port: 3001
+    depends_on: []
+
+  web:
+    start: cd /Users/andy/Documents/GitHub/org-planner && npm run dev:client
+    stop: lsof -ti :5173 | xargs kill 2>/dev/null
+    healthcheck: curl -sf http://localhost:5173 >/dev/null 2>&1 && echo ok
+    port: 5173
+    depends_on: [api]
