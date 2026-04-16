@@ -18,7 +18,7 @@ interface SidebarProps {
 
 export default function Sidebar({ onToggleBudget }: SidebarProps) {
   const {
-    orgs, currentOrg, setCurrentOrg,
+    orgs, currentOrg, setCurrentOrg, createOrg,
     scenarios, currentScenario, setCurrentScenario,
     fetchScenarios, fetchEmployees,
   } = useOrgStore();
@@ -37,6 +37,12 @@ export default function Sidebar({ onToggleBudget }: SidebarProps) {
       setCurrentScenario(scenario);
       fetchEmployees(scenario._id);
     }
+  };
+
+  const handleNewOrg = async () => {
+    const name = prompt('Organization name:');
+    if (!name) return;
+    await createOrg(name);
   };
 
   const handleNewScenario = async () => {
@@ -63,15 +69,25 @@ export default function Sidebar({ onToggleBudget }: SidebarProps) {
         <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-400">
           Organization
         </label>
-        <select
-          value={currentOrg?._id ?? ''}
-          onChange={handleOrgChange}
-          className="mb-3 w-full rounded bg-slate-700 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          {orgs.map((org) => (
-            <option key={org._id} value={org._id}>{org.name}</option>
-          ))}
-        </select>
+        <div className="mb-3 flex gap-1">
+          <select
+            value={currentOrg?._id ?? ''}
+            onChange={handleOrgChange}
+            className="flex-1 rounded bg-slate-700 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {orgs.length === 0 && <option value="">No organizations</option>}
+            {orgs.map((org) => (
+              <option key={org._id} value={org._id}>{org.name}</option>
+            ))}
+          </select>
+          <button
+            onClick={handleNewOrg}
+            className="rounded bg-slate-700 px-2 py-1.5 text-sm text-white transition-colors hover:bg-slate-600"
+            title="New Organization"
+          >
+            <Plus size={14} />
+          </button>
+        </div>
 
         <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-400">
           Scenario

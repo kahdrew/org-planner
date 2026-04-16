@@ -16,9 +16,14 @@ client.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      // Don't redirect for auth endpoints — let the login/register pages handle errors
+      const url = error.config?.url || '';
+      const isAuthEndpoint = url.startsWith('/auth/') || url.startsWith('auth/');
+      if (!isAuthEndpoint) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

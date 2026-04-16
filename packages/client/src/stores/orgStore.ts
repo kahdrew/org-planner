@@ -15,6 +15,7 @@ interface OrgState {
 
   selectEmployee: (employee: Employee | null) => void;
   fetchOrgs: () => Promise<void>;
+  createOrg: (name: string) => Promise<Organization>;
   setCurrentOrg: (org: Organization) => void;
   fetchScenarios: (orgId: string) => Promise<void>;
   setCurrentScenario: (scenario: Scenario) => void;
@@ -47,6 +48,19 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     } finally {
       set({ loading: false });
     }
+  },
+
+  createOrg: async (name) => {
+    const org = await orgsApi.createOrg(name);
+    set((state) => ({
+      orgs: [...state.orgs, org],
+      currentOrg: org,
+      scenarios: [],
+      currentScenario: null,
+      employees: [],
+      selectedEmployee: null,
+    }));
+    return org;
   },
 
   setCurrentOrg: (org) => {
