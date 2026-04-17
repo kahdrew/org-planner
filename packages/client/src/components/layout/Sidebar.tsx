@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { GitBranch, List, Table, Columns, GitCompare, Plus, Copy, DollarSign, Users, Clock, BarChart3 } from 'lucide-react';
+import { GitBranch, List, Table, Columns, GitCompare, LayoutDashboard, Plus, Copy, DollarSign, Users, Clock, BarChart3 } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { useScheduledChangeStore } from '@/stores/scheduledChangeStore';
 import { cn } from '@/utils/cn';
@@ -12,6 +12,7 @@ const navItems = [
   { to: '/spreadsheet', icon: Table, label: 'Spreadsheet' },
   { to: '/kanban', icon: Columns, label: 'Kanban' },
   { to: '/compare', icon: GitCompare, label: 'Compare' },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
 ];
 
 interface SidebarProps {

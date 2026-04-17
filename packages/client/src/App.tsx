@@ -9,6 +9,7 @@ import HierarchyView from '@/components/views/HierarchyView';
 import SpreadsheetView from '@/components/views/SpreadsheetView';
 import KanbanView from '@/components/views/KanbanView';
 import CompareView from '@/components/views/CompareView';
+import DashboardView from '@/components/views/DashboardView';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="spreadsheet" element={<SpreadsheetView />} />
           <Route path="kanban" element={<KanbanView />} />
           <Route path="compare" element={<CompareView />} />
+          <Route path="dashboard" element={<DashboardView />} />
         </Route>
       </Routes>
     </BrowserRouter>
