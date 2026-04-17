@@ -77,9 +77,12 @@ interface UndoRedoState {
   /** Set the active scenario (clears nothing — stacks are per-scenario). */
   setActiveScenario: (scenarioId: string | null) => void;
 
-  /** Push a new command onto the undo stack of the active scenario.
+  /** Push a new command onto the undo stack of a scenario.
+   *  If `targetScenarioId` is provided it is used instead of the active
+   *  scenario – this prevents cross-scenario corruption when an async
+   *  operation completes after the user has switched scenarios.
    *  Clears the redo stack (new action invalidates redo history). */
-  pushCommand: (command: UndoableCommand) => void;
+  pushCommand: (command: UndoableCommand, targetScenarioId?: string) => void;
 
   /** Pop the top command from the active undo stack → push to redo stack.
    *  Returns the command to execute, or null if nothing to undo. */
@@ -111,22 +114,22 @@ export const useUndoRedoStore = create<UndoRedoState>((set, get) => ({
     set({ activeScenarioId: scenarioId });
   },
 
-  pushCommand: (command) => {
-    const { activeScenarioId } = get();
-    if (!activeScenarioId) return;
+  pushCommand: (command, targetScenarioId?) => {
+    const scenarioId = targetScenarioId ?? get().activeScenarioId;
+    if (!scenarioId) return;
 
     set((state) => ({
       undoStacks: {
         ...state.undoStacks,
-        [activeScenarioId]: [
-          ...(state.undoStacks[activeScenarioId] ?? []),
+        [scenarioId]: [
+          ...(state.undoStacks[scenarioId] ?? []),
           command,
         ],
       },
       // New change clears the redo stack
       redoStacks: {
         ...state.redoStacks,
-        [activeScenarioId]: [],
+        [scenarioId]: [],
       },
     }));
   },

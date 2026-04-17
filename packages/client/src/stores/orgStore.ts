@@ -109,22 +109,29 @@ export const useOrgStore = create<OrgState>((set, get) => ({
   },
 
   addEmployee: async (scenarioId, data) => {
+    // Capture scenario at operation start to prevent cross-scenario undo corruption
+    const capturedScenarioId = get().currentScenario?._id ?? scenarioId;
+
     const employee = await employeesApi.createEmployee(scenarioId, data);
     set((state) => ({ employees: [...state.employees, employee] }));
 
-    // Record undo command
-    useUndoRedoStore.getState().pushCommand({
-      type: 'create',
-      scenarioId,
-      employee,
-      timestamp: Date.now(),
-      description: `Add employee "${employee.name}"`,
-    });
+    // Record undo command using captured scenario ID
+    useUndoRedoStore.getState().pushCommand(
+      {
+        type: 'create',
+        scenarioId,
+        employee,
+        timestamp: Date.now(),
+        description: `Add employee "${employee.name}"`,
+      },
+      capturedScenarioId,
+    );
   },
 
   updateEmployee: async (id, data) => {
-    // Capture previous values before updating
+    // Capture previous values and scenario before async call
     const previous = get().employees.find((e) => e._id === id);
+    const capturedScenarioId = get().currentScenario?._id;
     const previousData: Partial<Employee> = {};
     if (previous) {
       for (const key of Object.keys(data) as (keyof Employee)[]) {
@@ -138,23 +145,26 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       selectedEmployee: state.selectedEmployee?._id === id ? updated : state.selectedEmployee,
     }));
 
-    // Record undo command
-    if (previous) {
-      useUndoRedoStore.getState().pushCommand({
-        type: 'edit',
-        employeeId: id,
-        previousData,
-        nextData: data,
-        timestamp: Date.now(),
-        description: `Edit employee "${previous.name}"`,
-      });
+    // Record undo command using captured scenario ID
+    if (previous && capturedScenarioId) {
+      useUndoRedoStore.getState().pushCommand(
+        {
+          type: 'edit',
+          employeeId: id,
+          previousData,
+          nextData: data,
+          timestamp: Date.now(),
+          description: `Edit employee "${previous.name}"`,
+        },
+        capturedScenarioId,
+      );
     }
   },
 
   removeEmployee: async (id) => {
-    // Capture full employee data before deleting for undo restore
+    // Capture full employee data and scenario before async call
     const employee = get().employees.find((e) => e._id === id);
-    const scenarioId = get().currentScenario?._id;
+    const capturedScenarioId = get().currentScenario?._id;
 
     await employeesApi.deleteEmployee(id);
     set((state) => ({
@@ -162,21 +172,25 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       selectedEmployee: state.selectedEmployee?._id === id ? null : state.selectedEmployee,
     }));
 
-    // Record undo command
-    if (employee && scenarioId) {
-      useUndoRedoStore.getState().pushCommand({
-        type: 'delete',
-        scenarioId,
-        employee,
-        timestamp: Date.now(),
-        description: `Delete employee "${employee.name}"`,
-      });
+    // Record undo command using captured scenario ID
+    if (employee && capturedScenarioId) {
+      useUndoRedoStore.getState().pushCommand(
+        {
+          type: 'delete',
+          scenarioId: capturedScenarioId,
+          employee,
+          timestamp: Date.now(),
+          description: `Delete employee "${employee.name}"`,
+        },
+        capturedScenarioId,
+      );
     }
   },
 
   moveEmployee: async (id, managerId, order) => {
-    // Capture previous position
+    // Capture previous position and scenario before async call
     const previous = get().employees.find((e) => e._id === id);
+    const capturedScenarioId = get().currentScenario?._id;
     const previousManagerId = previous?.managerId ?? null;
     const previousOrder = previous?.order ?? 0;
 
@@ -185,22 +199,27 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       employees: state.employees.map((e) => (e._id === id ? updated : e)),
     }));
 
-    // Record undo command
-    if (previous) {
-      useUndoRedoStore.getState().pushCommand({
-        type: 'move',
-        employeeId: id,
-        previousManagerId,
-        previousOrder,
-        nextManagerId: managerId,
-        nextOrder: order,
-        timestamp: Date.now(),
-        description: `Move employee "${previous.name}"`,
-      });
+    // Record undo command using captured scenario ID
+    if (previous && capturedScenarioId) {
+      useUndoRedoStore.getState().pushCommand(
+        {
+          type: 'move',
+          employeeId: id,
+          previousManagerId,
+          previousOrder,
+          nextManagerId: managerId,
+          nextOrder: order,
+          timestamp: Date.now(),
+          description: `Move employee "${previous.name}"`,
+        },
+        capturedScenarioId,
+      );
     }
   },
 
   bulkUpdateEmployees: async (ids, data) => {
+    // Capture scenario before async operations
+    const capturedScenarioId = get().currentScenario?._id;
     const editCommands: SingleCommand[] = [];
 
     for (const id of ids) {
@@ -228,21 +247,25 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       });
     }
 
-    // Record as a batch command for single-step undo
-    if (editCommands.length > 0) {
-      useUndoRedoStore.getState().pushCommand({
-        type: 'batch',
-        commands: editCommands,
-        timestamp: Date.now(),
-        description: `Bulk update ${editCommands.length} employees`,
-      });
+    // Record as a batch command for single-step undo using captured scenario ID
+    if (editCommands.length > 0 && capturedScenarioId) {
+      useUndoRedoStore.getState().pushCommand(
+        {
+          type: 'batch',
+          commands: editCommands,
+          timestamp: Date.now(),
+          description: `Bulk update ${editCommands.length} employees`,
+        },
+        capturedScenarioId,
+      );
     }
   },
 
   bulkDeleteEmployees: async (ids) => {
+    // Capture scenario before async operations
+    const capturedScenarioId = get().currentScenario?._id;
+    if (!capturedScenarioId) return;
     const deleteCommands: SingleCommand[] = [];
-    const scenarioId = get().currentScenario?._id;
-    if (!scenarioId) return;
 
     for (const id of ids) {
       const employee = get().employees.find((e) => e._id === id);
@@ -256,21 +279,24 @@ export const useOrgStore = create<OrgState>((set, get) => ({
 
       deleteCommands.push({
         type: 'delete',
-        scenarioId,
+        scenarioId: capturedScenarioId,
         employee,
         timestamp: Date.now(),
         description: `Delete employee "${employee.name}"`,
       });
     }
 
-    // Record as a batch command for single-step undo
+    // Record as a batch command for single-step undo using captured scenario ID
     if (deleteCommands.length > 0) {
-      useUndoRedoStore.getState().pushCommand({
-        type: 'batch',
-        commands: deleteCommands,
-        timestamp: Date.now(),
-        description: `Bulk delete ${deleteCommands.length} employees`,
-      });
+      useUndoRedoStore.getState().pushCommand(
+        {
+          type: 'batch',
+          commands: deleteCommands,
+          timestamp: Date.now(),
+          description: `Bulk delete ${deleteCommands.length} employees`,
+        },
+        capturedScenarioId,
+      );
     }
   },
 

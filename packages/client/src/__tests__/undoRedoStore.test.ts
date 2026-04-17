@@ -323,4 +323,73 @@ describe('undoRedoStore', () => {
     expect(store.undo()?.type).toBe('create');
     expect(store.undo()).toBeNull();
   });
+
+  /* -- targetScenarioId (cross-scenario corruption fix) ----------- */
+
+  it('pushCommand with targetScenarioId pushes to the specified scenario, not the active one', () => {
+    const store = useUndoRedoStore.getState();
+    // Active scenario is A
+    expect(store.activeScenarioId).toBe(SCENARIO_A);
+
+    // Push command targeting scenario B even though A is active
+    const cmd = makeEditCommand();
+    store.pushCommand(cmd, SCENARIO_B);
+
+    // Scenario A should have no undo history
+    expect(store.canUndo()).toBe(false);
+
+    // Switch to B — the command should be there
+    store.setActiveScenario(SCENARIO_B);
+    expect(store.canUndo()).toBe(true);
+    expect(store.undo()).toBe(cmd);
+  });
+
+  it('pushCommand with targetScenarioId clears redo stack of the target scenario', () => {
+    const store = useUndoRedoStore.getState();
+
+    // Setup: push and undo in scenario B to create a redo entry
+    store.setActiveScenario(SCENARIO_B);
+    store.pushCommand(makeCreateCommand());
+    store.undo();
+    expect(store.canRedo()).toBe(true);
+
+    // Switch back to A, then push targeting B
+    store.setActiveScenario(SCENARIO_A);
+    store.pushCommand(makeEditCommand(), SCENARIO_B);
+
+    // B's redo stack should be cleared
+    store.setActiveScenario(SCENARIO_B);
+    expect(store.canRedo()).toBe(false);
+  });
+
+  it('async scenario switch does not corrupt undo stacks when targetScenarioId is used', () => {
+    const store = useUndoRedoStore.getState();
+
+    // Simulate: operation starts in scenario A, capture scenarioId = A
+    const capturedScenarioId = SCENARIO_A;
+
+    // User switches to scenario B mid-flight
+    store.setActiveScenario(SCENARIO_B);
+
+    // Async operation completes — push with captured scenario ID
+    const cmd = makeCreateCommand();
+    store.pushCommand(cmd, capturedScenarioId);
+
+    // Scenario B must NOT have the command
+    expect(store.canUndo()).toBe(false);
+
+    // Scenario A must have the command
+    store.setActiveScenario(SCENARIO_A);
+    expect(store.canUndo()).toBe(true);
+    expect(store.undo()).toBe(cmd);
+  });
+
+  it('pushCommand without targetScenarioId still uses activeScenarioId (backward compat)', () => {
+    const store = useUndoRedoStore.getState();
+    const cmd = makeCreateCommand();
+    store.pushCommand(cmd);
+
+    expect(store.canUndo()).toBe(true);
+    expect(store.undo()).toBe(cmd);
+  });
 });
