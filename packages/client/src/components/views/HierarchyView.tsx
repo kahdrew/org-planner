@@ -15,7 +15,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronRight, GripVertical } from 'lucide-react';
+import { ChevronRight, GripVertical, Users } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { cn } from '@/utils/cn';
@@ -23,6 +23,8 @@ import type { Employee } from '@/types';
 import InlineEditableField from '@/components/inline/InlineEditableField';
 import type { InlineEditableFieldHandle } from '@/components/inline/InlineEditableField';
 import { isInputElement } from '@/hooks/useKeyboardShortcuts';
+import SubtreeMoveConfirmDialog from '@/components/bulk/SubtreeMoveConfirmDialog';
+import { isDescendant, getSubtreeSize, getDescendantIds } from '@/utils/subtreeUtils';
 
 interface OutletContext {
   filteredEmployees: Employee[];
@@ -125,6 +127,8 @@ interface TreeRowProps {
   onMultiSelect: (employee: Employee, event: React.MouseEvent) => void;
   multiSelectedIds: Set<string>;
   orderedIds: string[];
+  /** IDs of nodes that belong to the subtree currently being dragged */
+  draggingDescendantIds: Set<string>;
 }
 
 function TreeRow({
@@ -139,6 +143,7 @@ function TreeRow({
   onMultiSelect,
   multiSelectedIds,
   orderedIds,
+  draggingDescendantIds,
 }: TreeRowProps) {
   const { employee } = node;
   const hasChildren = node.children.length > 0;
@@ -171,6 +176,7 @@ function TreeRow({
   });
 
   const isOver = over?.id === employee._id && activeId !== employee._id;
+  const isDraggedSubtreeMember = draggingDescendantIds.has(employee._id);
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -217,7 +223,8 @@ function TreeRow({
           isSelected && !isMultiSelected && 'bg-blue-50 ring-1 ring-blue-200',
           isOver && 'bg-blue-100 ring-2 ring-blue-400',
           isDragging && 'opacity-40',
-          !isSelected && !isMultiSelected && !isOver && !isDragging && 'hover:bg-gray-50',
+          isDraggedSubtreeMember && !isDragging && 'bg-blue-50 ring-1 ring-blue-300 opacity-70',
+          !isSelected && !isMultiSelected && !isOver && !isDragging && !isDraggedSubtreeMember && 'hover:bg-gray-50',
         )}
         onClick={(e) => {
           if (!isInlineEditing) {
@@ -372,6 +379,7 @@ function TreeRow({
                 onMultiSelect={onMultiSelect}
                 multiSelectedIds={multiSelectedIds}
                 orderedIds={orderedIds}
+                draggingDescendantIds={draggingDescendantIds}
               />
             ))}
           </div>
@@ -385,7 +393,7 @@ function TreeRow({
 /*  DragOverlayContent                                                 */
 /* ------------------------------------------------------------------ */
 
-function DragOverlayContent({ employee }: { employee: Employee }) {
+function DragOverlayContent({ employee, subtreeSize }: { employee: Employee; subtreeSize: number }) {
   return (
     <div className="flex items-center gap-3 rounded-md bg-white px-4 py-2 shadow-lg ring-1 ring-gray-200">
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
@@ -395,6 +403,12 @@ function DragOverlayContent({ employee }: { employee: Employee }) {
         <div className="font-medium text-gray-900">{employee.name}</div>
         <div className="text-xs text-gray-500">{employee.title}</div>
       </div>
+      {subtreeSize > 1 && (
+        <div className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+          <Users size={12} />
+          <span>+{subtreeSize - 1}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -412,6 +426,13 @@ export default function HierarchyView() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
 
+  // Subtree move confirmation dialog state
+  const [pendingMove, setPendingMove] = useState<{
+    draggedEmp: Employee;
+    targetEmp: Employee;
+    subtreeSize: number;
+  } | null>(null);
+
   const tree = useMemo(() => buildTree(filteredEmployees), [filteredEmployees]);
   const sortableIds = useMemo(
     () => flattenIds(tree, collapsed),
@@ -424,6 +445,17 @@ export default function HierarchyView() {
 
   const activeEmployee = useMemo(
     () => (activeId ? employees.find((e) => e._id === activeId) ?? null : null),
+    [activeId, employees],
+  );
+
+  // Compute subtree size and descendant IDs for the actively dragged node
+  const activeSubtreeSize = useMemo(
+    () => (activeId ? getSubtreeSize(activeId, employees) : 1),
+    [activeId, employees],
+  );
+
+  const draggingDescendantIds = useMemo(
+    () => (activeId ? getDescendantIds(activeId, employees) : new Set<string>()),
     [activeId, employees],
   );
 
@@ -485,11 +517,45 @@ export default function HierarchyView() {
         );
       } else {
         // Different parent → reparent under target
-        moveEmployee(draggedEmp._id, targetEmp._id, 0);
+
+        // Cycle detection: prevent dropping onto own descendant
+        if (isDescendant(draggedEmp._id, targetEmp._id, employees)) {
+          return; // silently reject cycle-creating drop
+        }
+
+        // Already reports to this target — no-op
+        if (draggedEmp.managerId === targetEmp._id) {
+          return;
+        }
+
+        // Calculate subtree size for confirmation dialog
+        const subtreeSize = getSubtreeSize(draggedEmp._id, employees);
+
+        // Show confirmation dialog with affected count
+        setPendingMove({
+          draggedEmp,
+          targetEmp,
+          subtreeSize,
+        });
       }
     },
-    [moveEmployee],
+    [moveEmployee, employees],
   );
+
+  // Handle subtree move confirmation
+  const handleConfirmMove = useCallback(() => {
+    if (!pendingMove) return;
+    moveEmployee(
+      pendingMove.draggedEmp._id,
+      pendingMove.targetEmp._id,
+      0,
+    );
+    setPendingMove(null);
+  }, [pendingMove, moveEmployee]);
+
+  const handleCancelMove = useCallback(() => {
+    setPendingMove(null);
+  }, []);
 
   const handleInlineEdit = useCallback(
     (id: string, field: string, value: string) => {
@@ -632,6 +698,7 @@ export default function HierarchyView() {
               onMultiSelect={handleMultiSelect}
               multiSelectedIds={selectedIds}
               orderedIds={sortableIds}
+              draggingDescendantIds={draggingDescendantIds}
             />
           ))}
           {filteredEmployees.length === 0 && (
@@ -644,9 +711,20 @@ export default function HierarchyView() {
 
       <DragOverlay dropAnimation={null}>
         {activeEmployee ? (
-          <DragOverlayContent employee={activeEmployee} />
+          <DragOverlayContent employee={activeEmployee} subtreeSize={activeSubtreeSize} />
         ) : null}
       </DragOverlay>
+
+      {/* Subtree move confirmation dialog */}
+      {pendingMove && (
+        <SubtreeMoveConfirmDialog
+          employeeName={pendingMove.draggedEmp.name}
+          targetName={pendingMove.targetEmp.name}
+          subtreeSize={pendingMove.subtreeSize}
+          onConfirm={handleConfirmMove}
+          onCancel={handleCancelMove}
+        />
+      )}
     </DndContext>
   );
 }

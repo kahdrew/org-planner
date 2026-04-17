@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   ReactFlow,
@@ -21,6 +21,8 @@ import { useSelectionStore } from '@/stores/selectionStore';
 import { useTreeLayout } from '@/hooks/useTreeLayout';
 import EmployeeCard from '@/components/nodes/EmployeeCard';
 import VacantCard from '@/components/nodes/VacantCard';
+import SubtreeMoveConfirmDialog from '@/components/bulk/SubtreeMoveConfirmDialog';
+import { isDescendant, getSubtreeSize, getDescendantIds } from '@/utils/subtreeUtils';
 
 interface OutletContext {
   filteredEmployees: Employee[];
@@ -35,23 +37,44 @@ const nodeTypes: NodeTypes = {
 
 export default function OrgChartView() {
   const { filteredEmployees } = useOutletContext<OutletContext>();
+  const employees = useOrgStore((s) => s.employees);
   const moveEmployee = useOrgStore((s) => s.moveEmployee);
   const { selectedIds, toggleSelect, clearSelection, selectAll } = useSelectionStore();
 
   // Track whether we are programmatically updating React Flow selection to avoid loops
   const isSyncingFromStore = useRef(false);
 
+  // Subtree move confirmation dialog state
+  const [pendingMove, setPendingMove] = useState<{
+    draggedEmp: Employee;
+    targetEmp: Employee;
+    subtreeSize: number;
+  } | null>(null);
+
+  // Track which node is being dragged for subtree visual feedback
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+
+  // Compute descendant IDs of the currently dragged node for visual feedback
+  const draggingDescendantIds = useMemo(() => {
+    if (!draggingNodeId) return new Set<string>();
+    return getDescendantIds(draggingNodeId, employees);
+  }, [draggingNodeId, employees]);
+
   // Compute layout from filtered employees
   const { nodes: layoutNodes, edges: layoutEdges } = useTreeLayout(filteredEmployees);
 
-  // Apply selection state to nodes
+  // Apply selection state and drag visual feedback to nodes
   const nodesWithSelection = useMemo(
     () =>
       layoutNodes.map((node) => ({
         ...node,
         selected: selectedIds.has(node.id),
+        className:
+          draggingNodeId && draggingDescendantIds.has(node.id)
+            ? 'ring-2 ring-blue-400 ring-offset-1 opacity-70'
+            : undefined,
       })),
-    [layoutNodes, selectedIds],
+    [layoutNodes, selectedIds, draggingNodeId, draggingDescendantIds],
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(nodesWithSelection);
@@ -111,9 +134,19 @@ export default function OrgChartView() {
     [selectAll],
   );
 
+  // Track drag start to show subtree visual feedback
+  const handleNodeDragStart = useCallback(
+    (_event: React.MouseEvent, draggedNode: Node) => {
+      setDraggingNodeId(draggedNode.id);
+    },
+    [],
+  );
+
   // Drag-to-reparent: detect when a node is dropped onto another node
   const handleNodeDragStop = useCallback(
     (_event: React.MouseEvent, draggedNode: Node) => {
+      setDraggingNodeId(null);
+
       // Find intersecting nodes by checking position overlap
       const THRESHOLD = 60;
       const dropTarget = nodes.find((n) => {
@@ -123,34 +156,57 @@ export default function OrgChartView() {
         return dx < THRESHOLD * 2 && dy < THRESHOLD;
       });
 
-      let moved = false;
-
       if (dropTarget) {
         const draggedEmp = draggedNode.data as unknown as Employee;
         const targetEmp = dropTarget.data as unknown as Employee;
 
         // Prevent circular: can't reparent to self or already a child
-        if (draggedEmp.managerId !== targetEmp._id) {
-          const confirmed = window.confirm(
-            `Move "${draggedEmp.name}" to report to "${targetEmp.name}"?`
-          );
-
-          if (confirmed) {
-            moveEmployee(draggedEmp._id, targetEmp._id, draggedEmp.order);
-            moved = true;
-          }
+        if (draggedEmp.managerId === targetEmp._id) {
+          // Already reports to this manager, reset positions
+          setNodes(nodesWithSelection);
+          return;
         }
-      }
 
-      // If the node was not successfully moved (no drop target, same manager,
-      // or user cancelled), reset all nodes back to their computed layout
-      // positions so the dragged node snaps back to its correct place.
-      if (!moved) {
+        // Cycle detection: prevent dropping onto own descendant
+        if (isDescendant(draggedEmp._id, targetEmp._id, employees)) {
+          // Show brief visual rejection — cannot create cycle
+          setNodes(nodesWithSelection);
+          return;
+        }
+
+        // Calculate subtree size for confirmation dialog
+        const subtreeSize = getSubtreeSize(draggedEmp._id, employees);
+
+        // Show confirmation dialog with affected count
+        setPendingMove({
+          draggedEmp,
+          targetEmp,
+          subtreeSize,
+        });
+      } else {
+        // No drop target — reset positions
         setNodes(nodesWithSelection);
       }
     },
-    [nodes, moveEmployee, nodesWithSelection, setNodes],
+    [nodes, employees, nodesWithSelection, setNodes],
   );
+
+  // Handle subtree move confirmation
+  const handleConfirmMove = useCallback(() => {
+    if (!pendingMove) return;
+    moveEmployee(
+      pendingMove.draggedEmp._id,
+      pendingMove.targetEmp._id,
+      pendingMove.draggedEmp.order,
+    );
+    setPendingMove(null);
+  }, [pendingMove, moveEmployee]);
+
+  const handleCancelMove = useCallback(() => {
+    setPendingMove(null);
+    // Reset node positions
+    setNodes(nodesWithSelection);
+  }, [nodesWithSelection, setNodes]);
 
   return (
     <div className="h-full w-full -m-6">
@@ -161,6 +217,7 @@ export default function OrgChartView() {
         onEdgesChange={onEdgesChange}
         onNodeClick={handleNodeClick}
         onPaneClick={handlePaneClick}
+        onNodeDragStart={handleNodeDragStart}
         onNodeDragStop={handleNodeDragStop}
         onSelectionChange={handleSelectionChange}
         nodeTypes={nodeTypes}
@@ -188,6 +245,17 @@ export default function OrgChartView() {
           style={{ border: '1px solid #e2e8f0', borderRadius: 8 }}
         />
       </ReactFlow>
+
+      {/* Subtree move confirmation dialog */}
+      {pendingMove && (
+        <SubtreeMoveConfirmDialog
+          employeeName={pendingMove.draggedEmp.name}
+          targetName={pendingMove.targetEmp.name}
+          subtreeSize={pendingMove.subtreeSize}
+          onConfirm={handleConfirmMove}
+          onCancel={handleCancelMove}
+        />
+      )}
     </div>
   );
 }
