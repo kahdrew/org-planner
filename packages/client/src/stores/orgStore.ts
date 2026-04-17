@@ -193,10 +193,28 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     const employee = get().employees.find((e) => e._id === id);
     const capturedScenarioId = get().currentScenario?._id;
 
-    await employeesApi.deleteEmployee(id);
+    const result = await employeesApi.deleteEmployee(id);
+    const cascadeSet = new Set([
+      ...(result?.affectedReportIds ?? []),
+      // Defensive fallback: if the server did not report cascaded reports
+      // (e.g. older API), still clear managerId locally based on what we
+      // know client-side so the UI stays consistent (VAL-CROSS-019).
+      ...get()
+        .employees.filter((e) => e.managerId === id)
+        .map((e) => e._id),
+    ]);
     set((state) => ({
-      employees: state.employees.filter((e) => e._id !== id),
-      selectedEmployee: state.selectedEmployee?._id === id ? null : state.selectedEmployee,
+      employees: state.employees
+        .filter((e) => e._id !== id)
+        .map((e) =>
+          cascadeSet.has(e._id) ? { ...e, managerId: null } : e,
+        ),
+      selectedEmployee:
+        state.selectedEmployee?._id === id
+          ? null
+          : state.selectedEmployee && cascadeSet.has(state.selectedEmployee._id)
+            ? { ...state.selectedEmployee, managerId: null }
+            : state.selectedEmployee,
     }));
 
     // Record undo command using captured scenario ID
@@ -298,10 +316,26 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       const employee = get().employees.find((e) => e._id === id);
       if (!employee) continue;
 
-      await employeesApi.deleteEmployee(id);
+      const result = await employeesApi.deleteEmployee(id);
+      const cascadeSet = new Set([
+        ...(result?.affectedReportIds ?? []),
+        ...get()
+          .employees.filter((e) => e.managerId === id)
+          .map((e) => e._id),
+      ]);
       set((state) => ({
-        employees: state.employees.filter((e) => e._id !== id),
-        selectedEmployee: state.selectedEmployee?._id === id ? null : state.selectedEmployee,
+        employees: state.employees
+          .filter((e) => e._id !== id)
+          .map((e) =>
+            cascadeSet.has(e._id) ? { ...e, managerId: null } : e,
+          ),
+        selectedEmployee:
+          state.selectedEmployee?._id === id
+            ? null
+            : state.selectedEmployee &&
+                cascadeSet.has(state.selectedEmployee._id)
+              ? { ...state.selectedEmployee, managerId: null }
+              : state.selectedEmployee,
       }));
 
       deleteCommands.push({
@@ -330,9 +364,21 @@ export const useOrgStore = create<OrgState>((set, get) => ({
   executeSingleUndo: async (command) => {
     switch (command.type) {
       case 'create': {
-        await employeesApi.deleteEmployee(command.employee._id);
+        const result = await employeesApi.deleteEmployee(
+          command.employee._id,
+        );
+        const cascadeSet = new Set([
+          ...(result?.affectedReportIds ?? []),
+          ...get()
+            .employees.filter((e) => e.managerId === command.employee._id)
+            .map((e) => e._id),
+        ]);
         set((state) => ({
-          employees: state.employees.filter((e) => e._id !== command.employee._id),
+          employees: state.employees
+            .filter((e) => e._id !== command.employee._id)
+            .map((e) =>
+              cascadeSet.has(e._id) ? { ...e, managerId: null } : e,
+            ),
           selectedEmployee:
             state.selectedEmployee?._id === command.employee._id
               ? null
@@ -415,11 +461,21 @@ export const useOrgStore = create<OrgState>((set, get) => ({
         break;
       }
       case 'delete': {
-        await employeesApi.deleteEmployee(command.employee._id);
+        const result = await employeesApi.deleteEmployee(
+          command.employee._id,
+        );
+        const cascadeSet = new Set([
+          ...(result?.affectedReportIds ?? []),
+          ...get()
+            .employees.filter((e) => e.managerId === command.employee._id)
+            .map((e) => e._id),
+        ]);
         set((state) => ({
-          employees: state.employees.filter(
-            (e) => e._id !== command.employee._id,
-          ),
+          employees: state.employees
+            .filter((e) => e._id !== command.employee._id)
+            .map((e) =>
+              cascadeSet.has(e._id) ? { ...e, managerId: null } : e,
+            ),
           selectedEmployee:
             state.selectedEmployee?._id === command.employee._id
               ? null

@@ -16,8 +16,25 @@ export async function updateEmployee(id: string, updates: Partial<Employee>): Pr
   return data;
 }
 
-export async function deleteEmployee(id: string): Promise<void> {
-  await client.delete(`/employees/${id}`);
+export interface DeleteEmployeeResult {
+  message: string;
+  /**
+   * IDs of employees whose managerId was cleared because the deleted
+   * employee was their manager (VAL-CROSS-019 cascade).
+   */
+  affectedReportIds: string[];
+}
+
+export async function deleteEmployee(
+  id: string,
+): Promise<DeleteEmployeeResult> {
+  const { data } = await client.delete<DeleteEmployeeResult>(`/employees/${id}`);
+  return {
+    message: data?.message ?? 'Employee deleted',
+    affectedReportIds: Array.isArray(data?.affectedReportIds)
+      ? data.affectedReportIds
+      : [],
+  };
 }
 
 export async function moveEmployee(id: string, managerId: string | null, order: number): Promise<Employee> {

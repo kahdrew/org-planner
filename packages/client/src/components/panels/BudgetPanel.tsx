@@ -26,6 +26,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useOrgStore } from '@/stores/orgStore';
+import { useApprovalStore } from '@/stores/approvalStore';
 import { useBudgetStore } from '@/stores/budgetStore';
 import { useInvitationStore } from '@/stores/invitationStore';
 import {
@@ -332,6 +333,19 @@ export default function BudgetPanel({ open, onClose }: BudgetPanelProps) {
   const deleteEnvelope = useBudgetStore((s) => s.deleteEnvelope);
   const clearEnvelopes = useBudgetStore((s) => s.clearEnvelopes);
 
+  // Pending headcount requests from the current scenario are used to show
+  // the "planned" column in each department row so budget owners can see
+  // committed (existing employees) + planned (pending approvals) +
+  // remaining at a glance (VAL-BUDGET-004/007).
+  const approvalRequests = useApprovalStore((s) => s.requests);
+  const currentScenarioId = currentScenario?._id ?? null;
+  const pendingRequestsForScenario = useMemo(() => {
+    if (!currentScenarioId) return [];
+    return approvalRequests.filter(
+      (r) => r.status === 'pending' && r.scenarioId === currentScenarioId,
+    );
+  }, [approvalRequests, currentScenarioId]);
+
   const currentRole = useInvitationStore((s) => s.currentRole);
   const canEdit = currentRole === 'owner' || currentRole === 'admin';
 
@@ -354,8 +368,9 @@ export default function BudgetPanel({ open, onClose }: BudgetPanelProps) {
   }, [currentScenario, clearEnvelopes]);
 
   const summary = useMemo(
-    () => computeBudgetSummary(envelopes, employees),
-    [envelopes, employees],
+    () =>
+      computeBudgetSummary(envelopes, employees, pendingRequestsForScenario),
+    [envelopes, employees, pendingRequestsForScenario],
   );
 
   const projection = useMemo(
@@ -783,6 +798,114 @@ export default function BudgetPanel({ open, onClose }: BudgetPanelProps) {
                               </div>
                             </div>
                           </div>
+
+                          {/* Committed / Planned / Remaining breakdown
+                             (VAL-BUDGET-004/007). Shown whenever there are
+                             pending requests OR an envelope is set so
+                             approvers can see how much is committed vs.
+                             how much is sitting in the approval queue. */}
+                          {(dept.plannedSpend !== 0 ||
+                            dept.plannedHeadcount !== 0 ||
+                            dept.totalBudget !== null) && (
+                            <div
+                              className="mt-2 grid grid-cols-3 gap-2 rounded-md border border-gray-100 bg-white px-2 py-1 text-[11px]"
+                              data-testid={`breakdown-${dept.department}`}
+                            >
+                              <div>
+                                <div className="text-[10px] uppercase tracking-wide text-gray-500">
+                                  Committed
+                                </div>
+                                <div
+                                  className="font-semibold text-gray-800"
+                                  data-testid={`committed-${dept.department}`}
+                                >
+                                  {currencyFormatter.format(dept.actualSpend)}
+                                </div>
+                                <div className="text-[10px] text-gray-500">
+                                  {dept.actualHeadcount} HC
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] uppercase tracking-wide text-gray-500">
+                                  Planned
+                                </div>
+                                <div
+                                  className={cn(
+                                    'font-semibold',
+                                    dept.plannedSpend !== 0 ||
+                                      dept.plannedHeadcount !== 0
+                                      ? 'text-amber-700'
+                                      : 'text-gray-500',
+                                  )}
+                                  data-testid={`planned-${dept.department}`}
+                                >
+                                  {currencyFormatter.format(dept.plannedSpend)}
+                                </div>
+                                <div className="text-[10px] text-gray-500">
+                                  {dept.plannedHeadcount} pending
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-[10px] uppercase tracking-wide text-gray-500">
+                                  Remaining
+                                </div>
+                                <div
+                                  className={cn(
+                                    'font-semibold',
+                                    dept.remainingBudget !== null &&
+                                      dept.remainingBudget -
+                                        dept.plannedSpend <
+                                        0
+                                      ? 'text-red-600'
+                                      : 'text-gray-800',
+                                  )}
+                                  data-testid={`breakdown-remaining-${dept.department}`}
+                                >
+                                  {dept.remainingBudget === null
+                                    ? '—'
+                                    : currencyFormatter.format(
+                                        dept.remainingBudget -
+                                          dept.plannedSpend,
+                                      )}
+                                </div>
+                                <div className="text-[10px] text-gray-500">
+                                  {dept.remainingHeadcount === null
+                                    ? '—'
+                                    : `${dept.remainingHeadcount - dept.plannedHeadcount} HC`}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Projected status badge when pending requests
+                             would push this department over threshold
+                             even though actuals are still under
+                             (VAL-BUDGET-004). */}
+                          {dept.plannedSpend > 0 &&
+                            dept.budgetStatus !== 'exceeded' &&
+                            (dept.projectedBudgetStatus === 'exceeded' ||
+                              (dept.projectedBudgetStatus === 'warning' &&
+                                dept.budgetStatus !== 'warning')) && (
+                              <div
+                                className={cn(
+                                  'mt-2 flex items-start gap-1 rounded border px-2 py-1 text-[11px]',
+                                  dept.projectedBudgetStatus === 'exceeded'
+                                    ? 'border-red-300 bg-red-50 text-red-800'
+                                    : 'border-amber-300 bg-amber-50 text-amber-800',
+                                )}
+                                data-testid={`projected-warning-${dept.department}`}
+                              >
+                                <AlertTriangle
+                                  size={10}
+                                  className="mt-0.5 shrink-0"
+                                />
+                                <span>
+                                  {dept.projectedBudgetStatus === 'exceeded'
+                                    ? 'Pending approvals would put this department over budget.'
+                                    : 'Pending approvals would push this department past the warning threshold.'}
+                                </span>
+                              </div>
+                            )}
 
                           {!envelope && canEdit && (
                             <button

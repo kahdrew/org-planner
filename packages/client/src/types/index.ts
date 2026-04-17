@@ -105,12 +105,26 @@ export interface DepartmentBudgetSummary {
   headcountCap: number | null;
   actualSpend: number;
   actualHeadcount: number;
+  /**
+   * Spend from pending headcount requests (new_hire) and comp change deltas
+   * that have not been fully approved yet (VAL-BUDGET-004/007).
+   */
+  plannedSpend: number;
+  /** Pending new-hire requests add to planned headcount. */
+  plannedHeadcount: number;
   remainingBudget: number | null;
   remainingHeadcount: number | null;
   utilizationPct: number | null;
   headcountUtilizationPct: number | null;
   budgetStatus: BudgetStatus | null;
   headcountStatus: BudgetStatus | null;
+  /**
+   * Projected status including pending approvals, i.e. if all pending
+   * requests for this department were approved. Used to surface
+   * forward-looking warnings (VAL-BUDGET-004).
+   */
+  projectedBudgetStatus: BudgetStatus | null;
+  projectedHeadcountStatus: BudgetStatus | null;
 }
 
 export interface BudgetSummary {

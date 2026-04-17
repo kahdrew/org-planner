@@ -197,6 +197,27 @@ export const deleteEmployee = async (req: AuthRequest, res: Response): Promise<v
     }
 
     const snapshot = serializeEmployee(employee);
+
+    // VAL-CROSS-019: Cascade manager references — when a manager is deleted
+    // their direct reports must not retain a stale managerId. We null out
+    // their managerId in the same scenario so they become root-level
+    // employees (a subsequent reparent can reassign them). Do this BEFORE
+    // deleting the manager itself to avoid an inconsistent state if the
+    // delete fails between the two operations.
+    const orphanedReports = await Employee.find({
+      scenarioId: employee.scenarioId,
+      managerId: req.params.id,
+    }).select("_id");
+    const affectedReportIds = orphanedReports.map((r) =>
+      (r._id as mongoose.Types.ObjectId).toString(),
+    );
+    if (affectedReportIds.length > 0) {
+      await Employee.updateMany(
+        { scenarioId: employee.scenarioId, managerId: req.params.id },
+        { $set: { managerId: null } },
+      );
+    }
+
     await Employee.findByIdAndDelete(req.params.id);
 
     await writeAuditLog({
@@ -204,10 +225,16 @@ export const deleteEmployee = async (req: AuthRequest, res: Response): Promise<v
       employeeId: employee._id as mongoose.Types.ObjectId,
       action: "delete",
       snapshot,
+      changes: affectedReportIds.length > 0
+        ? { affectedReportIds }
+        : undefined,
       performedBy: req.user!.userId,
     });
 
-    res.json({ message: "Employee deleted" });
+    res.json({
+      message: "Employee deleted",
+      affectedReportIds,
+    });
   } catch {
     res.status(500).json({ error: "Internal server error" });
   }

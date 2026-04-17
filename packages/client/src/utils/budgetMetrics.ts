@@ -4,6 +4,7 @@ import type {
   BudgetSummary,
   DepartmentBudgetSummary,
   Employee,
+  HeadcountRequest,
 } from '@/types';
 
 /** Compensation used for budget math: salary + equity. */
@@ -38,13 +39,71 @@ export function classifyStatus(
 }
 
 /**
+ * Compute the incremental spend + headcount from a list of pending
+ * headcount requests, grouped by normalized department name.
+ *
+ * - `new_hire` requests contribute full comp (salary + equity) and +1 HC.
+ * - `comp_change` requests contribute the *delta* (new comp - current comp)
+ *   and no HC change, using the target employee's current comp as baseline.
+ *
+ * Only `pending` requests are counted. Approved/rejected/changes_requested
+ * requests are excluded — approved headcount shows up in `actualSpend`
+ * once the employee record is created on final approval.
+ */
+export function computePendingByDept(
+  pendingRequests: HeadcountRequest[],
+  employees: Employee[],
+): Map<string, { spend: number; headcount: number }> {
+  const normalizeDept = (raw: unknown): string => {
+    const trimmed = typeof raw === 'string' ? raw.trim() : '';
+    return trimmed.length > 0 ? trimmed : 'Unassigned';
+  };
+  const byEmpId = new Map<string, Employee>();
+  for (const e of employees) byEmpId.set(e._id, e);
+
+  const result = new Map<string, { spend: number; headcount: number }>();
+  for (const req of pendingRequests) {
+    if (req.status !== 'pending') continue;
+    const dept = normalizeDept(req.employeeData.department);
+    const proposedSpend =
+      (req.employeeData.salary ?? 0) + (req.employeeData.equity ?? 0);
+    let addSpend: number;
+    let addHc: number;
+    if (req.requestType === 'comp_change') {
+      const target = req.targetEmployeeId
+        ? byEmpId.get(req.targetEmployeeId)
+        : undefined;
+      const currentSpend = target
+        ? (target.salary ?? 0) + (target.equity ?? 0)
+        : 0;
+      addSpend = proposedSpend - currentSpend;
+      addHc = 0;
+    } else {
+      addSpend = proposedSpend;
+      addHc = 1;
+    }
+    const entry = result.get(dept) ?? { spend: 0, headcount: 0 };
+    entry.spend += addSpend;
+    entry.headcount += addHc;
+    result.set(dept, entry);
+  }
+  return result;
+}
+
+/**
  * Compute a full department budget summary locally (mirrors server summary).
  * Useful for real-time updates — when an employee is added/edited/deleted we
  * can recompute immediately without a round-trip.
+ *
+ * If `pendingRequests` is provided, the summary will also populate
+ * `plannedSpend`/`plannedHeadcount` per department and a
+ * `projectedBudgetStatus` that reflects the state if all pending
+ * requests were approved (VAL-BUDGET-004/007).
  */
 export function computeBudgetSummary(
   envelopes: BudgetEnvelope[],
   employees: Employee[],
+  pendingRequests: HeadcountRequest[] = [],
 ): BudgetSummary {
   // Normalize department keys (trim) so envelopes and actuals match even if
   // one side carries whitespace. Mirrors the server's `getBudgetSummary`.
@@ -67,9 +126,12 @@ export function computeBudgetSummary(
     actualsByDept.set(dept, entry);
   }
 
+  const pendingByDept = computePendingByDept(pendingRequests, employees);
+
   const allDepartments = new Set<string>([
     ...envelopeByDept.keys(),
     ...actualsByDept.keys(),
+    ...pendingByDept.keys(),
   ]);
 
   const departments: DepartmentBudgetSummary[] = Array.from(allDepartments)
@@ -77,6 +139,10 @@ export function computeBudgetSummary(
     .map((department) => {
       const env = envelopeByDept.get(department);
       const actual = actualsByDept.get(department) ?? { spend: 0, headcount: 0 };
+      const planned = pendingByDept.get(department) ?? {
+        spend: 0,
+        headcount: 0,
+      };
 
       const totalBudget = env ? env.totalBudget : null;
       const headcountCap = env ? env.headcountCap : null;
@@ -111,12 +177,22 @@ export function computeBudgetSummary(
         headcountCap,
         actualSpend: actual.spend,
         actualHeadcount: actual.headcount,
+        plannedSpend: planned.spend,
+        plannedHeadcount: planned.headcount,
         remainingBudget,
         remainingHeadcount,
         utilizationPct,
         headcountUtilizationPct,
         budgetStatus: classifyStatus(actual.spend, totalBudget),
         headcountStatus: classifyStatus(actual.headcount, headcountCap),
+        projectedBudgetStatus: classifyStatus(
+          actual.spend + planned.spend,
+          totalBudget,
+        ),
+        projectedHeadcountStatus: classifyStatus(
+          actual.headcount + planned.headcount,
+          headcountCap,
+        ),
       };
     });
 

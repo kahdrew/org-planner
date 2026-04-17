@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  AlertTriangle,
   CheckCircle2,
   XCircle,
   MessageSquare,
@@ -31,6 +32,11 @@ import type {
 } from '@/types';
 import ApprovalChainsPanel from '@/components/panels/ApprovalChainsPanel';
 import BudgetImpactCard from '@/components/panels/BudgetImpactCard';
+import {
+  classifyStatus,
+  computeBudgetSummary,
+} from '@/utils/budgetMetrics';
+import type { BudgetStatus } from '@/types';
 
 type StatusFilter = HeadcountRequestStatus | 'all';
 
@@ -735,6 +741,66 @@ export default function ApprovalsView() {
     return pendingApprovalIds.has(r._id);
   };
 
+  // Precompute department-level budget summary so per-row warnings don't
+  // recompute on every render (VAL-BUDGET-004).
+  const budgetSummaryByDept = useMemo(() => {
+    const summary = computeBudgetSummary(envelopes, employees);
+    const map = new Map<
+      string,
+      { totalBudget: number | null; actualSpend: number; headcountCap: number | null; actualHeadcount: number }
+    >();
+    for (const d of summary.departments) {
+      map.set(d.department.trim(), {
+        totalBudget: d.totalBudget,
+        actualSpend: d.actualSpend,
+        headcountCap: d.headcountCap,
+        actualHeadcount: d.actualHeadcount,
+      });
+    }
+    return map;
+  }, [envelopes, employees]);
+
+  /**
+   * Classify a request's projected impact on its department's budget and
+   * headcount cap. Returns the worst of (projected spend, projected HC)
+   * statuses. 'exceeded' wins over 'warning'; null means no envelope.
+   */
+  const getRequestBudgetStatus = (
+    r: HeadcountRequest,
+  ): BudgetStatus | null => {
+    const deptKey = (r.employeeData.department ?? '').trim() || 'Unassigned';
+    const dept = budgetSummaryByDept.get(deptKey);
+    if (!dept) return null;
+    const proposedComp =
+      (r.employeeData.salary ?? 0) + (r.employeeData.equity ?? 0);
+    let addSpend: number;
+    let addHc: number;
+    if (r.requestType === 'comp_change') {
+      const target = r.targetEmployeeId
+        ? employees.find((e) => e._id === r.targetEmployeeId)
+        : null;
+      const currentComp = target
+        ? (target.salary ?? 0) + (target.equity ?? 0)
+        : 0;
+      addSpend = proposedComp - currentComp;
+      addHc = 0;
+    } else {
+      addSpend = proposedComp;
+      addHc = 1;
+    }
+    const spendStatus = classifyStatus(
+      dept.actualSpend + addSpend,
+      dept.totalBudget,
+    );
+    const hcStatus = classifyStatus(
+      dept.actualHeadcount + addHc,
+      dept.headcountCap,
+    );
+    const rank = (s: BudgetStatus | null): number =>
+      s === 'exceeded' ? 3 : s === 'warning' ? 2 : s === 'under' ? 1 : 0;
+    return rank(spendStatus) >= rank(hcStatus) ? spendStatus : hcStatus;
+  };
+
   const filteredRequests = useMemo(() => {
     let list =
       filter === 'all' ? requests : requests.filter((r) => r.status === filter);
@@ -1098,10 +1164,40 @@ export default function ApprovalsView() {
                       </td>
                       <td className="px-3 py-2">{r.employeeData.level}</td>
                       <td className="px-3 py-2 text-gray-700">
-                        {formatCost(
-                          r.employeeData.salary,
-                          r.employeeData.equity,
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          <span>
+                            {formatCost(
+                              r.employeeData.salary,
+                              r.employeeData.equity,
+                            )}
+                          </span>
+                          {(() => {
+                            const s = getRequestBudgetStatus(r);
+                            if (s === 'exceeded') {
+                              return (
+                                <span
+                                  className="inline-flex items-center gap-0.5 rounded border border-red-300 bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-700"
+                                  title="This request would put the department over budget or headcount cap."
+                                  data-testid={`budget-exceeded-${r._id}`}
+                                >
+                                  <AlertTriangle size={10} /> Over
+                                </span>
+                              );
+                            }
+                            if (s === 'warning') {
+                              return (
+                                <span
+                                  className="inline-flex items-center gap-0.5 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700"
+                                  title="This request would push utilization into the warning band (80-99%)."
+                                  data-testid={`budget-warning-${r._id}`}
+                                >
+                                  <AlertTriangle size={10} /> At risk
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
                       </td>
                       <td className="px-3 py-2">
                         <span

@@ -3,9 +3,11 @@ import { X, Trash2, Save, Loader2, Calendar, AlertTriangle } from 'lucide-react'
 import { useOrgStore } from '@/stores/orgStore';
 import { useInvitationStore } from '@/stores/invitationStore';
 import { useApprovalStore } from '@/stores/approvalStore';
+import { useBudgetStore } from '@/stores/budgetStore';
 import { useScheduledChangeStore } from '@/stores/scheduledChangeStore';
 import { cn } from '@/utils/cn';
 import type { Employee } from '@/types';
+import BudgetImpactCard from './BudgetImpactCard';
 import ScheduleChangeDialog from './ScheduleChangeDialog';
 
 const DEPARTMENTS = [
@@ -84,6 +86,8 @@ export default function EmployeeDetailPanel({ employee, isNew, onClose }: Employ
   const isViewer = currentRole === 'viewer';
   const approvalChains = useApprovalStore((s) => s.chains);
   const hasApprovalChains = approvalChains.length > 0;
+  const envelopes = useBudgetStore((s) => s.envelopes);
+  const fetchEnvelopes = useBudgetStore((s) => s.fetchEnvelopes);
   // Direct creation is gated when approval chains exist — users must route
   // through "Request Hire" so headcount follows the configured workflow.
   const directCreationBlocked = isNew && hasApprovalChains;
@@ -100,6 +104,51 @@ export default function EmployeeDetailPanel({ employee, isNew, onClose }: Employ
     setForm(buildFormData(employee));
     setConfirmDelete(false);
   }, [employee]);
+
+  // Ensure budget envelopes are loaded so the budget impact preview is
+  // accurate as the user edits fields (VAL-BUDGET-003).
+  useEffect(() => {
+    if (currentScenario && envelopes.length === 0) {
+      fetchEnvelopes(currentScenario._id).catch(() => {});
+    }
+  }, [currentScenario, envelopes.length, fetchEnvelopes]);
+
+  // Compute the projected cost delta that this change would introduce into
+  // the currently-selected department (VAL-BUDGET-003).
+  const newSalary = form.salary ? Number(form.salary) : 0;
+  const newEquity = form.equity ? Number(form.equity) : 0;
+  const newTotalComp = (Number.isFinite(newSalary) ? newSalary : 0) +
+    (Number.isFinite(newEquity) ? newEquity : 0);
+  const previousDepartment = employee?.department?.trim() ?? '';
+  const currentDepartment = form.department.trim();
+  const departmentChanged =
+    !isNew && employee !== null && previousDepartment !== currentDepartment;
+  const previousComp = employee
+    ? (employee.salary ?? 0) + (employee.equity ?? 0)
+    : 0;
+  // For a new hire we add full comp + 1 headcount to the target department.
+  // For an edit within the same department we add only the delta (can be
+  // negative) and no headcount change.
+  // For an edit that changes department we show the impact on the NEW
+  // department (employee + comp joining). The previous department's
+  // decrease is not shown here to keep the UI focused on the destination
+  // department — the BudgetPanel already reflects both sides in real time.
+  let additionalCost: number;
+  let additionalHeadcount: number;
+  let excludeId: string | null;
+  if (isNew) {
+    additionalCost = newTotalComp;
+    additionalHeadcount = 1;
+    excludeId = null;
+  } else if (departmentChanged) {
+    additionalCost = newTotalComp;
+    additionalHeadcount = 1;
+    excludeId = employee?._id ?? null;
+  } else {
+    additionalCost = newTotalComp - previousComp;
+    additionalHeadcount = 0;
+    excludeId = employee?._id ?? null;
+  }
 
   const handleChange = (field: keyof FormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -304,6 +353,23 @@ export default function EmployeeDetailPanel({ employee, isNew, onClose }: Employ
             </span>
           )}
         </Field>
+
+        {/* VAL-BUDGET-003: Real-time budget impact preview for the
+           currently-selected department. Renders whenever a department
+           is chosen so submitters can see utilization and over-budget
+           warnings before saving. */}
+        {currentDepartment && (
+          <BudgetImpactCard
+            department={currentDepartment}
+            employees={employees}
+            envelopes={envelopes}
+            additionalCost={additionalCost}
+            additionalHeadcount={additionalHeadcount}
+            excludeEmployeeId={excludeId}
+            variant="compact"
+            title={isNew ? 'Budget Impact' : 'Budget Impact of this Change'}
+          />
+        )}
 
         <Field label="Cost Center">
           <input
