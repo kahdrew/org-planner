@@ -9,6 +9,7 @@ import scheduledChangeRoutes from "./routes/scheduledChangeRoutes";
 import timelineRoutes from "./routes/timelineRoutes";
 import budgetRoutes from "./routes/budgetRoutes";
 import approvalRoutes from "./routes/approvalRoutes";
+import sseRoutes from "./routes/sseRoutes";
 
 const app = express();
 
@@ -16,6 +17,9 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
+// SSE must be mounted before the default orgRoutes so the event-stream
+// handler isn't shadowed by the authenticated CRUD router.
+app.use("/api", sseRoutes);
 app.use("/api/orgs", orgRoutes);
 app.use("/api", scenarioRoutes);
 app.use("/api", employeeRoutes);

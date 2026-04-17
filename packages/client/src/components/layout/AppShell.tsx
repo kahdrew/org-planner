@@ -23,6 +23,7 @@ import { useScheduledChangeStore } from '@/stores/scheduledChangeStore';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { useExportStore } from '@/stores/exportStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useOrgEvents } from '@/hooks/useOrgEvents';
 import { exportOrgChart, type ExportOptions } from '@/utils/exportOrgChart';
 
 export default function AppShell() {
@@ -109,6 +110,11 @@ export default function AppShell() {
     const deptSet = new Set(employees.map((e) => e.department).filter(Boolean));
     return Array.from(deptSet).sort();
   }, [employees]);
+
+  // --- Live SSE subscription ---
+  // Connects when an org is selected and fans org-scoped events into the
+  // orgStore so every view re-renders in realtime across tabs/sessions.
+  useOrgEvents();
 
   // --- Keyboard shortcuts ---
   useKeyboardShortcuts({

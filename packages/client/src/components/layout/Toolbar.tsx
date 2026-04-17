@@ -9,6 +9,7 @@ import * as employeesApi from '@/api/employees';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import OverlaySelector from '@/components/panels/OverlaySelector';
 import NotificationBell from '@/components/panels/NotificationBell';
+import ConnectionStatusIndicator from '@/components/panels/ConnectionStatusIndicator';
 
 const STATUS_OPTIONS = ['Active', 'Planned', 'Open Req', 'Backfill'] as const;
 
@@ -253,6 +254,8 @@ export default function Toolbar({
       )}
 
       <OverlaySelector />
+
+      <ConnectionStatusIndicator />
 
       <NotificationBell />
 

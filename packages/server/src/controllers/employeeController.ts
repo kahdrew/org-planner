@@ -5,6 +5,7 @@ import { AuthRequest } from "../middleware/auth";
 import { checkScenarioAccess, getUserOrgRole } from "../middleware/authorization";
 import Employee, { IEmployee } from "../models/Employee";
 import AuditLog, { AuditAction } from "../models/AuditLog";
+import { emitScenarioScopedEvent } from "../sse/emit";
 
 /**
  * Serialize an Employee document to a plain snapshot suitable for audit storage.
@@ -98,6 +99,13 @@ export const createEmployee = async (req: AuthRequest, res: Response): Promise<v
       performedBy: req.user!.userId,
     });
 
+    // Fan out to any SSE clients listening on this org.
+    await emitScenarioScopedEvent(
+      employee.scenarioId,
+      "employee.created",
+      { employee: serializeEmployee(employee) },
+    );
+
     res.status(201).json(employee);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -152,6 +160,12 @@ export const updateEmployee = async (req: AuthRequest, res: Response): Promise<v
         changes: updates,
         performedBy: req.user!.userId,
       });
+
+      await emitScenarioScopedEvent(
+        updated.scenarioId,
+        "employee.updated",
+        { employee: serializeEmployee(updated) },
+      );
     }
 
     res.json(updated);
@@ -230,6 +244,15 @@ export const deleteEmployee = async (req: AuthRequest, res: Response): Promise<v
         : undefined,
       performedBy: req.user!.userId,
     });
+
+    await emitScenarioScopedEvent(
+      employee.scenarioId,
+      "employee.deleted",
+      {
+        employeeId: req.params.id,
+        affectedReportIds,
+      },
+    );
 
     res.json({
       message: "Employee deleted",
@@ -327,6 +350,16 @@ export const moveEmployee = async (req: AuthRequest, res: Response): Promise<voi
         },
         performedBy: req.user!.userId,
       });
+
+      await emitScenarioScopedEvent(
+        updated.scenarioId,
+        "employee.moved",
+        {
+          employee: serializeEmployee(updated),
+          previousManagerId,
+          previousOrder,
+        },
+      );
     }
 
     res.json(updated);
@@ -360,6 +393,18 @@ export const bulkCreate = async (req: AuthRequest, res: Response): Promise<void>
         }),
       ),
     );
+
+    if (employees.length > 0) {
+      await emitScenarioScopedEvent(
+        employees[0].scenarioId,
+        "employee.bulk_created",
+        {
+          employees: employees.map((e) =>
+            serializeEmployee(e as unknown as IEmployee),
+          ),
+        },
+      );
+    }
 
     res.status(201).json(employees);
   } catch (err) {

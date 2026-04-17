@@ -6,6 +6,7 @@ import { checkScenarioAccess } from "../middleware/authorization";
 import Scenario from "../models/Scenario";
 import Employee from "../models/Employee";
 import BudgetEnvelope from "../models/BudgetEnvelope";
+import { emitOrgScopedEvent } from "../sse/emit";
 
 const createScenarioSchema = z.object({
   name: z.string().min(1),
@@ -23,6 +24,7 @@ export const createScenario = async (req: AuthRequest, res: Response): Promise<v
       baseScenarioId,
       createdBy: req.user!.userId,
     });
+    emitOrgScopedEvent(scenario.orgId.toString(), "scenario.created", { scenario });
     res.status(201).json(scenario);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -81,6 +83,8 @@ export const cloneScenario = async (req: AuthRequest, res: Response): Promise<vo
       await Employee.insertMany(clonedEmployees);
     }
 
+    emitOrgScopedEvent(cloned.orgId.toString(), "scenario.created", { scenario: cloned });
+
     res.status(201).json(cloned);
   } catch {
     res.status(500).json({ error: "Internal server error" });
@@ -99,6 +103,9 @@ export const deleteScenario = async (req: AuthRequest, res: Response): Promise<v
       Employee.deleteMany({ scenarioId: scenario._id }),
       BudgetEnvelope.deleteMany({ scenarioId: scenario._id }),
     ]);
+    emitOrgScopedEvent(scenario.orgId.toString(), "scenario.deleted", {
+      scenarioId: String(scenario._id),
+    });
     res.json({ message: "Scenario deleted" });
   } catch {
     res.status(500).json({ error: "Internal server error" });
