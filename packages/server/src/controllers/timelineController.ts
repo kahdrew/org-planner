@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { z } from "zod";
+import mongoose from "mongoose";
 import { AuthRequest } from "../middleware/auth";
 import AuditLog from "../models/AuditLog";
 import Employee from "../models/Employee";
@@ -119,17 +120,64 @@ export const getHistoryAtDate = async (req: AuthRequest, res: Response): Promise
     }
 
     // If there are no audit logs, check if the date is current or future —
-    // fall back to current employees
+    // fall back to current employees as the base state. For past dates with
+    // no history, return empty (nothing to show).
     if (logs.length === 0) {
       const now = new Date();
       if (targetDate >= now) {
-        const employees = await Employee.find({ scenarioId }).lean();
-        res.json(employees);
+        const currentEmployees = await Employee.find({ scenarioId }).lean();
+        for (const emp of currentEmployees) {
+          const id = (emp._id as mongoose.Types.ObjectId).toString();
+          employeeStates.set(id, emp as Record<string, unknown>);
+        }
+      } else {
+        res.json([]);
         return;
       }
-      // Date is in the past but no audit logs → return empty (no history)
-      res.json([]);
-      return;
+    }
+
+    // Apply pending scheduled changes whose effectiveDate is on or before the
+    // target date. This projects the org state to reflect future-dated
+    // transfers/promotions/departures/edits that have already "taken effect"
+    // by the scrub time, keeping the timeline consistent with effective-date
+    // scheduling.
+    const pendingChanges = await ScheduledChange.find({
+      scenarioId,
+      status: "pending",
+      effectiveDate: { $lte: targetDate },
+    })
+      .sort({ effectiveDate: 1 })
+      .lean();
+
+    if (pendingChanges.length > 0) {
+      // Fetch current state for any employees referenced by pending changes
+      // that were not present in the reconstructed state (e.g., pre-existing
+      // employees with no audit history yet).
+      const unknownIds = pendingChanges
+        .map((c) => c.employeeId.toString())
+        .filter((id) => !employeeStates.has(id) && !deletedEmployees.has(id));
+      if (unknownIds.length > 0) {
+        const currentEmps = await Employee.find({
+          scenarioId,
+          _id: { $in: unknownIds },
+        }).lean();
+        for (const emp of currentEmps) {
+          const id = (emp._id as mongoose.Types.ObjectId).toString();
+          employeeStates.set(id, emp as Record<string, unknown>);
+        }
+      }
+
+      for (const change of pendingChanges) {
+        const empId = change.employeeId.toString();
+        if (deletedEmployees.has(empId)) continue;
+        const current = employeeStates.get(empId);
+        if (current) {
+          employeeStates.set(empId, {
+            ...current,
+            ...(change.changeData as Record<string, unknown>),
+          });
+        }
+      }
     }
 
     const result = Array.from(employeeStates.values());

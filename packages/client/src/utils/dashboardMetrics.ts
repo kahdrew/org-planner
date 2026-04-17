@@ -113,11 +113,18 @@ export function computeHeadcountTrend(
     const bucketStart = addMonths(start, i);
     // End-of-bucket is the first day of next month.
     const bucketEnd = addMonths(bucketStart, 1);
-    const count = starts.reduce((acc, d) => {
-      // Employees without startDate count throughout the range.
-      if (!d) return acc + 1;
-      return d.getTime() < bucketEnd.getTime() ? acc + 1 : acc;
-    }, 0);
+    const isLatest = i === months - 1;
+    // The latest point represents "current headcount" and must match
+    // HeadcountSummary (which counts the full roster regardless of
+    // startDate). Historic buckets still apply the startDate rule so the
+    // trend accurately reflects growth over time.
+    const count = isLatest
+      ? employees.length
+      : starts.reduce((acc, d) => {
+          // Employees without startDate count throughout the range.
+          if (!d) return acc + 1;
+          return d.getTime() < bucketEnd.getTime() ? acc + 1 : acc;
+        }, 0);
     points.push({
       date: firstOfMonthISO(bucketStart),
       label: formatMonthLabel(bucketStart),

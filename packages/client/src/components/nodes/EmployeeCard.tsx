@@ -67,18 +67,34 @@ function validateName(value: string): string | null {
   return null;
 }
 
-type EmployeeNodeData = Employee & { label?: string };
+/**
+ * Node data attached by OrgChartView when it renders the chart. `_chartEmployees`
+ * is the currently rendered dataset (filtered, and — when the timeline slider
+ * is active — possibly a historical snapshot). When present, span-of-control
+ * warning badges use this list so the flags stay consistent with the
+ * displayed employees rather than the live roster.
+ */
+type EmployeeNodeData = Employee & { label?: string; _chartEmployees?: Employee[] };
 
 function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }) {
-  const employee = data as Employee;
+  const { _chartEmployees, ...employeeData } = data;
+  const employee = employeeData as Employee;
   const updateEmployee = useOrgStore((s) => s.updateEmployee);
-  const allEmployees = useOrgStore((s) => s.employees);
+  const storeEmployees = useOrgStore((s) => s.employees);
   const isMultiSelected = useSelectionStore((s) => s.isSelected(employee._id));
   const toggleSelect = useSelectionStore((s) => s.toggleSelect);
   const hasPendingChanges = useScheduledChangeStore((s) => s.hasPendingChanges(employee._id));
   const isViewer = useInvitationStore((s) => s.currentRole) === 'viewer';
   const overlayMode = useOverlayStore((s) => s.mode);
   const [isInlineEditing, setIsInlineEditing] = useState(false);
+
+  /**
+   * The dataset to analyze for relational card state (overlay, span flags).
+   * Prefer the rendered dataset supplied via node data so timeline-scrubbed
+   * historical snapshots are reflected correctly; fall back to the live
+   * store when absent (e.g., tests rendering the card in isolation).
+   */
+  const allEmployees = _chartEmployees ?? storeEmployees;
 
   /**
    * Resolve the overlay color for this employee. When the overlay is off,

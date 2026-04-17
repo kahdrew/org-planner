@@ -5,6 +5,49 @@ import { AuthRequest } from "../middleware/auth";
 import { checkScenarioAccess, getUserOrgRole } from "../middleware/authorization";
 import ScheduledChange from "../models/ScheduledChange";
 import Employee from "../models/Employee";
+import AuditLog, { AuditAction } from "../models/AuditLog";
+
+/**
+ * Determine the appropriate audit action for an applied scheduled change.
+ * If the change modifies the employee's `managerId`, it's a "move";
+ * otherwise it's treated as a regular "update".
+ */
+function auditActionFor(changeData: Record<string, unknown>): AuditAction {
+  if (Object.prototype.hasOwnProperty.call(changeData, "managerId")) {
+    return "move";
+  }
+  return "update";
+}
+
+/**
+ * Write an audit log entry for a scheduled change that was just applied.
+ * Errors are swallowed so we never break change application on audit failure.
+ *
+ * `performedBy` falls back to the user who originally scheduled the change
+ * when the caller (e.g. auto-apply middleware without a user context)
+ * doesn't provide one — this keeps the audit trail complete.
+ */
+async function writeScheduledChangeAudit(params: {
+  scenarioId: mongoose.Types.ObjectId;
+  employeeId: mongoose.Types.ObjectId;
+  changeData: Record<string, unknown>;
+  snapshot: Record<string, unknown>;
+  performedBy: string;
+}): Promise<void> {
+  try {
+    await AuditLog.create({
+      scenarioId: params.scenarioId,
+      employeeId: params.employeeId,
+      action: auditActionFor(params.changeData),
+      snapshot: params.snapshot,
+      changes: params.changeData,
+      performedBy: params.performedBy,
+      timestamp: new Date(),
+    });
+  } catch (err) {
+    console.error("Failed to write audit log for scheduled change:", err);
+  }
+}
 
 const scheduledChangeSchema = z.object({
   employeeId: z.string().min(1),
@@ -254,8 +297,26 @@ export const applyDueChanges = async (req: AuthRequest, res: Response): Promise<
         continue;
       }
 
-      await Employee.findByIdAndUpdate(change.employeeId, change.changeData);
+      const changeData = change.changeData as Record<string, unknown>;
+      const updated = await Employee.findByIdAndUpdate(
+        change.employeeId,
+        changeData,
+        { new: true },
+      );
       await ScheduledChange.findByIdAndUpdate(change._id, { status: "applied" });
+
+      if (updated) {
+        const snapshot = updated.toObject({ depopulate: true }) as unknown as Record<string, unknown>;
+        delete snapshot.__v;
+        await writeScheduledChangeAudit({
+          scenarioId: change.scenarioId,
+          employeeId: change.employeeId,
+          changeData,
+          snapshot,
+          performedBy: req.user!.userId,
+        });
+      }
+
       applied.push(change._id.toString());
     }
 
@@ -268,8 +329,17 @@ export const applyDueChanges = async (req: AuthRequest, res: Response): Promise<
 /**
  * Apply due scheduled changes for a specific scenario.
  * Used internally by the auto-apply middleware — no HTTP request/response.
+ *
+ * Each applied change also emits an AuditLog entry so the timeline/history
+ * endpoints stay in sync with the actual employee mutations. The
+ * `performedBy` argument identifies the user triggering the apply (e.g.
+ * the current request user). When unavailable, we fall back to the user
+ * who originally scheduled the change so the audit trail is never empty.
  */
-export async function applyDueChangesForScenario(scenarioId: string): Promise<number> {
+export async function applyDueChangesForScenario(
+  scenarioId: string,
+  performedBy?: string,
+): Promise<number> {
   const now = new Date();
 
   const dueChanges = await ScheduledChange.find({
@@ -287,8 +357,26 @@ export async function applyDueChangesForScenario(scenarioId: string): Promise<nu
       continue;
     }
 
-    await Employee.findByIdAndUpdate(change.employeeId, change.changeData);
+    const changeData = change.changeData as Record<string, unknown>;
+    const updated = await Employee.findByIdAndUpdate(
+      change.employeeId,
+      changeData,
+      { new: true },
+    );
     await ScheduledChange.findByIdAndUpdate(change._id, { status: "applied" });
+
+    if (updated) {
+      const snapshot = updated.toObject({ depopulate: true }) as unknown as Record<string, unknown>;
+      delete snapshot.__v;
+      await writeScheduledChangeAudit({
+        scenarioId: change.scenarioId,
+        employeeId: change.employeeId,
+        changeData,
+        snapshot,
+        performedBy: performedBy ?? change.createdBy.toString(),
+      });
+    }
+
     appliedCount++;
   }
 

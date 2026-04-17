@@ -90,18 +90,24 @@ function OrgChartViewInner() {
   // Compute layout from filtered employees
   const { nodes: layoutNodes, edges: layoutEdges } = useTreeLayout(filteredEmployees);
 
-  // Apply selection state and drag visual feedback to nodes
+  // Apply selection state and drag visual feedback to nodes. We also inject
+  // the currently-rendered employee dataset (`_chartEmployees`) into each
+  // node's data so the EmployeeCard can compute relational state (overlay
+  // context, span-of-control flags) from the same list the chart is
+  // displaying — this keeps badges in sync when the timeline slider is
+  // scrubbing to a historical snapshot.
   const nodesWithSelection = useMemo(
     () =>
       layoutNodes.map((node) => ({
         ...node,
+        data: { ...node.data, _chartEmployees: filteredEmployees },
         selected: selectedIds.has(node.id),
         className:
           draggingNodeId && draggingDescendantIds.has(node.id)
             ? 'ring-2 ring-blue-400 ring-offset-1 opacity-70'
             : undefined,
       })),
-    [layoutNodes, selectedIds, draggingNodeId, draggingDescendantIds],
+    [layoutNodes, filteredEmployees, selectedIds, draggingNodeId, draggingDescendantIds],
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(nodesWithSelection);

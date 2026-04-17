@@ -83,6 +83,25 @@ describe('computeHeadcountTrend', () => {
     const trend = computeHeadcountTrend(employees, 12, NOW);
     expect(trend[trend.length - 1].count).toBe(employees.length);
   });
+
+  it('final point counts employees with future startDates (matches HeadcountSummary)', () => {
+    // Scrutiny regression: the latest trend point must include employees
+    // whose startDate is AFTER the "now" cutoff, matching HeadcountSummary
+    // which simply counts every employee in the roster.
+    const employees: Employee[] = [
+      makeEmployee({ _id: 'past', startDate: '2025-01-01T00:00:00Z' }),
+      makeEmployee({ _id: 'current', startDate: '2026-06-01T00:00:00Z' }),
+      makeEmployee({ _id: 'future1', startDate: '2026-09-15T00:00:00Z' }),
+      makeEmployee({ _id: 'future2', startDate: '2027-03-01T00:00:00Z' }),
+    ];
+    const trend = computeHeadcountTrend(employees, 12, NOW);
+    // Latest point = full roster size (4), including future-dated hires.
+    expect(trend[trend.length - 1].count).toBe(employees.length);
+    // Earlier buckets still respect startDate — Feb 2026 only contains the
+    // 2025 hire, so future-dated employees must NOT leak backwards.
+    const feb = trend.find((p) => p.label === 'Feb 26');
+    expect(feb?.count).toBe(1);
+  });
 });
 
 describe('computeHiringVelocity', () => {

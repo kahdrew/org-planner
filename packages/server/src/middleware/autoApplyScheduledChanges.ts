@@ -25,8 +25,10 @@ export const autoApplyScheduledChanges = async (
     }
 
     // Fire-and-forget: apply due changes but don't block the request
-    // if it fails (e.g., invalid scenario ID in a non-scenario route)
-    await applyDueChangesForScenario(scenarioId);
+    // if it fails (e.g., invalid scenario ID in a non-scenario route).
+    // Pass the request user so audit log entries are attributed to the
+    // actor whose request triggered the apply.
+    await applyDueChangesForScenario(scenarioId, req.user?.userId);
 
     next();
   } catch {
