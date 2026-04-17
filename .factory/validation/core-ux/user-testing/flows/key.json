@@ -1,0 +1,229 @@
+{
+  "groupId": "key",
+  "testedAt": "2026-04-17T02:51:42.150841+00:00",
+  "isolation": {
+    "namespace": "coreux-key-v1",
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001",
+    "credentials": {
+      "email": "coreux.key.v1@example.com",
+      "orgName": "CoreUX Key Org v1",
+      "scenarioName": "CoreUX Key Scenario v1"
+    },
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a"
+  },
+  "toolsUsed": ["agent-browser", "curl"],
+  "assertions": [
+    {
+      "id": "VAL-KEY-001",
+      "title": "Cmd+K opens and closes command palette",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Press Cmd+K from Org Chart",
+          "expected": "Command palette opens with focused input",
+          "observed": "Toolbar search input focused; no command-palette/dialog rendered"
+        },
+        {
+          "action": "Press Escape",
+          "expected": "Palette closes",
+          "observed": "Search input remained focused; no open/close palette state"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/key/VAL-KEY-001-open.png",
+          "core-ux/key/VAL-KEY-001-close.png"
+        ],
+        "consoleErrors": "none",
+        "network": "none"
+      },
+      "issues": "Cmd+K does not open a command palette; only focuses the toolbar search input (dialogs count observed as 0)."
+    },
+    {
+      "id": "VAL-KEY-002",
+      "title": "Command palette search filters and selects employees",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Trigger Cmd+K and type 'Alice'",
+          "expected": "Palette results filter in real-time",
+          "observed": "Main view filtered by toolbar search; no palette/results list shown"
+        },
+        {
+          "action": "Press Enter on query",
+          "expected": "Selecting result navigates/highlights employee",
+          "observed": "No selectable command results; no palette selection action available"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/key/VAL-KEY-002-filtered.png"
+        ],
+        "consoleErrors": "none",
+        "network": "none"
+      },
+      "issues": "Command-palette result list/selection behavior is absent."
+    },
+    {
+      "id": "VAL-KEY-003",
+      "title": "Delete/Backspace triggers employee deletion with confirmation",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Select single employee and press Backspace",
+          "expected": "Single-employee delete confirmation appears",
+          "observed": "Dialog displayed: Delete 'Alice Key'?"
+        },
+        {
+          "action": "Multi-select two employees and press Backspace",
+          "expected": "Bulk delete dialog appears with count",
+          "observed": "Dialog displayed: Delete 2 Employees?"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/key/VAL-KEY-003-single-delete-dialog.png",
+          "core-ux/key/VAL-KEY-003-bulk-delete-dialog.png"
+        ],
+        "consoleErrors": "none",
+        "network": "none (dialogs were canceled)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-KEY-004",
+      "title": "Arrow keys navigate hierarchy",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "In Hierarchy, use ArrowDown then ArrowUp",
+          "expected": "Selection moves to next/previous row",
+          "observed": "Selected detail changed Key Eng Manager -> Carol Key -> Key Eng Manager"
+        },
+        {
+          "action": "Select Key CEO, press ArrowRight then ArrowLeft",
+          "expected": "Right moves to first child/expands; Left moves to parent/collapses",
+          "observed": "Selection changed Key CEO -> Key Eng Manager -> Key CEO"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/key/VAL-KEY-004-arrow-down.png",
+          "core-ux/key/VAL-KEY-004-arrow-up.png",
+          "core-ux/key/VAL-KEY-004-arrow-right-2.png",
+          "core-ux/key/VAL-KEY-004-arrow-left-2.png"
+        ],
+        "consoleErrors": "none",
+        "network": "none"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-KEY-005",
+      "title": "Shortcuts do not conflict with browser defaults",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Press Backspace in Hierarchy with a selected employee",
+          "expected": "Delete workflow appears; browser does not navigate back",
+          "observed": "Delete dialog opened and URL remained /hierarchy"
+        },
+        {
+          "action": "Confirm delete, then press Cmd+Z outside text input",
+          "expected": "App-level undo restores employee",
+          "observed": "Employee removed then restored via Cmd+Z; URL remained /hierarchy"
+        },
+        {
+          "action": "Press Cmd+K",
+          "expected": "Shortcut handled by app instead of browser omnibox",
+          "observed": "App search field focused; no route/navigation change"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/key/VAL-KEY-005-backspace-delete-dialog.png",
+          "core-ux/key/VAL-KEY-005-after-delete.png",
+          "core-ux/key/VAL-KEY-005-after-cmdz.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No requests captured during this exact step (intermittent agent-browser request capture limitation)."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-KEY-006",
+      "title": "Shortcuts are inert inside text inputs",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Focus toolbar search input and use letters/backspace/arrow keys",
+          "expected": "Keys edit text only; no shortcut side effects",
+          "observed": "Search value became 'BZo'; no delete dialog/shortcut action triggered"
+        },
+        {
+          "action": "Enter inline name edit and type/backspace",
+          "expected": "Text editing occurs without global shortcut firing",
+          "observed": "Inline input remained active; no delete dialog; Escape restored original text"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/key/VAL-KEY-006-search-input-behavior.png",
+          "core-ux/key/VAL-KEY-006-inline-input-behavior.png"
+        ],
+        "consoleErrors": "none",
+        "network": "none"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-KEY-007",
+      "title": "Shortcuts work across all 5 views",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Press Cmd+K from OrgChart, Hierarchy, Spreadsheet, Kanban, and Compare",
+          "expected": "Command palette opens in each view",
+          "observed": "In all views, toolbar search input focused but no command palette/dialog appeared (dialogs count 0)"
+        },
+        {
+          "action": "Edit CEO title in OrgChart, switch to Compare, press Cmd+Z",
+          "expected": "Undo works from non-originating active view",
+          "observed": "Cmd+Z in Compare reverted title change successfully"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/key/VAL-KEY-007-orgchart-cmdk.png",
+          "core-ux/key/VAL-KEY-007-hierarchy-cmdk.png",
+          "core-ux/key/VAL-KEY-007-spreadsheet-cmdk.png",
+          "core-ux/key/VAL-KEY-007-kanban-cmdk.png",
+          "core-ux/key/VAL-KEY-007-compare-cmdk.png",
+          "core-ux/key/VAL-KEY-007-change-before-crossview-undo.png",
+          "core-ux/key/VAL-KEY-007-compare-cmdz.png",
+          "core-ux/key/VAL-KEY-007-after-crossview-undo.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e19fa92bce4b5d49117894 observed for edit and undo during cross-view Cmd+Z verification."
+      },
+      "issues": "Cross-view Cmd+Z worked, but Cmd+K did not open command palette in any view (focuses toolbar search instead)."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "`agent-browser network requests` intermittently returned no entries for flows that should hit API endpoints.",
+      "resolved": true,
+      "resolution": "Relied on UI state transitions/screenshots and captured request evidence where available later in-session.",
+      "affectedAssertions": ["VAL-KEY-005"]
+    },
+    {
+      "description": "Some cursor-interactive row refs intermittently reported as blocked despite visible rows.",
+      "resolved": true,
+      "resolution": "Re-snapshotted and used keyboard row selection (ArrowDown) and alternative element targets.",
+      "affectedAssertions": ["VAL-KEY-005"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 7 keyboard assertions: 4 passed (VAL-KEY-003,004,005,006) and 3 failed (VAL-KEY-001,002,007). Primary gap: Cmd+K behavior does not match command-palette contract (focuses toolbar search input, no dialog/results UI)."
+}

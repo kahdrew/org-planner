@@ -1,0 +1,221 @@
+{
+  "groupId": "multi-b",
+  "testedAt": "2026-04-17T02:55:56Z",
+  "isolation": {
+    "namespace": "coreux-multi-b-v1",
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001",
+    "credentials": {
+      "email": "coreux.multi.b.v1@example.com",
+      "password": "TestPass123!"
+    },
+    "orgName": "CoreUX Multi B Org v1",
+    "scenarioName": "CoreUX Multi B Scenario v1"
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-MULTI-007",
+      "title": "Bulk update status and level",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Cmd-select Dan Lee + Eve Miller and run bulk Update Status -> Planned",
+          "expected": "Selected employees move to Planned status and Kanban reflects change",
+          "observed": "Dan Lee and Eve Miller changed to Planned in OrgChart and Kanban cards showed Planned"
+        },
+        {
+          "action": "Re-select the same two employees and run bulk Update Level -> IC4",
+          "expected": "Both employees display level IC4",
+          "observed": "Hierarchy rows for Dan Lee and Eve Miller both showed IC4"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/multi-b/VAL-MULTI-007-status-updated-orgchart.png",
+          "core-ux/multi-b/VAL-MULTI-007-status-updated-kanban.png",
+          "core-ux/multi-b/VAL-MULTI-007-level-updated-hierarchy.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e19e732bce4b5d491177ed, PATCH /api/employees/69e19e732bce4b5d491177ee"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-MULTI-008",
+      "title": "Bulk delete with confirmation dialog",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Select 3 employees and click Delete Selected",
+          "expected": "Confirmation dialog shows exact count and Cancel/Confirm controls",
+          "observed": "Dialog title displayed 'Delete 3 Employees?' with Cancel and Delete 3 Employees actions"
+        },
+        {
+          "action": "Cancel the dialog",
+          "expected": "All 3 employees remain",
+          "observed": "All selected employees remained visible after cancel"
+        },
+        {
+          "action": "Open dialog again and confirm delete",
+          "expected": "All 3 employees removed",
+          "observed": "Headcount dropped from 10 to 7 and the 3 employees were removed"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/multi-b/VAL-MULTI-008-delete-dialog-count.png",
+          "core-ux/multi-b/VAL-MULTI-008-cancel-preserves-employees.png",
+          "core-ux/multi-b/VAL-MULTI-008-confirm-removes-employees.png"
+        ],
+        "consoleErrors": "none",
+        "network": "DELETE /api/employees/69e19e732bce4b5d491177f1, DELETE /api/employees/69e19e732bce4b5d491177f2, DELETE /api/employees/69e19e732bce4b5d491177f3"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-MULTI-009",
+      "title": "Bulk operations are undoable as single step",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Bulk update department for Alice Smith, Bob Johnson, and Carol Smith to Marketing",
+          "expected": "All 3 selected employees change department",
+          "observed": "All 3 updated together in Hierarchy after one bulk action"
+        },
+        {
+          "action": "Press Cmd+Z once",
+          "expected": "Single undo reverts all 3 employee departments",
+          "observed": "One Cmd+Z restored Engineering/Product/Design for the same 3 employees"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/multi-b/VAL-MULTI-009-after-bulk-department-update.png",
+          "core-ux/multi-b/VAL-MULTI-009-after-single-undo-reverted.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e19e732bce4b5d491177ea, PATCH /api/employees/69e19e732bce4b5d491177eb, PATCH /api/employees/69e19e732bce4b5d491177ec (bulk update + undo replay)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-MULTI-010",
+      "title": "Select all with Cmd+A",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Press Cmd+A in OrgChart and Hierarchy after focusing the canvas/view container",
+          "expected": "All employees selected and selected-count equals total",
+          "observed": "Cmd+A did not produce all-selection state; selected-count UI did not appear and interaction instead focused/opened a single employee detail panel"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/multi-b/VAL-MULTI-010-cmd-a-no-select-all.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No relevant API calls; keyboard selection behavior only"
+      },
+      "issues": "Cmd+A did not trigger select-all behavior in tested views; expected full multi-select state was not observed."
+    },
+    {
+      "id": "VAL-CROSS-011",
+      "title": "CSV import updates all views and budget immediately",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Capture baseline totals (headcount and budget), then import CSV with 10 BatchB employees",
+          "expected": "Headcount and budget increase immediately without refresh",
+          "observed": "Headcount increased from 7 to 17; Salary Cost increased from $810,000 to $1,810,000; Budget Grand Total increased from $879,000 to $1,929,000"
+        },
+        {
+          "action": "Verify imported records in OrgChart and Spreadsheet",
+          "expected": "OrgChart shows 10 new nodes and Spreadsheet shows 10 new rows",
+          "observed": "OrgChart displayed BatchB nodes; Spreadsheet filtered to 'BatchB' returned exactly 10 rows"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/multi-b/VAL-CROSS-011-before-second-import-budget-and-headcount.png",
+          "core-ux/multi-b/VAL-CROSS-011-after-import-hierarchy-headcount17.png",
+          "core-ux/multi-b/VAL-CROSS-011-orgchart-shows-imported-batchb-nodes.png",
+          "core-ux/multi-b/VAL-CROSS-011-spreadsheet-batchb-rows.png",
+          "core-ux/multi-b/VAL-CROSS-011-after-import-budget-and-headcount.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e19e092bce4b5d4911778b/employees/bulk"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-012",
+      "title": "Status filter applies consistently across all views",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Set status filters to Active + Planned only (Open Req and Backfill disabled)",
+          "expected": "Only Active/Planned employees remain visible",
+          "observed": "Hierarchy rowCount=14 with statuses {Active, Planned}; OrgChart nodeCount=14"
+        },
+        {
+          "action": "Navigate across Spreadsheet and Kanban with same filter state",
+          "expected": "Counts and visible statuses remain consistent, with no Open Req/Backfill employees",
+          "observed": "Spreadsheet rowCount=14 with statuses {Active, Planned}; Kanban grouped by status showed Active=7, Planned=7, Open Req=0, Backfill=0"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/multi-b/VAL-CROSS-012-orgchart-active-planned-only.png",
+          "core-ux/multi-b/VAL-CROSS-012-hierarchy-active-planned-only.png",
+          "core-ux/multi-b/VAL-CROSS-012-spreadsheet-active-planned-only.png",
+          "core-ux/multi-b/VAL-CROSS-012-kanban-active-planned-only.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No filter-specific API calls observed; filtering behavior was client-side"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-013",
+      "title": "Search query filters consistently across views",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Enter search term 'Smith' in OrgChart",
+          "expected": "Only matching employees shown",
+          "observed": "OrgChart search value='Smith' with nodeCount=2 (Alice Smith, Carol Smith)"
+        },
+        {
+          "action": "Navigate OrgChart -> Hierarchy -> Spreadsheet without clearing search",
+          "expected": "Search term persists and each view shows only matching employees",
+          "observed": "Hierarchy persisted search='Smith' with rowCount=2; Spreadsheet persisted search='Smith' with rowCount=2"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/multi-b/VAL-CROSS-013-orgchart-search-smith.png",
+          "core-ux/multi-b/VAL-CROSS-013-hierarchy-search-smith.png",
+          "core-ux/multi-b/VAL-CROSS-013-spreadsheet-search-smith.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No search-specific API calls observed; search filtering behavior was client-side"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Import CSV uses an ephemeral file input + native picker, which is not directly driveable in headless automation.",
+      "resolved": true,
+      "resolution": "Hooked the generated file input in-page and dispatched a synthetic CSV File change event to execute the same import path.",
+      "affectedAssertions": [
+        "VAL-CROSS-011"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 7 assertions: 6 passed (VAL-MULTI-007/008/009, VAL-CROSS-011/012/013) and 1 failed (VAL-MULTI-010 Cmd+A select-all did not activate full multi-selection)."
+}

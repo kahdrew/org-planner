@@ -1,0 +1,196 @@
+{
+  "groupId": "multi-a",
+  "testedAt": "2026-04-16T19:40:00Z",
+  "isolation": {
+    "namespace": "coreux-multi-a-v1",
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001",
+    "credentials": {
+      "email": "coreux.multi.a.v1@example.com",
+      "password": "TestPass123!"
+    },
+    "orgName": "CoreUX Multi A Org v1",
+    "scenarioName": "CoreUX Multi A Scenario v1"
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-MULTI-001",
+      "title": "Cmd+Click selects multiple employees with visual indicator",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "In OrgChartView, hold Cmd and click Alice, Bob, and Cara cards",
+          "expected": "All three cards selected with visual state and selection count shown",
+          "observed": "UI displayed '3 selected' and bulk action bar while the three cards were selected"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/multi-a/VAL-MULTI-001-cmd-click-three-selected.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Selection-only interaction; no employee write requests expected"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-MULTI-002",
+      "title": "Shift+Click range select in list views",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "In HierarchyView, click first employee then Shift+Click later employee",
+          "expected": "All rows between first and last are selected",
+          "observed": "Selection stayed at '1 selected' (range did not apply)"
+        },
+        {
+          "action": "In SpreadsheetView, repeat Shift+Click range selection",
+          "expected": "Inclusive range is selected",
+          "observed": "Only a single row was selected; no inclusive range selection"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/multi-a/VAL-MULTI-002-shift-range-select-hierarchy.png",
+          "core-ux/multi-a/VAL-MULTI-002-shift-range-select-hierarchy-attempt2.png",
+          "core-ux/multi-a/tmp-spreadsheet-annotated.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No relevant API calls; failure observed in client-side selection behavior"
+      },
+      "issues": "Shift+Click range selection could not be reproduced in either HierarchyView or SpreadsheetView; only single-item selection occurred."
+    },
+    {
+      "id": "VAL-MULTI-003",
+      "title": "Lasso/marquee select in OrgChartView",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Drag selection rectangle on chart background over multiple cards",
+          "expected": "Cards within rectangle become selected",
+          "observed": "Selection rectangle appeared during drag, but no employees were selected after release"
+        },
+        {
+          "action": "Retry with larger marquee covering all visible cards",
+          "expected": "Multiple cards selected",
+          "observed": "Still no selected-count indicator and no selected cards"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/multi-a/VAL-MULTI-003-lasso-rectangle.png",
+          "core-ux/multi-a/VAL-MULTI-003-lasso-selected.png",
+          "core-ux/multi-a/VAL-MULTI-003-lasso-selected-attempt2.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No relevant API calls; failure observed in client-side selection behavior"
+      },
+      "issues": "Marquee drag did not result in card selection on release."
+    },
+    {
+      "id": "VAL-MULTI-004",
+      "title": "Deselect via Cmd+Click, Escape, or clicking empty canvas",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Cmd+Click one selected card",
+          "expected": "That employee deselects while others remain selected",
+          "observed": "Count dropped from 3 selected to 2 selected"
+        },
+        {
+          "action": "Press Escape",
+          "expected": "All selections clear",
+          "observed": "Selection count and bulk bar disappeared"
+        },
+        {
+          "action": "With multi-selection active, click empty canvas area",
+          "expected": "All selections clear",
+          "observed": "Selection count and bulk bar disappeared after canvas click"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/multi-a/VAL-MULTI-004-cmd-click-deselect.png",
+          "core-ux/multi-a/VAL-MULTI-004-escape-clear.png",
+          "core-ux/multi-a/VAL-MULTI-004-empty-canvas-clear.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Selection-only interaction; no employee write requests expected"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-MULTI-005",
+      "title": "Selection count and bulk action menu",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Select 3 employees in OrgChartView",
+          "expected": "Selection count and bulk actions visible",
+          "observed": "UI showed '3 selected' with Update Department/Level/Status/Change Manager/Delete actions"
+        },
+        {
+          "action": "Clear selection",
+          "expected": "Bulk action UI hidden/disabled",
+          "observed": "Selection count and bulk action UI disappeared when nothing selected"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/multi-a/VAL-MULTI-005-bulk-menu-visible.png",
+          "core-ux/multi-a/VAL-MULTI-005-bulk-menu-hidden.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Selection-only interaction; no employee write requests expected"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-MULTI-006",
+      "title": "Bulk update department",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Select Alice (Sales), Bob (Marketing), and Cara (Design)",
+          "expected": "Three employees from different departments are selected",
+          "observed": "UI showed '3 selected'"
+        },
+        {
+          "action": "Bulk Update Department to Engineering and submit",
+          "expected": "All three employees update to Engineering",
+          "observed": "OrgChart updated to Engineering for Alice, Bob, and Cara"
+        },
+        {
+          "action": "Open SpreadsheetView and verify departments",
+          "expected": "All three show Engineering",
+          "observed": "Spreadsheet rows show Alice/Bob/Cara department = Engineering"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/multi-a/VAL-MULTI-006-before-bulk-update-orgchart.png",
+          "core-ux/multi-a/VAL-MULTI-006-after-bulk-update-orgchart.png",
+          "core-ux/multi-a/VAL-MULTI-006-after-bulk-update-spreadsheet.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e199f82bce4b5d491176c4, PATCH /api/employees/69e19a272bce4b5d491176f1, PATCH /api/employees/69e19a332bce4b5d491176f5"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Spreadsheet row elements were not exposed in standard interactive snapshots; range-selection validation required AG Grid DOM-targeted interactions for verification.",
+      "resolved": true,
+      "resolution": "Used DOM-level row targeting in SpreadsheetView to confirm selected row behavior.",
+      "affectedAssertions": [
+        "VAL-MULTI-002"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 6 assertions: 4 passed (VAL-MULTI-001, 004, 005, 006) and 2 failed (VAL-MULTI-002 shift-range select, VAL-MULTI-003 lasso select)."
+}

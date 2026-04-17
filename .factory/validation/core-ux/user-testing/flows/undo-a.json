@@ -1,0 +1,229 @@
+{
+  "groupId": "undo-a",
+  "testedAt": "2026-04-17T02:39:06Z",
+  "isolation": {
+    "namespace": "coreux-undo-a-v1",
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001",
+    "credentials": {
+      "email": "coreux.undo.a.v1@example.com",
+      "password": "TestPass123!"
+    },
+    "orgName": "CoreUX Undo A Org v1",
+    "scenarioName": "CoreUX Undo A Scenario v1"
+  },
+  "toolsUsed": ["agent-browser", "python3-urllib", "curl"],
+  "assertions": [
+    {
+      "id": "VAL-UNDO-001",
+      "title": "Undo reverts a single field edit",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Edit employee name 'UndoA IC' to 'UndoA IC Edited' in Org Chart",
+          "expected": "Name updates and undo becomes available",
+          "observed": "Name updated; Undo button enabled"
+        },
+        {
+          "action": "Press Cmd+Z",
+          "expected": "Name reverts to original and undo persists to backend",
+          "observed": "Name reverted to 'UndoA IC'; captured PATCH 200 for edit and PATCH 200 for undo"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/undo-a/VAL-UNDO-001-before-edit.png",
+          "core-ux/undo-a/VAL-UNDO-001-after-undo.png"
+        ],
+        "consoleErrors": "3x 'Request failed with status code 400' observed from earlier invalid setup submissions; no new undo-specific console error",
+        "network": "PATCH /api/employees/69e19a0b2bce4b5d491176dc -> 200 (edit), PATCH /api/employees/69e19a0b2bce4b5d491176dc -> 200 (undo)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UNDO-002",
+      "title": "Undo reverts employee addition",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Add employee 'UndoA Temp Add'",
+          "expected": "Employee appears and total count increments",
+          "observed": "Employee appeared in Org Chart; total changed from 3 to 4"
+        },
+        {
+          "action": "Press Cmd+Z",
+          "expected": "Added employee disappears from Org Chart and other views; count decrements",
+          "observed": "Employee removed from Org Chart, Hierarchy, Spreadsheet; total returned to 3"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/undo-a/VAL-UNDO-002-before-add.png",
+          "core-ux/undo-a/VAL-UNDO-002-after-add.png",
+          "core-ux/undo-a/VAL-UNDO-002-after-undo-orgchart.png",
+          "core-ux/undo-a/VAL-UNDO-002-after-undo-hierarchy.png",
+          "core-ux/undo-a/VAL-UNDO-002-after-undo-spreadsheet.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e199b72bce4b5d4911768a/employees -> 201, DELETE /api/employees/69e19a6d2bce4b5d49117709 -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UNDO-003",
+      "title": "Undo reverts employee deletion",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Cmd+Click 'UndoA IC' then use Delete Selected and confirm dialog",
+          "expected": "Employee is deleted",
+          "observed": "Delete confirmation modal appeared; employee removed; total dropped to 2"
+        },
+        {
+          "action": "Press Cmd+Z",
+          "expected": "Employee restored with original fields and manager relationship",
+          "observed": "Employee restored with name/title/department and hierarchy restored (UndoA Leader back to (2) reports)"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/undo-a/VAL-UNDO-003-before-delete-orgchart.png",
+          "core-ux/undo-a/VAL-UNDO-003-before-delete-selected.png",
+          "core-ux/undo-a/VAL-UNDO-003-after-delete.png",
+          "core-ux/undo-a/VAL-UNDO-003-after-undo-orgchart.png",
+          "core-ux/undo-a/VAL-UNDO-003-after-undo-hierarchy.png"
+        ],
+        "consoleErrors": "none",
+        "network": "DELETE /api/employees/69e19a0b2bce4b5d491176dc, then undo issued POST /api/scenarios/69e199b72bce4b5d4911768a/employees (captured in browser network requests)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UNDO-004",
+      "title": "Undo reverts manager reassignment",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Attempt drag reassignment in Org Chart (selector drag, mouse drag with confirm handler)",
+          "expected": "Employee reparented to new manager",
+          "observed": "No hierarchy change observed"
+        },
+        {
+          "action": "Attempt keyboard drag in Hierarchy view",
+          "expected": "Employee reparented to new manager",
+          "observed": "No hierarchy change observed"
+        },
+        {
+          "action": "Check move endpoint traffic",
+          "expected": "PATCH /api/employees/:id/move request",
+          "observed": "No /move requests captured"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/undo-a/VAL-UNDO-004-before-move-orgchart.png",
+          "core-ux/undo-a/VAL-UNDO-004-after-move-orgchart.png",
+          "core-ux/undo-a/VAL-UNDO-004-before-move-hierarchy.png",
+          "core-ux/undo-a/VAL-UNDO-004-after-move-hierarchy.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No /api/employees/*/move requests observed despite drag attempts"
+      },
+      "issues": "Blocked: manager reassignment drag could not be triggered through agent-browser interactions (mouse, selector drag, or hierarchy keyboard drag), so undo behavior for reassignment could not be validated."
+    },
+    {
+      "id": "VAL-UNDO-005",
+      "title": "Multiple sequential undos in reverse chronological order",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Perform 3 changes in order: title edit, department edit, employee add",
+          "expected": "All 3 changes applied",
+          "observed": "Title changed to EM Lead, department changed to Product, employee 'UndoA Seq Add' added"
+        },
+        {
+          "action": "Press Cmd+Z first time",
+          "expected": "Most recent change (add) undone",
+          "observed": "Added employee removed"
+        },
+        {
+          "action": "Press Cmd+Z second time",
+          "expected": "Department edit undone",
+          "observed": "Department reverted Product -> Engineering"
+        },
+        {
+          "action": "Press Cmd+Z third time",
+          "expected": "Title edit undone",
+          "observed": "Title reverted EM Lead -> Engineering Manager"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/undo-a/VAL-UNDO-005-before-changes.png",
+          "core-ux/undo-a/VAL-UNDO-005-after-change3-add.png",
+          "core-ux/undo-a/VAL-UNDO-005-undo1.png",
+          "core-ux/undo-a/VAL-UNDO-005-undo2.png",
+          "core-ux/undo-a/VAL-UNDO-005-undo3.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e19a0a2bce4b5d491176d8 -> 200, PATCH /api/employees/69e19b1a2bce4b5d49117726 -> 200, POST /api/scenarios/69e199b72bce4b5d4911768a/employees -> 201, DELETE /api/employees/69e19cb22bce4b5d49117750 -> 200, PATCH /api/employees/69e19b1a2bce4b5d49117726 -> 200, PATCH /api/employees/69e19a0a2bce4b5d491176d8 -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UNDO-006",
+      "title": "Redo re-applies undone change",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Edit title from original to 'Redo Title'",
+          "expected": "Edited value shown",
+          "observed": "Edited value shown"
+        },
+        {
+          "action": "Press Cmd+Z",
+          "expected": "Edited value reverted",
+          "observed": "Title reverted"
+        },
+        {
+          "action": "Press Cmd+Shift+Z",
+          "expected": "Edited value re-applied",
+          "observed": "Title changed back to 'Redo Title'"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/undo-a/VAL-UNDO-006-original.png",
+          "core-ux/undo-a/VAL-UNDO-006-edited.png",
+          "core-ux/undo-a/VAL-UNDO-006-undone.png",
+          "core-ux/undo-a/VAL-UNDO-006-redone.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e19a0a2bce4b5d491176d8 -> 200 (edit), PATCH /api/employees/69e19a0a2bce4b5d491176d8 -> 200 (undo), PATCH /api/employees/69e19a0a2bce4b5d491176d8 -> 200 (redo)"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "agent-browser 'network requests' output does not consistently include response status codes needed for evidence detail.",
+      "resolved": true,
+      "resolution": "Added temporary in-page XHR/fetch logging via agent-browser eval to capture method+URL+status for key assertions.",
+      "affectedAssertions": ["VAL-UNDO-001", "VAL-UNDO-002", "VAL-UNDO-005", "VAL-UNDO-006"]
+    },
+    {
+      "description": "Occasional 'element blocked'/'timed out' when continuing long chained inline-edit interactions.",
+      "resolved": true,
+      "resolution": "Recovered with fresh snapshot and page reload, then resumed deterministic step-by-step interactions.",
+      "affectedAssertions": ["VAL-UNDO-005", "VAL-UNDO-006"]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "Manager reassignment drag did not trigger through available automation interactions (selector drag, mouse drag, hierarchy keyboard drag).",
+      "affectedAssertions": ["VAL-UNDO-004"],
+      "quickFixAttempted": "Tried Org Chart drag with dialog accept, manual mouse drag using node coordinates, and Hierarchy keyboard drag; verified no /move network calls and no hierarchy change."
+    }
+  ],
+  "summary": "Tested 6 assertions: 5 passed, 0 failed, 1 blocked (VAL-UNDO-004 due to non-triggering manager-drag reassignment in automation)."
+}

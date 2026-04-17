@@ -1,0 +1,271 @@
+{
+  "groupId": "undo-b",
+  "testedAt": "2026-04-17T02:49:58Z",
+  "isolation": {
+    "namespace": "coreux-undo-b-v1",
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001",
+    "credentials": "coreux.undo.b.v1@example.com / TestPass123!",
+    "orgName": "CoreUX Undo B Org v1",
+    "scenarioName": "CoreUX Undo B Scenario v1"
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-UNDO-007",
+      "title": "Redo stack clears after new change",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Edit employee title, save, then Cmd+Z undo",
+          "expected": "First change is undone and becomes redo-eligible",
+          "observed": "Title reverted to original value after undo"
+        },
+        {
+          "action": "Make a different new change and then press Cmd+Shift+Z",
+          "expected": "Redo stack is invalidated; redo has no effect",
+          "observed": "Redo had no effect; title stayed original while new level change remained"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/undo-b/VAL-UNDO-007-after-first-change.png",
+          "core-ux/undo-b/VAL-UNDO-007-after-undo.png",
+          "core-ux/undo-b/VAL-UNDO-007-after-redo-attempt.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e19e392bce4b5d491177da -> 200 (x3: save, undo persist, second save)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UNDO-008",
+      "title": "Visual indicators show undo/redo availability",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "In fresh scenario, create one employee",
+          "expected": "Undo enabled, redo disabled",
+          "observed": "Undo button enabled=true, redo enabled=false"
+        },
+        {
+          "action": "Undo once",
+          "expected": "Undo disabled, redo enabled",
+          "observed": "Undo enabled=false, redo enabled=true"
+        },
+        {
+          "action": "Redo once",
+          "expected": "Redo disabled after consuming redo stack",
+          "observed": "Undo enabled=true, redo enabled=false"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/undo-b/VAL-UNDO-008-initial-disabled.png",
+          "core-ux/undo-b/VAL-UNDO-008-after-change-undo-enabled.png",
+          "core-ux/undo-b/VAL-UNDO-008-after-undo-redo-enabled.png",
+          "core-ux/undo-b/VAL-UNDO-008-after-redo-redo-disabled.png"
+        ],
+        "consoleErrors": "none",
+        "network": "DELETE /api/employees/69e19e9f2bce4b5d49117817 -> 200 during undo"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UNDO-009",
+      "title": "Undo scope is per-scenario",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Switch from scenario with undo history to a brand-new scenario",
+          "expected": "New scenario has no undo history",
+          "observed": "Undo/redo buttons were both disabled in new scenario"
+        },
+        {
+          "action": "Press Cmd+Z in new scenario",
+          "expected": "No effect",
+          "observed": "No data change and no API calls"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/undo-b/VAL-UNDO-009-after-scenario-switch.png",
+          "core-ux/undo-b/VAL-UNDO-009-after-cmdz-noop.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No /api/employees or /api/scenarios mutation requests during Cmd+Z no-op"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UNDO-010",
+      "title": "Undo/redo toolbar buttons work",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Create employee via toolbar flow",
+          "expected": "Employee appears",
+          "observed": "Employee created and visible"
+        },
+        {
+          "action": "Click toolbar Undo button",
+          "expected": "Last change reverted",
+          "observed": "Employee removed"
+        },
+        {
+          "action": "Click toolbar Redo button",
+          "expected": "Undone change reapplied",
+          "observed": "Employee restored"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/undo-b/VAL-UNDO-010-after-create.png",
+          "core-ux/undo-b/VAL-UNDO-010-after-undo-button.png",
+          "core-ux/undo-b/VAL-UNDO-010-after-redo-button.png"
+        ],
+        "consoleErrors": "none",
+        "network": "DELETE /api/employees/69e19ecd2bce4b5d49117834 -> 200 on toolbar undo"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-UNDO-011",
+      "title": "Undo does not interfere with browser native undo in text inputs",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Focus search input, type text, press Cmd+Z",
+          "expected": "Undo applies to input text, not org-level history",
+          "observed": "Search text changed from 'ZZZ' to 'Z' and org data remained unchanged"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/undo-b/VAL-UNDO-011-search-typed.png",
+          "core-ux/undo-b/VAL-UNDO-011-search-after-cmdz.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No /api/employees mutation requests during text-input Cmd+Z"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-008",
+      "title": "Scheduled changes reflect on timeline slider",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Inspect Org Chart and Employee Detail UI for timeline slider and effective-date scheduling controls",
+          "expected": "Timeline slider, pending marker, and future-dated change flow are available",
+          "observed": "No timeline slider, no pending marker UI, and no effective-date scheduling control for future title changes"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/undo-b/VAL-CROSS-008-no-timeline-or-effective-date-controls.png"
+        ],
+        "consoleErrors": "none",
+        "network": "N/A (feature controls absent); DOM check: input[type=range] count = 0"
+      },
+      "issues": "Feature surface required by assertion is not present in current build, so end-to-end validation cannot be executed."
+    },
+    {
+      "id": "VAL-CROSS-009",
+      "title": "SSE updates visible to other users across views",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Open two browser tabs on same org/scenario and capture baseline in observer tab",
+          "expected": "Observer tab receives SSE changes without refresh",
+          "observed": "Observer tab baseline showed 3 employees"
+        },
+        {
+          "action": "Create a new employee in actor tab",
+          "expected": "Observer tab shows new employee in real time",
+          "observed": "Actor tab showed 4 employees including 'CoreUX Undo B SSE Employee', observer tab remained at 3 employees after 5s without refresh"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/undo-b/VAL-CROSS-009-tabB-before.png",
+          "core-ux/undo-b/VAL-CROSS-009-tabA-after-add.png",
+          "core-ux/undo-b/VAL-CROSS-009-tabB-after-realtime-update.png",
+          "core-ux/undo-b/VAL-CROSS-009-tabB-after-5s.png"
+        ],
+        "consoleErrors": "Observer tab console logged a 401 resource error during run",
+        "network": "No /events request observed in performance resource entries on observer tab; no SSE propagation observed"
+      },
+      "issues": "Real-time cross-session update did not occur without refresh."
+    },
+    {
+      "id": "VAL-CROSS-010",
+      "title": "Concurrent edits to same employee preserve both changes",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Open same employee in two tabs",
+          "expected": "Both edits should merge field-wise",
+          "observed": "Both tabs opened employee 'CoreUX Undo B IC'"
+        },
+        {
+          "action": "Tab A edits title and saves",
+          "expected": "Title persists",
+          "observed": "PATCH succeeded (200)"
+        },
+        {
+          "action": "Tab B edits salary and saves from stale panel",
+          "expected": "Salary persists without clobbering title",
+          "observed": "PATCH succeeded (200), but final persisted state reverted title while keeping salary"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/undo-b/VAL-CROSS-010-tabA-before-edit.png",
+          "core-ux/undo-b/VAL-CROSS-010-tabB-before-edit.png",
+          "core-ux/undo-b/VAL-CROSS-010-tabA-after-title-save.png",
+          "core-ux/undo-b/VAL-CROSS-010-tabB-after-salary-save.png",
+          "core-ux/undo-b/VAL-CROSS-010-final-state-overwrite.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e19e392bce4b5d491177da -> 200 from Tab A (title) and 200 from Tab B (salary); final persisted state: title='Software Engineer', salary=125000"
+      },
+      "issues": "Second save overwrote the first tab's title update instead of preserving both field changes."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "agent-browser `network requests` output returned empty during flows, so request evidence needed temporary in-page XHR/fetch logging and performance-entry inspection.",
+      "resolved": true,
+      "resolution": "Injected temporary `window.__netlog` instrumentation via `agent-browser eval` and captured request/status evidence from it.",
+      "affectedAssertions": [
+        "VAL-UNDO-007",
+        "VAL-UNDO-008",
+        "VAL-UNDO-010",
+        "VAL-CROSS-009",
+        "VAL-CROSS-010"
+      ]
+    },
+    {
+      "description": "Assigned isolation provided one credential set; multi-user assertions were validated using two simultaneous tabs (separate client sessions) under that account.",
+      "resolved": true,
+      "resolution": "Used tab A/tab B concurrent browser contexts to exercise real-time and concurrent-edit behavior deterministically.",
+      "affectedAssertions": [
+        "VAL-CROSS-009",
+        "VAL-CROSS-010"
+      ]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "Timeline slider and effective-dated scheduling controls required by VAL-CROSS-008 are absent in the current UI.",
+      "affectedAssertions": [
+        "VAL-CROSS-008"
+      ],
+      "quickFixAttempted": "Inspected OrgChart and EmployeeDetail surfaces, checked DOM for slider controls (`input[type=range]`), and searched for timeline/pending markers; none found."
+    }
+  ],
+  "summary": "Tested 8 assertions: 5 passed (VAL-UNDO-007/008/009/010/011), 2 failed (VAL-CROSS-009, VAL-CROSS-010), 1 blocked (VAL-CROSS-008)."
+}

@@ -77,3 +77,5 @@ Useful endpoints for quickly creating minimal test data after obtaining a JWT:
 - `agent-browser` `network requests` capture can intermittently show no entries; when this happens, collect endpoint/status evidence with temporary in-page XHR logging.
 - Org/scenario creation uses native prompt dialogs; queue `dialog accept` before clicking creation actions for deterministic runs.
 - CSV import uses a native OS file picker; in headless runs, target the generated `<input type="file">` and dispatch a `change` event with a synthetic `File`.
+- In SpreadsheetView (AG Grid), selection checks may require DOM-targeted row interactions when accessibility snapshots do not expose row handles consistently.
+- For cross-session realtime/concurrency assertions, two simultaneous tabs can provide reliable isolation when only one credential set is assigned.

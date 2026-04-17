@@ -1,0 +1,198 @@
+{
+  "groupId": "inline",
+  "testedAt": "2026-04-17T02:28:16Z",
+  "isolation": {
+    "namespace": "coreux-inline-v1",
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001",
+    "credentials": {
+      "email": "coreux.inline.v1@example.com"
+    },
+    "orgName": "CoreUX Inline Org v1",
+    "scenarioName": "CoreUX Inline Scenario v1"
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-INLINE-001",
+      "title": "Click-to-edit fields on OrgChartView cards",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open Org Chart and click employee name field",
+          "expected": "Static text becomes focused inline input with current value",
+          "observed": "Name field changed to `textbox \"Edit name\"` with existing value prefilled"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/inline/VAL-INLINE-001-orgchart-inline-input.png"
+        ],
+        "consoleErrors": "none",
+        "network": "not required for this assertion"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-INLINE-002",
+      "title": "Click-to-edit fields on HierarchyView rows",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open Hierarchy view and click employee name field",
+          "expected": "Row field becomes inline input with existing value",
+          "observed": "Field changed to `textbox \"Edit name\"` inline editor"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/inline/VAL-INLINE-002-hierarchy-inline-input.png"
+        ],
+        "consoleErrors": "none",
+        "network": "not required for this assertion"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-INLINE-003",
+      "title": "Save on Enter key persists to backend",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Edit title inline and press Enter",
+          "expected": "Input closes, updated text renders, PATCH is sent",
+          "observed": "Title updated to `Software Engineer III` and inline log captured PATCH 200"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/inline/VAL-INLINE-003-enter-save-hierarchy.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e199cc2bce4b5d491176aa -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-INLINE-004",
+      "title": "Save on blur (click away)",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Edit title inline, then click another field to blur",
+          "expected": "Blur saves value and sends PATCH",
+          "observed": "Title updated to `Staff Engineer`; PATCH request captured with 200"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/inline/VAL-INLINE-004-blur-save-hierarchy.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e199cc2bce4b5d491176aa -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-INLINE-005",
+      "title": "Cancel edit on Escape key",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Type temporary title text and press Escape",
+          "expected": "Original value restored and no save request sent",
+          "observed": "Value reverted to `Staff Engineer`; inline request log remained empty"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/inline/VAL-INLINE-005-escape-cancel-hierarchy.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No /api/employees PATCH request captured ([])"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-INLINE-006",
+      "title": "Validation rejects empty required fields",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Clear name field and press Enter",
+          "expected": "Validation state shown, editor remains open, no save request",
+          "observed": "Name editor stayed open; input class included `border-red-400` validation styling; no PATCH request captured"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/inline/VAL-INLINE-006-empty-validation-hierarchy.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No /api/employees PATCH request captured ([])"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-INLINE-007",
+      "title": "Inline edit does not trigger drag",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Focus inline inputs in Hierarchy and Org Chart and type",
+          "expected": "No row/card drag occurs while editing",
+          "observed": "Typing worked in-place with no drag interaction; Org Chart node transform stayed `translate(20px, 0px)` before/after typing"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/inline/VAL-INLINE-007-hierarchy-no-drag.png",
+          "core-ux/inline/VAL-INLINE-007-orgchart-no-drag.png"
+        ],
+        "consoleErrors": "none",
+        "network": "not required for this assertion"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-INLINE-008",
+      "title": "Inline edit reflects in all views consistently",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Edit title inline in Org Chart, then navigate to Hierarchy and Spreadsheet",
+          "expected": "Updated title appears consistently across all three views",
+          "observed": "Title updated to `Principal Engineer` in Org Chart and shown in Hierarchy and Spreadsheet"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/inline/VAL-INLINE-008-orgchart-updated-title.png",
+          "core-ux/inline/VAL-INLINE-008-hierarchy-updated-title.png",
+          "core-ux/inline/VAL-INLINE-008-spreadsheet-updated-title.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e199cc2bce4b5d491176aa -> 200"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "`agent-browser network requests` intermittently returned no entries during inline edit checks.",
+      "resolved": true,
+      "resolution": "Used temporary in-page fetch/XHR logging via `agent-browser eval` to capture endpoint + status evidence for save/no-save assertions.",
+      "affectedAssertions": [
+        "VAL-INLINE-003",
+        "VAL-INLINE-004",
+        "VAL-INLINE-005",
+        "VAL-INLINE-006",
+        "VAL-INLINE-008"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 8 assertions (VAL-INLINE-001..008): 8 passed, 0 failed, 0 blocked."
+}
