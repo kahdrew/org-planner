@@ -1,0 +1,69 @@
+{
+  "milestone": "relationships",
+  "round": 1,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run test",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run lint",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 3,
+    "passed": 1,
+    "failed": 2,
+    "failedFeatures": [
+      "relationship-model-and-api",
+      "relationship-paths-and-filtering"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "relationship-model-and-api",
+      "severity": "blocking",
+      "description": "Duplicate relationship prevention is non-atomic (check-then-create) without DB-level unique enforcement for undirected pairs, allowing race-created duplicates under concurrency."
+    },
+    {
+      "featureId": "relationship-paths-and-filtering",
+      "severity": "blocking",
+      "description": "Active filters constrain relationships but not contacts, so non-matching contacts remain visible, violating the requirement to show only matching connections and their contacts."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Align mission repository/port boundaries with the active repo and feature set used by workers, and keep that guidance synchronized with scrutiny targets.",
+      "evidence": "All three relationship reviews reported mission context mismatches (relay vs org-planner) while validators and generated review artifacts executed in org-planner.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills",
+      "suggestion": "Update implementation/review skill prompts to avoid hardcoded repository assumptions that conflict with mission boundaries.",
+      "evidence": "Multiple reviews flagged stale skill guidance causing cross-repo confusion in transcripts and shared-state observations.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "Update .factory/services.yaml to relay ports/commands",
+      "reason": "ambiguous: current validators and feature scope executed successfully with org-planner service commands; changing shared services here is not confidently safe."
+    },
+    {
+      "observation": "Add relay-specific architecture.md in local library",
+      "reason": "wrong-scope: this scrutiny run targets relationships in the active org-planner workspace, so relay library updates are not directly applicable."
+    }
+  ],
+  "previousRound": null
+}

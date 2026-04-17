@@ -1,0 +1,34 @@
+{
+  "featureId": "relationship-paths-and-filtering",
+  "reviewedAt": "2026-04-17T21:06:51Z",
+  "commitId": "886f0dd",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The feature adds the requested UI surfaces (find path panel, filters, org chart overlay) and related tests, but one required filtering behavior is not implemented correctly.",
+    "issues": [
+      {
+        "file": "packages/web/src/pages/RelationshipGraphPage.tsx",
+        "line": 123,
+        "severity": "blocking",
+        "description": "Filtering is applied only to relationships (`visibleRelationships`) while all contacts are still passed to `buildGraph`, so contacts unrelated to matching connections remain visible as isolated nodes. This violates the requirement: \"When filters active, only matching connections and their contacts shown.\""
+      },
+      {
+        "file": "packages/web/src/__tests__/RelationshipGraphPage.test.tsx",
+        "line": 343,
+        "severity": "suggestion",
+        "description": "Filtering tests assert edge counts but do not assert node visibility under active filters. Add node-level assertions to enforce the \"matching connections and their contacts\" requirement and prevent regressions."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "Mission guidance and the implementation-worker skill disagree on project location and structure, which creates avoidable worker confusion.",
+      "evidence": "Mission AGENTS.md line 5 says all code is in /Users/andy/Documents/GitHub/relay and forbids org-planner edits, while .factory/skills/implementation-worker/SKILL.md line 10 says all code is in /Users/andy/Documents/GitHub/org-planner and references packages/client + packages/server. This feature transcript shows work performed in /Users/andy/Documents/GitHub/relay."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Fail: filtering does not hide non-matching contacts, so the implemented behavior does not fully satisfy the feature contract."
+}

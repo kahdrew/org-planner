@@ -1,0 +1,38 @@
+{
+  "featureId": "relationship-model-and-api",
+  "reviewedAt": "2026-04-17T21:06:28Z",
+  "commitId": "638c53a2db586e7e3052e5e5f9ad303d6198cb6c",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The feature largely matches the requested scope (model, CRUD endpoints, path-finding, contact relationship listing, cascade delete, and tests), but duplicate-prevention is not concurrency-safe and can be violated under parallel requests.",
+    "issues": [
+      {
+        "file": "packages/api/src/services/relationshipService.ts",
+        "line": 134,
+        "severity": "blocking",
+        "description": "Duplicate prevention uses a non-atomic check-then-insert flow (`findExistingBetween` followed by `Relationship.create`). Without a database-enforced uniqueness constraint for undirected pairs, two concurrent create requests for the same pair can both pass the existence check and insert duplicates, violating the requirement to prevent duplicates between the same pair. Evidence of missing unique enforcement: `packages/api/src/models/Relationship.ts` defines only non-unique indexes on `from`/`to`/`type`/`strength` (lines 26-49)."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The `implementation-worker` skill is configured for the org-planner repo structure and paths, but this mission\u2019s AGENTS boundary requires work in the Relay repo. This mismatch likely causes repeated worker deviations.",
+      "evidence": "Skill file: `.factory/skills/implementation-worker/SKILL.md` lines 3, 10, 32-44 target `/Users/andy/Documents/GitHub/org-planner` and `packages/server|packages/client`; mission AGENTS: `/Users/andy/.factory/missions/e9b0e43e-24b4-4baa-87be-b21f151a466c/AGENTS.md` lines 5, 7-8 require `/Users/andy/Documents/GitHub/relay` and ports 3100-3110."
+    },
+    {
+      "area": "services",
+      "observation": "Shared services metadata appears out-of-sync with mission runtime conventions: services point to org-planner commands/ports (3001/5173) while mission constraints require relay conventions (3100/3101).",
+      "evidence": "`.factory/services.yaml` lines 2-23 use `/Users/andy/Documents/GitHub/org-planner` and ports 3001/5173; mission AGENTS lines 5, 7-8 specify relay and port 3100/3101 range."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Local architecture/library docs are org-planner-specific, which does not match this mission\u2019s relay codebase and can increase exploration/debug overhead for workers.",
+      "evidence": "`.factory/library/architecture.md` describes org-planner (`packages/client`, `packages/server`), while mission AGENTS line 5 states code lives in relay (`packages/web`, `packages/api`, `packages/shared`)."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Fail: implementation is comprehensive, but duplicate relationship prevention is not race-safe due a check-then-create pattern without DB-level unique enforcement for undirected pairs. Shared-state mismatches were also observed between mission boundaries and project skill/services/library metadata."
+}
