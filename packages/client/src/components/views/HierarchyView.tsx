@@ -19,6 +19,7 @@ import { ChevronRight, GripVertical } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { cn } from '@/utils/cn';
 import type { Employee } from '@/types';
+import InlineEditableField from '@/components/inline/InlineEditableField';
 
 interface OutletContext {
   filteredEmployees: Employee[];
@@ -98,6 +99,14 @@ function flattenIds(nodes: TreeNode[], collapsed: Set<string>): string[] {
 /*  TreeRow                                                            */
 /* ------------------------------------------------------------------ */
 
+/** Editable field names for a hierarchy row */
+type RowField = 'name' | 'title' | 'department' | 'level';
+
+function validateName(value: string): string | null {
+  if (!value.trim()) return 'Name is required';
+  return null;
+}
+
 interface TreeRowProps {
   node: TreeNode;
   depth: number;
@@ -106,6 +115,7 @@ interface TreeRowProps {
   selectedId: string | null;
   onSelect: (employee: Employee) => void;
   activeId: string | null;
+  onInlineEdit: (id: string, field: string, value: string) => void;
 }
 
 function TreeRow({
@@ -116,11 +126,13 @@ function TreeRow({
   selectedId,
   onSelect,
   activeId,
+  onInlineEdit,
 }: TreeRowProps) {
   const { employee } = node;
   const hasChildren = node.children.length > 0;
   const isExpanded = !collapsed.has(employee._id);
   const isSelected = selectedId === employee._id;
+  const [isInlineEditing, setIsInlineEditing] = useState(false);
 
   const {
     attributes,
@@ -134,6 +146,7 @@ function TreeRow({
   } = useSortable({
     id: employee._id,
     data: { employee },
+    disabled: isInlineEditing,
   });
 
   const isOver = over?.id === employee._id && activeId !== employee._id;
@@ -143,6 +156,26 @@ function TreeRow({
     transition,
     paddingLeft: `${depth * 24 + 12}px`,
   };
+
+  const handleEditStart = useCallback(() => {
+    setIsInlineEditing(true);
+  }, []);
+
+  const handleEditEnd = useCallback(() => {
+    setIsInlineEditing(false);
+  }, []);
+
+  const handleSave = useCallback(
+    (field: string, value: string) => {
+      onInlineEdit(employee._id, field, value);
+    },
+    [employee._id, onInlineEdit],
+  );
+
+  const handleTab = useCallback((_field: RowField, _shiftKey: boolean) => {
+    // Tab navigation between fields is handled by browser focus management
+    // within the InlineEditableField component
+  }, []);
 
   return (
     <>
@@ -156,14 +189,21 @@ function TreeRow({
           isDragging && 'opacity-40',
           !isSelected && !isOver && !isDragging && 'hover:bg-gray-50',
         )}
-        onClick={() => onSelect(employee)}
+        onClick={() => {
+          if (!isInlineEditing) {
+            onSelect(employee);
+          }
+        }}
       >
         {/* Drag handle */}
         <button
           ref={setActivatorNodeRef}
           {...attributes}
           {...listeners}
-          className="shrink-0 cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing"
+          className={cn(
+            'shrink-0 cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing',
+            isInlineEditing && 'pointer-events-none opacity-30',
+          )}
           onClick={(e) => e.stopPropagation()}
         >
           <GripVertical size={16} />
@@ -199,27 +239,66 @@ function TreeRow({
         {/* Name + title */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="truncate font-medium text-gray-900">
-              {employee.name}
-            </span>
+            <InlineEditableField
+              value={employee.name}
+              fieldName="name"
+              onSave={(v) => handleSave('name', v)}
+              validate={validateName}
+              displayClassName="truncate font-medium text-gray-900"
+              inputClassName="text-sm font-medium"
+              testIdPrefix="hierarchy-inline"
+              onEditStart={handleEditStart}
+              onEditEnd={handleEditEnd}
+              onTab={(shiftKey) => handleTab('name', shiftKey)}
+            />
             {hasChildren && (
               <span className="text-xs text-gray-400">
                 ({node.children.length})
               </span>
             )}
           </div>
-          <div className="truncate text-xs text-gray-500">{employee.title}</div>
+          <InlineEditableField
+            value={employee.title}
+            fieldName="title"
+            onSave={(v) => handleSave('title', v)}
+            displayClassName="truncate text-xs text-gray-500"
+            inputClassName="text-xs"
+            testIdPrefix="hierarchy-inline"
+            onEditStart={handleEditStart}
+            onEditEnd={handleEditEnd}
+            onTab={(shiftKey) => handleTab('title', shiftKey)}
+          />
         </div>
 
         {/* Department */}
-        <span className="hidden w-28 shrink-0 truncate text-sm text-gray-500 md:block">
-          {employee.department}
-        </span>
+        <div className="hidden w-28 shrink-0 md:block">
+          <InlineEditableField
+            value={employee.department}
+            fieldName="department"
+            onSave={(v) => handleSave('department', v)}
+            displayClassName="truncate text-sm text-gray-500"
+            inputClassName="text-sm"
+            testIdPrefix="hierarchy-inline"
+            onEditStart={handleEditStart}
+            onEditEnd={handleEditEnd}
+            onTab={(shiftKey) => handleTab('department', shiftKey)}
+          />
+        </div>
 
         {/* Level */}
-        <span className="hidden w-16 shrink-0 truncate text-sm text-gray-500 lg:block">
-          {employee.level}
-        </span>
+        <div className="hidden w-16 shrink-0 lg:block">
+          <InlineEditableField
+            value={employee.level}
+            fieldName="level"
+            onSave={(v) => handleSave('level', v)}
+            displayClassName="truncate text-sm text-gray-500"
+            inputClassName="text-sm"
+            testIdPrefix="hierarchy-inline"
+            onEditStart={handleEditStart}
+            onEditEnd={handleEditEnd}
+            onTab={(shiftKey) => handleTab('level', shiftKey)}
+          />
+        </div>
 
         {/* Status badge */}
         <span
@@ -249,6 +328,7 @@ function TreeRow({
                 selectedId={selectedId}
                 onSelect={onSelect}
                 activeId={activeId}
+                onInlineEdit={onInlineEdit}
               />
             ))}
           </div>
@@ -282,7 +362,7 @@ function DragOverlayContent({ employee }: { employee: Employee }) {
 
 export default function HierarchyView() {
   const { filteredEmployees } = useOutletContext<OutletContext>();
-  const { employees, selectedEmployee, moveEmployee } = useOrgStore();
+  const { employees, selectedEmployee, moveEmployee, updateEmployee } = useOrgStore();
 
   // Tracks which nodes are *collapsed* – everything is expanded by default.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -350,6 +430,13 @@ export default function HierarchyView() {
     [moveEmployee],
   );
 
+  const handleInlineEdit = useCallback(
+    (id: string, field: string, value: string) => {
+      updateEmployee(id, { [field]: value });
+    },
+    [updateEmployee],
+  );
+
   /* -- render ------------------------------------------------------- */
 
   return (
@@ -374,6 +461,7 @@ export default function HierarchyView() {
               selectedId={selectedEmployee?._id ?? null}
               onSelect={handleSelect}
               activeId={activeId}
+              onInlineEdit={handleInlineEdit}
             />
           ))}
           {filteredEmployees.length === 0 && (

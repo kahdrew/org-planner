@@ -1,9 +1,10 @@
-import { memo } from 'react';
+import { memo, useState, useCallback } from 'react';
 import type { NodeProps } from '@xyflow/react';
 import { Handle, Position } from '@xyflow/react';
 import type { Employee } from '@/types';
 import { cn } from '@/utils/cn';
 import { useOrgStore } from '@/stores/orgStore';
+import InlineEditableField from '@/components/inline/InlineEditableField';
 
 const STATUS_COLORS: Record<Employee['status'], string> = {
   Active: 'border-l-blue-500',
@@ -47,15 +48,45 @@ function getAvatarColor(name: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
+/** Editable field names on the card */
+type CardField = 'name' | 'title' | 'department';
+
+function validateName(value: string): string | null {
+  if (!value.trim()) return 'Name is required';
+  return null;
+}
+
 type EmployeeNodeData = Employee & { label?: string };
 
 function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }) {
   const employee = data as Employee;
-  const selectEmployee = useOrgStore((s) => s.updateEmployee);
+  const updateEmployee = useOrgStore((s) => s.updateEmployee);
+  const [isInlineEditing, setIsInlineEditing] = useState(false);
 
-  const handleClick = () => {
-    useOrgStore.setState({ selectedEmployee: employee });
-  };
+  const handleClick = useCallback(() => {
+    if (!isInlineEditing) {
+      useOrgStore.setState({ selectedEmployee: employee });
+    }
+  }, [employee, isInlineEditing]);
+
+  const handleSave = useCallback(
+    (field: string, value: string) => {
+      updateEmployee(employee._id, { [field]: value });
+    },
+    [employee._id, updateEmployee],
+  );
+
+  const handleEditStart = useCallback(() => {
+    setIsInlineEditing(true);
+  }, []);
+
+  const handleEditEnd = useCallback(() => {
+    setIsInlineEditing(false);
+  }, []);
+
+  const handleTab = useCallback((_field: CardField, _shiftKey: boolean) => {
+    // Tab navigation between fields — currently handled by save + blur
+  }, []);
 
   return (
     <div
@@ -63,7 +94,8 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
       className={cn(
         'w-[220px] cursor-pointer rounded-lg border border-gray-200 border-l-4 bg-white shadow-sm transition-shadow hover:shadow-md',
         STATUS_COLORS[employee.status],
-        selected && 'ring-2 ring-blue-500 ring-offset-1'
+        selected && 'ring-2 ring-blue-500 ring-offset-1',
+        isInlineEditing && 'nopan nodrag',
       )}
     >
       <Handle type="target" position={Position.Top} className="!bg-gray-300 !w-2 !h-2" />
@@ -80,13 +112,44 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
           </div>
 
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-gray-900">{employee.name}</p>
-            <p className="truncate text-xs text-gray-500">{employee.title}</p>
+            <InlineEditableField
+              value={employee.name}
+              fieldName="name"
+              onSave={(v) => handleSave('name', v)}
+              validate={validateName}
+              displayClassName="truncate text-sm font-semibold text-gray-900"
+              inputClassName="text-sm font-semibold"
+              testIdPrefix="card-inline"
+              onEditStart={handleEditStart}
+              onEditEnd={handleEditEnd}
+              onTab={(shiftKey) => handleTab('name', shiftKey)}
+            />
+            <InlineEditableField
+              value={employee.title}
+              fieldName="title"
+              onSave={(v) => handleSave('title', v)}
+              displayClassName="truncate text-xs text-gray-500"
+              inputClassName="text-xs"
+              testIdPrefix="card-inline"
+              onEditStart={handleEditStart}
+              onEditEnd={handleEditEnd}
+              onTab={(shiftKey) => handleTab('title', shiftKey)}
+            />
           </div>
         </div>
 
         <div className="mt-2 flex items-center gap-1 text-xs text-gray-400">
-          <span className="truncate">{employee.department}</span>
+          <InlineEditableField
+            value={employee.department}
+            fieldName="department"
+            onSave={(v) => handleSave('department', v)}
+            displayClassName="truncate text-xs text-gray-400"
+            inputClassName="text-xs"
+            testIdPrefix="card-inline"
+            onEditStart={handleEditStart}
+            onEditEnd={handleEditEnd}
+            onTab={(shiftKey) => handleTab('department', shiftKey)}
+          />
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-1">
