@@ -1,0 +1,97 @@
+{
+  "milestone": "core-ux",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 42,
+    "passed": 32,
+    "failed": 8,
+    "blocked": 2
+  },
+  "passedAssertions": [
+    "VAL-CROSS-011",
+    "VAL-CROSS-012",
+    "VAL-CROSS-013",
+    "VAL-INLINE-001",
+    "VAL-INLINE-002",
+    "VAL-INLINE-003",
+    "VAL-INLINE-004",
+    "VAL-INLINE-005",
+    "VAL-INLINE-006",
+    "VAL-INLINE-007",
+    "VAL-INLINE-008",
+    "VAL-KEY-003",
+    "VAL-KEY-004",
+    "VAL-KEY-005",
+    "VAL-KEY-006",
+    "VAL-MULTI-001",
+    "VAL-MULTI-004",
+    "VAL-MULTI-005",
+    "VAL-MULTI-006",
+    "VAL-MULTI-007",
+    "VAL-MULTI-008",
+    "VAL-MULTI-009",
+    "VAL-UNDO-001",
+    "VAL-UNDO-002",
+    "VAL-UNDO-003",
+    "VAL-UNDO-005",
+    "VAL-UNDO-006",
+    "VAL-UNDO-007",
+    "VAL-UNDO-008",
+    "VAL-UNDO-009",
+    "VAL-UNDO-010",
+    "VAL-UNDO-011"
+  ],
+  "failedAssertions": [
+    {
+      "id": "VAL-CROSS-009",
+      "reason": "Real-time cross-session update did not occur without refresh."
+    },
+    {
+      "id": "VAL-CROSS-010",
+      "reason": "Second save overwrote the first tab's title update instead of preserving both field changes."
+    },
+    {
+      "id": "VAL-KEY-001",
+      "reason": "Cmd+K does not open a command palette; only focuses the toolbar search input (dialogs count observed as 0)."
+    },
+    {
+      "id": "VAL-KEY-002",
+      "reason": "Command-palette result list/selection behavior is absent."
+    },
+    {
+      "id": "VAL-KEY-007",
+      "reason": "Cross-view Cmd+Z worked, but Cmd+K did not open command palette in any view (focuses toolbar search instead)."
+    },
+    {
+      "id": "VAL-MULTI-002",
+      "reason": "Shift+Click range selection could not be reproduced in either HierarchyView or SpreadsheetView; only single-item selection occurred."
+    },
+    {
+      "id": "VAL-MULTI-003",
+      "reason": "Marquee drag did not result in card selection on release."
+    },
+    {
+      "id": "VAL-MULTI-010",
+      "reason": "Cmd+A did not trigger select-all behavior in tested views; expected full multi-select state was not observed."
+    }
+  ],
+  "blockedAssertions": [
+    {
+      "id": "VAL-CROSS-008",
+      "blockedBy": "Feature surface required by assertion is not present in current build, so end-to-end validation cannot be executed."
+    },
+    {
+      "id": "VAL-UNDO-004",
+      "blockedBy": "Blocked: manager reassignment drag could not be triggered through agent-browser interactions (mouse, selector drag, or hierarchy keyboard drag), so undo behavior for reassignment could not be validated."
+    }
+  ],
+  "appliedUpdates": [
+    {
+      "target": "user-testing.md",
+      "description": "Added AG Grid row-selection and multi-tab isolation guidance discovered during core-ux flow validation.",
+      "source": "flow-report"
+    }
+  ],
+  "previousRound": null
+}

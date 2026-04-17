@@ -79,3 +79,12 @@ Useful endpoints for quickly creating minimal test data after obtaining a JWT:
 - CSV import uses a native OS file picker; in headless runs, target the generated `<input type="file">` and dispatch a `change` event with a synthetic `File`.
 - In SpreadsheetView (AG Grid), selection checks may require DOM-targeted row interactions when accessibility snapshots do not expose row handles consistently.
 - For cross-session realtime/concurrency assertions, two simultaneous tabs can provide reliable isolation when only one credential set is assigned.
+
+## Core-UX Rerun Notes (Round 2)
+
+- Validation contract semantics for keyboard assertions:
+  - `VAL-KEY-001`: Cmd+K must focus the existing toolbar search input.
+  - `VAL-KEY-002`: search query must filter employees in the current view.
+  - `VAL-KEY-007`: verify Cmd+K focus + undo/delete shortcut behavior across views (not command-palette behavior).
+- For Backspace delete-shortcut checks, select the card/row container first; clicking inline text can enter edit mode and route Backspace to text editing.
+- For multi-user assertions requiring truly separate authenticated contexts, prefer separate `agent-browser` sessions (e.g., `__u1`/`__u2`) over two tabs in one session.

@@ -1,0 +1,154 @@
+{
+  "groupId": "cross-rerun",
+  "testedAt": "2026-04-17T03:31:52Z",
+  "isolation": {
+    "namespace": "coreux_cross_g4",
+    "appUrl": "http://localhost:5173",
+    "credentialsA": "coreux_cross_a@example.com / TestPass123!",
+    "credentialsB": "coreux_cross_b@example.com / TestPass123!",
+    "orgNamePrefix": "CoreUX CROSS G4",
+    "scenarioNamePrefix": "Baseline G4"
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-CROSS-008",
+      "title": "Scheduled changes reflect on timeline slider",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Open Org Chart and inspect toolbar/viewport for timeline slider and pending markers",
+          "expected": "Timeline slider and pending marker controls are visible",
+          "observed": "No timeline slider or pending marker controls were present in the Org Chart UI"
+        },
+        {
+          "action": "Open employee details and look for a future-effective scheduling control for title changes",
+          "expected": "A control to schedule a future effective date is available",
+          "observed": "Only standard editable fields were present; no effective-dated change scheduling control was available"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/cross-rerun/16-val-cross-008-no-timeline-controls.png",
+          "core-ux/cross-rerun/07-employee-detail-open.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No timeline/effective-date flow request was triggerable because required UI controls were absent"
+      },
+      "issues": "Blocked: timeline/effective-dated scheduling surface required by this assertion is not available in the current build (future-milestone dependency)."
+    },
+    {
+      "id": "VAL-CROSS-009",
+      "title": "SSE updates visible to other users across views",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Open tab B on Org Chart, keeping baseline view visible",
+          "expected": "Tab B stays subscribed for realtime updates",
+          "observed": "Tab B loaded and showed only the original employee"
+        },
+        {
+          "action": "In tab A, add employee 'G4 SSE Employee' without reloading tab B",
+          "expected": "Tab B shows the new employee in realtime",
+          "observed": "Tab A showed the new employee, but tab B did not update after 2.5s and 7.5s waits"
+        },
+        {
+          "action": "Inspect network for SSE/event stream activity",
+          "expected": "SSE/event stream request and event activity are present",
+          "observed": "No event stream request was captured"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/cross-rerun/08-val-cross-009-tabB-before.png",
+          "core-ux/cross-rerun/09-val-cross-009-tabA-after-add.png",
+          "core-ux/cross-rerun/10-val-cross-009-tabB-after-2_5s.png",
+          "core-ux/cross-rerun/11-val-cross-009-tabB-after-7_5s.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No requests captured for filter 'events' in observer tab"
+      },
+      "issues": "Blocked: realtime SSE collaboration behavior required by this assertion is absent in the current build (future-milestone dependency)."
+    },
+    {
+      "id": "VAL-CROSS-010",
+      "title": "Concurrent edits to same employee preserve both changes",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Open same employee details in tab A and tab B",
+          "expected": "Both tabs can edit independently and merge safely",
+          "observed": "Both tabs loaded editable detail forms for the same employee"
+        },
+        {
+          "action": "Tab A save title change ('Lead Engineer A'), then tab B save salary change",
+          "expected": "Final state preserves both title and salary changes",
+          "observed": "After reloading tab A, title reverted to 'Software Engineer' and salary remained empty"
+        },
+        {
+          "action": "Inspect network logs for employee update calls",
+          "expected": "Successful patches with merge-safe persisted result",
+          "observed": "PATCH /api/employees/69e1a88d46fd591723f861bc was observed, but final persisted state did not preserve both updates"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/cross-rerun/12-val-cross-010-tabB-before-edit.png",
+          "core-ux/cross-rerun/13-val-cross-010-tabA-before-edit.png",
+          "core-ux/cross-rerun/14-val-cross-010-tabA-after-title-save.png",
+          "core-ux/cross-rerun/15-val-cross-010-tabB-after-salary-save.png",
+          "core-ux/cross-rerun/17-val-cross-010-final-state.png",
+          "core-ux/cross-rerun/18-val-cross-010-final-detail-values.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH http://localhost:5173/api/employees/69e1a88d46fd591723f861bc (xhr)"
+      },
+      "issues": "Blocked: cross-session collaboration/merge semantics needed for this assertion are not available in the current milestone scope; observed behavior also indicates last-write overwrite."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Single-session resource guidance prevented true dual-auth browser contexts; used two tabs in one session as closest non-disruptive isolation.",
+      "resolved": true,
+      "resolution": "Executed observer/editor flow in separate tabs and documented limitation in assertion outcomes.",
+      "affectedAssertions": [
+        "VAL-CROSS-009",
+        "VAL-CROSS-010"
+      ]
+    },
+    {
+      "description": "agent-browser ref IDs invalidated frequently during detail-panel interactions.",
+      "resolved": true,
+      "resolution": "Re-snapshotted before interactions and used semantic/eval locators when refs became stale.",
+      "affectedAssertions": [
+        "VAL-CROSS-010"
+      ]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "Timeline/effective-dated scheduling controls required by VAL-CROSS-008 were absent in UI.",
+      "affectedAssertions": [
+        "VAL-CROSS-008"
+      ],
+      "quickFixAttempted": "Checked Org Chart toolbar and employee detail panel for scheduling/timeline controls; none available."
+    },
+    {
+      "description": "Realtime SSE propagation prerequisites were absent; observer tab did not receive event-driven updates.",
+      "affectedAssertions": [
+        "VAL-CROSS-009"
+      ],
+      "quickFixAttempted": "Waited for realtime propagation windows (2.5s and 7.5s) and checked event-network capture; no event activity observed."
+    },
+    {
+      "description": "Concurrent merge-safe edit behavior depends on collaboration capabilities not present in current milestone scope.",
+      "affectedAssertions": [
+        "VAL-CROSS-010"
+      ],
+      "quickFixAttempted": "Ran same-employee two-tab save sequence and validated persisted state via reload; both edits were not preserved."
+    }
+  ],
+  "summary": "Tested 3 assertions: 0 passed, 0 failed, 3 blocked (VAL-CROSS-008/009/010) due absent future-milestone timeline/SSE collaboration prerequisites; supporting rerun evidence captured."
+}

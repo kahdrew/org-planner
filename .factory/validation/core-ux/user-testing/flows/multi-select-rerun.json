@@ -1,0 +1,126 @@
+{
+  "groupId": "multi-select-rerun",
+  "testedAt": "2026-04-17T03:30:15Z",
+  "isolation": {
+    "namespace": "coreux_ms_g1",
+    "appUrl": "http://localhost:5173",
+    "credentials": {
+      "email": "coreux_ms_g1@example.com",
+      "password": "TestPass123!"
+    },
+    "orgName": "CoreUX MS G1 Org Rerun",
+    "scenarioName": "Baseline G1 Rerun",
+    "orgNamePrefix": "CoreUX MS G1",
+    "scenarioNamePrefix": "Baseline G1"
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-MULTI-002",
+      "title": "Shift+Click range select in list views",
+      "status": "fail",
+      "reason": "In HierarchyView, selecting first employee then Shift+Clicking the fourth still resulted in single selection only (delete dialog showed 'Delete 1 Employee').",
+      "steps": [
+        {
+          "action": "Navigate to HierarchyView and clear prior selection",
+          "expected": "No employees selected before range test",
+          "observed": "Selection cleared via 'Clear selection (Escape)'."
+        },
+        {
+          "action": "Click 'CoreUX MS G1 Emp 1', then hold Shift and click 'CoreUX MS G1 Emp 4'",
+          "expected": "Employees 1 through 4 selected inclusively",
+          "observed": "Only one employee remained selected; range selection did not occur."
+        },
+        {
+          "action": "Open Delete Selected dialog to verify selected count",
+          "expected": "Dialog count reflects all employees in range",
+          "observed": "Dialog button text showed 'Delete 1 Employee'."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/multi-select-rerun/VAL-MULTI-002-shift-click-range-hierarchy-final.png",
+          "core-ux/multi-select-rerun/VAL-MULTI-002-shift-click-hierarchy-delete-dialog-count.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No requests captured during this UI-only interaction"
+      },
+      "issues": "Shift+Click range selection did not activate; behavior stayed at single-item selection."
+    },
+    {
+      "id": "VAL-MULTI-003",
+      "title": "Lasso/marquee select in OrgChartView",
+      "status": "fail",
+      "reason": "Dragging marquee rectangles on canvas (with and without Shift) did not produce multi-select state or bulk action controls.",
+      "steps": [
+        {
+          "action": "Navigate to OrgChartView and clear selection",
+          "expected": "Ready for marquee selection",
+          "observed": "OrgChart visible with 4 employee cards."
+        },
+        {
+          "action": "Click-drag on canvas background to draw selection rectangle around cards",
+          "expected": "Cards in rectangle become selected",
+          "observed": "No multi-select state appeared after drag release."
+        },
+        {
+          "action": "Retry drag with Shift modifier",
+          "expected": "Marquee selection selects enclosed cards",
+          "observed": "Still no selected-state/bulk-action UI appeared."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/multi-select-rerun/VAL-MULTI-003-lasso-selection-orgchart.png",
+          "core-ux/multi-select-rerun/VAL-MULTI-003-lasso-selection-orgchart-attempt2.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No requests captured during this UI-only interaction"
+      },
+      "issues": "Marquee/lasso drag did not result in selecting any employees."
+    },
+    {
+      "id": "VAL-MULTI-010",
+      "title": "Select all with Cmd+A",
+      "status": "pass",
+      "reason": "Cmd+A in HierarchyView selected all employees; confirmation dialog reflected full count.",
+      "steps": [
+        {
+          "action": "Navigate to HierarchyView and press Cmd+A",
+          "expected": "All employees selected",
+          "observed": "Bulk action toolbar became available with all rows selected."
+        },
+        {
+          "action": "Open Delete Selected dialog to verify selected count",
+          "expected": "Count matches total employees",
+          "observed": "Dialog button text showed 'Delete 4 Employees' for 4 total employees."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/multi-select-rerun/VAL-MULTI-010-cmd-a-hierarchy.png",
+          "core-ux/multi-select-rerun/VAL-MULTI-010-cmd-a-hierarchy-delete-dialog-count.png",
+          "core-ux/multi-select-rerun/VAL-MULTI-010-cmd-a-orgchart.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No requests captured during this UI-only interaction"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Spreadsheet/AG Grid interactions were not reliably exposed via accessibility refs in this run, causing ambiguous locator matches for row targeting.",
+      "resolved": true,
+      "resolution": "Validated VAL-MULTI-002 and VAL-MULTI-010 in HierarchyView where row targets and selection outcomes were deterministic.",
+      "affectedAssertions": [
+        "VAL-MULTI-002",
+        "VAL-MULTI-010"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Retested 3 assertions: 1 passed (VAL-MULTI-010) and 2 failed (VAL-MULTI-002, VAL-MULTI-003)."
+}

@@ -1,0 +1,67 @@
+{
+  "groupId": "undo-drag-rerun",
+  "testedAt": "2026-04-17T03:30:52Z",
+  "isolation": {
+    "namespace": "coreux_undo_g3",
+    "appUrl": "http://localhost:5173",
+    "credentials": {
+      "email": "coreux_undo_g3@example.com",
+      "password": "TestPass123!"
+    },
+    "orgNamePrefix": "CoreUX UNDO G3",
+    "scenarioNamePrefix": "Baseline G3"
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-UNDO-004",
+      "title": "Undo reverts manager reassignment",
+      "status": "pass",
+      "reason": "Drag reassignment succeeded (employee moved from Manager A to Manager B) and Cmd+Z restored the employee to Manager A with hierarchy/org-chart updates.",
+      "steps": [
+        {
+          "action": "Open Hierarchy view baseline state",
+          "expected": "G3 Employee Move is under G3 Manager A",
+          "observed": "Hierarchy shows G3 Manager A(1), and G3 Manager B has no direct reports."
+        },
+        {
+          "action": "Drag G3 Employee Move row onto G3 Manager B row",
+          "expected": "Employee reparented to G3 Manager B",
+          "observed": "Hierarchy updates to G3 Manager B(1), employee appears under G3 Manager B; org chart reflects moved node."
+        },
+        {
+          "action": "Press Cmd+Z",
+          "expected": "Employee returns to original manager (G3 Manager A)",
+          "observed": "Hierarchy returns to G3 Manager A(1), G3 Manager B has no direct reports; org chart returns to original edge structure."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/undo-drag-rerun/VAL-UNDO-004-before-move-orgchart.png",
+          "core-ux/undo-drag-rerun/VAL-UNDO-004-before-move-hierarchy.png",
+          "core-ux/undo-drag-rerun/VAL-UNDO-004-after-move-orgchart.png",
+          "core-ux/undo-drag-rerun/VAL-UNDO-004-after-move-hierarchy.png",
+          "core-ux/undo-drag-rerun/VAL-UNDO-004-after-undo-orgchart.png",
+          "core-ux/undo-drag-rerun/VAL-UNDO-004-after-undo-hierarchy.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e1a87946fd591723f861b4/move observed during move and undo sequence (tracked count increased from 2 before undo to 6 after Cmd+Z)."
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Org Chart drag via selector-based drag command was intermittently blocked by overlapping edge/pane interception in automation.",
+      "resolved": true,
+      "resolution": "Executed reassignment deterministically in Hierarchy view using direct mouse drag coordinates; verified outcome in both Hierarchy and Org Chart views.",
+      "affectedAssertions": [
+        "VAL-UNDO-004"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Retested 1 assertion (VAL-UNDO-004): passed. Manager reassignment drag worked and undo restored original manager relationship with consistent UI and network evidence."
+}

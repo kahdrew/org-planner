@@ -1,0 +1,117 @@
+{
+  "groupId": "keyboard-rerun",
+  "testedAt": "2026-04-17T03:31:03Z",
+  "isolation": {
+    "namespace": "coreux_key_g2",
+    "appUrl": "http://localhost:5173",
+    "credentials": {
+      "email": "coreux_key_g2@example.com",
+      "password": "TestPass123!"
+    },
+    "orgNamePrefix": "CoreUX KEY G2",
+    "scenarioNamePrefix": "Baseline G2"
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-KEY-001",
+      "title": "Cmd+K focuses the search bar",
+      "status": "pass",
+      "reason": "Cmd+K focus check returned true on /, /hierarchy, /spreadsheet, /kanban, and /compare.",
+      "steps": [
+        {
+          "action": "Open each of the 5 view routes and press Cmd+K",
+          "expected": "Search input gets focus and is ready for typing",
+          "observed": "Focus verification script returned true on all 5 routes"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/keyboard-rerun/VAL-KEY-001-cmdk-focus-orgchart.png",
+          "core-ux/keyboard-rerun/VAL-KEY-001-cmdk-focus-compare.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No API calls required for focus-only shortcut validation"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-KEY-002",
+      "title": "Search filters employees in current view",
+      "status": "pass",
+      "reason": "Typing a query in search immediately filtered visible employees to matching names only.",
+      "steps": [
+        {
+          "action": "In Org Chart route, enter search query \"Alice\"",
+          "expected": "Current view filters to matching employee(s) in real time",
+          "observed": "Only Alice KeyG2 remained visible; Bob KeyG2 was hidden"
+        },
+        {
+          "action": "Clear query, trigger Cmd+K, and type \"Bob\"",
+          "expected": "Current view re-filters to Bob match",
+          "observed": "Only Bob KeyG2 remained visible"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/keyboard-rerun/VAL-KEY-002-search-filter-orgchart.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No API calls required for client-side filtering behavior"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-KEY-007",
+      "title": "Shortcuts work across all 5 views",
+      "status": "pass",
+      "reason": "On all 5 routes, Cmd+K focused search, Backspace opened delete confirmation for selected employee, and Cmd+Z restored deleted employee.",
+      "steps": [
+        {
+          "action": "Verify Cmd+K focus behavior on /, /hierarchy, /spreadsheet, /kanban, /compare",
+          "expected": "Search receives focus from every view",
+          "observed": "Focus verification returned true for all 5 routes"
+        },
+        {
+          "action": "For each route, select Bob KeyG2 and press Backspace",
+          "expected": "Deletion confirmation dialog appears",
+          "observed": "Delete confirmation dialog appeared on each route"
+        },
+        {
+          "action": "Confirm delete, then press Cmd+Z on each route",
+          "expected": "Undo restores Bob KeyG2 regardless of active view",
+          "observed": "Bob KeyG2 was restored after Cmd+Z on each route"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "core-ux/keyboard-rerun/VAL-KEY-007-orgchart-backspace-dialog.png",
+          "core-ux/keyboard-rerun/VAL-KEY-007-orgchart-undo-restored.png",
+          "core-ux/keyboard-rerun/VAL-KEY-007-hierarchy-cmdk-focus.png",
+          "core-ux/keyboard-rerun/VAL-KEY-007-hierarchy-backspace-dialog.png",
+          "core-ux/keyboard-rerun/VAL-KEY-007-hierarchy-undo-restored.png",
+          "core-ux/keyboard-rerun/VAL-KEY-007-spreadsheet-undo-restored.png",
+          "core-ux/keyboard-rerun/VAL-KEY-007-kanban-undo-restored.png",
+          "core-ux/keyboard-rerun/VAL-KEY-007-compare-undo-restored.png"
+        ],
+        "consoleErrors": "none",
+        "network": "DELETE /api/employees/:id observed for Backspace deletions; POST /api/scenarios/:scenarioId/employees observed during undo restores"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Clicking employee name text enters inline edit mode, so Backspace edits text instead of triggering delete shortcut.",
+      "resolved": true,
+      "resolution": "Selected the employee card/row container before pressing Backspace.",
+      "affectedAssertions": [
+        "VAL-KEY-007"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 3 assertions (VAL-KEY-001, VAL-KEY-002, VAL-KEY-007): all passed in namespace coreux_key_g2 with required screenshot and console/network evidence."
+}
