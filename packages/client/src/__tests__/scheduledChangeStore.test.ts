@@ -122,9 +122,10 @@ describe('scheduledChangeStore', () => {
       useScheduledChangeStore.setState({ scheduledChanges: [mockChange, mockChange2] });
       mockApi.applyDueChanges.mockResolvedValue({ applied: ['sc1'], count: 1 });
 
-      const count = await useScheduledChangeStore.getState().applyDueChanges();
+      const count = await useScheduledChangeStore.getState().applyDueChanges('scen1');
 
       expect(count).toBe(1);
+      expect(mockApi.applyDueChanges).toHaveBeenCalledWith('scen1');
       const changes = useScheduledChangeStore.getState().scheduledChanges;
       expect(changes.find((c) => c._id === 'sc1')?.status).toBe('applied');
       expect(changes.find((c) => c._id === 'sc2')?.status).toBe('pending');
@@ -132,7 +133,7 @@ describe('scheduledChangeStore', () => {
 
     it('returns 0 when no changes are due', async () => {
       mockApi.applyDueChanges.mockResolvedValue({ applied: [], count: 0 });
-      const count = await useScheduledChangeStore.getState().applyDueChanges();
+      const count = await useScheduledChangeStore.getState().applyDueChanges('scen1');
       expect(count).toBe(0);
     });
   });

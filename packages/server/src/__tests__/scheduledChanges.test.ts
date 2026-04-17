@@ -15,6 +15,7 @@ import ScheduledChange from "../models/ScheduledChange";
 
 const TEST_PREFIX = `sched_test_${Date.now()}`;
 let ownerToken: string;
+let outsiderToken: string;
 let orgId: string;
 let scenarioId: string;
 let employeeId: string;
@@ -48,6 +49,12 @@ beforeAll(async () => {
     .post("/api/auth/register")
     .send(testCreds("owner"));
   ownerToken = ownerRes.body.token;
+
+  // Register outsider (not a member of the org)
+  const outsiderRes = await request(app)
+    .post("/api/auth/register")
+    .send(testCreds("outsider"));
+  outsiderToken = outsiderRes.body.token;
 
   // Create org
   const orgRes = await request(app)
@@ -296,7 +303,7 @@ describe("Scheduled Changes API", () => {
     });
   });
 
-  describe("POST /api/scheduled-changes/apply-due", () => {
+  describe("POST /api/scenarios/:id/scheduled-changes/apply-due", () => {
     let applyEmployeeId: string;
     let applyChangeId: string;
 
@@ -329,9 +336,9 @@ describe("Scheduled Changes API", () => {
         });
       applyChangeId = changeRes.body._id;
 
-      // Apply due changes
+      // Apply due changes — now scenario-scoped
       const res = await request(app)
-        .post(`/api/scheduled-changes/apply-due`)
+        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`)
         .set("Authorization", `Bearer ${ownerToken}`);
 
       expect(res.status).toBe(200);
@@ -357,7 +364,7 @@ describe("Scheduled Changes API", () => {
         });
 
       const res = await request(app)
-        .post(`/api/scheduled-changes/apply-due`)
+        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`)
         .set("Authorization", `Bearer ${ownerToken}`);
 
       expect(res.status).toBe(200);
@@ -367,6 +374,158 @@ describe("Scheduled Changes API", () => {
       // Verify employee still has the last applied title
       const empCheck = await Employee.findById(applyEmployeeId);
       expect(empCheck?.title).toBe("Senior Engineer");
+    });
+
+    it("rejects unauthorized user (non-member)", async () => {
+      const res = await request(app)
+        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`)
+        .set("Authorization", `Bearer ${outsiderToken}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it("rejects unauthenticated request", async () => {
+      const res = await request(app)
+        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`);
+
+      expect(res.status).toBe(401);
+    });
+
+    it("only applies changes for the specified scenario", async () => {
+      // Create a second scenario with its own employee and scheduled change
+      const scenario2Res = await request(app)
+        .post(`/api/orgs/${orgId}/scenarios`)
+        .set("Authorization", `Bearer ${ownerToken}`)
+        .send({ name: "Isolated Scenario" });
+      const scenario2Id = scenario2Res.body._id;
+
+      const emp2Res = await request(app)
+        .post(`/api/scenarios/${scenario2Id}/employees`)
+        .set("Authorization", `Bearer ${ownerToken}`)
+        .send({
+          name: "Isolated Employee",
+          title: "Analyst",
+          department: "Finance",
+          level: "IC2",
+          location: "NYC",
+          employmentType: "FTE",
+          status: "Active",
+        });
+      const emp2Id = emp2Res.body._id;
+
+      const today = new Date().toISOString().split("T")[0];
+      await request(app)
+        .post(`/api/scenarios/${scenario2Id}/scheduled-changes`)
+        .set("Authorization", `Bearer ${ownerToken}`)
+        .send({
+          employeeId: emp2Id,
+          effectiveDate: today,
+          changeType: "promotion",
+          changeData: { title: "Senior Analyst" },
+        });
+
+      // Apply due changes only for the FIRST scenario
+      const res = await request(app)
+        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`)
+        .set("Authorization", `Bearer ${ownerToken}`);
+
+      expect(res.status).toBe(200);
+
+      // Verify the second scenario's employee was NOT changed
+      const emp2Check = await Employee.findById(emp2Id);
+      expect(emp2Check?.title).toBe("Analyst");
+
+      // Clean up
+      await ScheduledChange.deleteMany({ scenarioId: scenario2Id });
+      await Employee.deleteMany({ scenarioId: scenario2Id });
+      await Scenario.deleteMany({ _id: scenario2Id });
+    });
+  });
+
+  describe("Auto-apply middleware", () => {
+    it("auto-applies due changes when listing employees", async () => {
+      // Create a new employee
+      const empRes = await request(app)
+        .post(`/api/scenarios/${scenarioId}/employees`)
+        .set("Authorization", `Bearer ${ownerToken}`)
+        .send({
+          name: "Auto Apply Test",
+          title: "Intern",
+          department: "Engineering",
+          level: "IC0",
+          location: "Remote",
+          employmentType: "Intern",
+          status: "Active",
+        });
+      const autoEmpId = empRes.body._id;
+
+      // Create a due change (today's date)
+      const today = new Date().toISOString().split("T")[0];
+      const changeRes = await request(app)
+        .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
+        .set("Authorization", `Bearer ${ownerToken}`)
+        .send({
+          employeeId: autoEmpId,
+          effectiveDate: today,
+          changeType: "promotion",
+          changeData: { title: "Junior Engineer", level: "IC1" },
+        });
+
+      // GET employees — should trigger auto-apply middleware
+      const res = await request(app)
+        .get(`/api/scenarios/${scenarioId}/employees`)
+        .set("Authorization", `Bearer ${ownerToken}`);
+
+      expect(res.status).toBe(200);
+
+      // Verify employee was auto-updated
+      const empCheck = await Employee.findById(autoEmpId);
+      expect(empCheck?.title).toBe("Junior Engineer");
+      expect(empCheck?.level).toBe("IC1");
+
+      // Verify the scheduled change status was updated to applied
+      const changeCheck = await ScheduledChange.findById(changeRes.body._id);
+      expect(changeCheck?.status).toBe("applied");
+    });
+
+    it("auto-applies due changes when listing scheduled changes", async () => {
+      // Create a new employee
+      const empRes = await request(app)
+        .post(`/api/scenarios/${scenarioId}/employees`)
+        .set("Authorization", `Bearer ${ownerToken}`)
+        .send({
+          name: "Auto Apply SC Test",
+          title: "Designer",
+          department: "Design",
+          level: "IC2",
+          location: "Remote",
+          employmentType: "FTE",
+          status: "Active",
+        });
+      const autoEmpId = empRes.body._id;
+
+      // Create a due change
+      const today = new Date().toISOString().split("T")[0];
+      const changeRes = await request(app)
+        .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
+        .set("Authorization", `Bearer ${ownerToken}`)
+        .send({
+          employeeId: autoEmpId,
+          effectiveDate: today,
+          changeType: "edit",
+          changeData: { title: "Senior Designer" },
+        });
+
+      // GET scheduled changes — should trigger auto-apply middleware
+      const res = await request(app)
+        .get(`/api/scenarios/${scenarioId}/scheduled-changes`)
+        .set("Authorization", `Bearer ${ownerToken}`);
+
+      expect(res.status).toBe(200);
+
+      // Verify the change was applied
+      const changeCheck = await ScheduledChange.findById(changeRes.body._id);
+      expect(changeCheck?.status).toBe("applied");
     });
   });
 });

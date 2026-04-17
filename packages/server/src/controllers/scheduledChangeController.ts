@@ -210,15 +210,17 @@ export const deleteScheduledChange = async (req: AuthRequest, res: Response): Pr
 };
 
 /**
- * POST /api/scheduled-changes/apply-due
- * Apply all pending scheduled changes whose effectiveDate has arrived.
- * This can be called by a cron job or middleware.
+ * POST /api/scenarios/:id/scheduled-changes/apply-due
+ * Apply pending scheduled changes whose effectiveDate has arrived for this scenario.
+ * Authorization is enforced by requireScenarioRole middleware on the route.
  */
 export const applyDueChanges = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const scenarioId = req.params.id;
     const now = new Date();
 
     const dueChanges = await ScheduledChange.find({
+      scenarioId,
       status: "pending",
       effectiveDate: { $lte: now },
     });
@@ -244,3 +246,33 @@ export const applyDueChanges = async (req: AuthRequest, res: Response): Promise<
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+/**
+ * Apply due scheduled changes for a specific scenario.
+ * Used internally by the auto-apply middleware — no HTTP request/response.
+ */
+export async function applyDueChangesForScenario(scenarioId: string): Promise<number> {
+  const now = new Date();
+
+  const dueChanges = await ScheduledChange.find({
+    scenarioId,
+    status: "pending",
+    effectiveDate: { $lte: now },
+  });
+
+  let appliedCount = 0;
+
+  for (const change of dueChanges) {
+    const employee = await Employee.findById(change.employeeId);
+    if (!employee) {
+      await ScheduledChange.findByIdAndUpdate(change._id, { status: "cancelled" });
+      continue;
+    }
+
+    await Employee.findByIdAndUpdate(change.employeeId, change.changeData);
+    await ScheduledChange.findByIdAndUpdate(change._id, { status: "applied" });
+    appliedCount++;
+  }
+
+  return appliedCount;
+}

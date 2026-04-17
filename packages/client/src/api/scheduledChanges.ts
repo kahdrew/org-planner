@@ -42,9 +42,11 @@ export async function deleteScheduledChange(id: string): Promise<ScheduledChange
   return data;
 }
 
-export async function applyDueChanges(): Promise<{ applied: string[]; count: number }> {
+export async function applyDueChanges(
+  scenarioId: string,
+): Promise<{ applied: string[]; count: number }> {
   const { data } = await client.post<{ applied: string[]; count: number }>(
-    '/scheduled-changes/apply-due',
+    `/scenarios/${scenarioId}/scheduled-changes/apply-due`,
   );
   return data;
 }

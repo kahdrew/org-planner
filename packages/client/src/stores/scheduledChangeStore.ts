@@ -21,7 +21,7 @@ interface ScheduledChangeState {
     updates: Partial<Pick<ScheduledChange, 'effectiveDate' | 'changeType' | 'changeData'>>,
   ) => Promise<void>;
   cancelScheduledChange: (id: string) => Promise<void>;
-  applyDueChanges: () => Promise<number>;
+  applyDueChanges: (scenarioId: string) => Promise<number>;
   /** Get all pending changes for a specific employee */
   getPendingChangesForEmployee: (employeeId: string) => ScheduledChange[];
   /** Check if an employee has any pending changes */
@@ -70,8 +70,8 @@ export const useScheduledChangeStore = create<ScheduledChangeState>((set, get) =
     }));
   },
 
-  applyDueChanges: async () => {
-    const result = await scheduledChangesApi.applyDueChanges();
+  applyDueChanges: async (scenarioId) => {
+    const result = await scheduledChangesApi.applyDueChanges(scenarioId);
     if (result.count > 0) {
       // Update local state: mark applied changes
       set((state) => ({
