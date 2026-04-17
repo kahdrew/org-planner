@@ -5,18 +5,44 @@ import Toolbar from './Toolbar';
 import HeadcountSummary from '@/components/panels/HeadcountSummary';
 import EmployeeDetailPanel from '@/components/panels/EmployeeDetailPanel';
 import BudgetPanel from '@/components/panels/BudgetPanel';
+import BulkOperationsToolbar from '@/components/bulk/BulkOperationsToolbar';
 import { useOrgStore } from '@/stores/orgStore';
 import { useUndoRedoStore } from '@/stores/undoRedoStore';
+import { useSelectionStore } from '@/stores/selectionStore';
 
 export default function AppShell() {
   const { currentOrg, currentScenario, employees, selectedEmployee, selectEmployee, fetchOrgs, fetchScenarios, fetchEmployees } = useOrgStore();
 
   const setActiveScenario = useUndoRedoStore((s) => s.setActiveScenario);
 
+  const clearSelection = useSelectionStore((s) => s.clearSelection);
+
   const [statusFilters, setStatusFilters] = useState<string[]>(['Active', 'Planned', 'Open Req', 'Backfill']);
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewEmployee, setShowNewEmployee] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
+
+  // Escape key to deselect all
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        const target = e.target as HTMLElement;
+        // Don't intercept if typing in inputs (let them handle their own Escape)
+        if (
+          target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable ||
+          target.getAttribute('data-inline-edit') === 'true'
+        ) {
+          return;
+        }
+        clearSelection();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [clearSelection]);
 
   useEffect(() => {
     fetchOrgs();
@@ -35,7 +61,9 @@ export default function AppShell() {
     } else {
       setActiveScenario(null);
     }
-  }, [currentScenario, fetchEmployees, setActiveScenario]);
+    // Clear selection when scenario changes
+    clearSelection();
+  }, [currentScenario, fetchEmployees, setActiveScenario, clearSelection]);
 
   const handleToggleStatus = (status: string) => {
     setStatusFilters((prev) =>
@@ -71,6 +99,8 @@ export default function AppShell() {
           onSearchChange={setSearchQuery}
           onAddEmployee={() => { setShowNewEmployee(true); selectEmployee(null); }}
         />
+
+        <BulkOperationsToolbar />
 
         <main className="flex-1 overflow-auto bg-gray-50">
           <Outlet context={{ filteredEmployees, statusFilters, searchQuery }} />

@@ -8,7 +8,6 @@ import {
   BackgroundVariant,
   useNodesState,
   useEdgesState,
-  useReactFlow,
   type Node,
   type NodeTypes,
 } from '@xyflow/react';
@@ -16,6 +15,7 @@ import '@xyflow/react/dist/style.css';
 
 import type { Employee } from '@/types';
 import { useOrgStore } from '@/stores/orgStore';
+import { useSelectionStore } from '@/stores/selectionStore';
 import { useTreeLayout } from '@/hooks/useTreeLayout';
 import EmployeeCard from '@/components/nodes/EmployeeCard';
 import VacantCard from '@/components/nodes/VacantCard';
@@ -34,18 +34,53 @@ const nodeTypes: NodeTypes = {
 export default function OrgChartView() {
   const { filteredEmployees } = useOutletContext<OutletContext>();
   const moveEmployee = useOrgStore((s) => s.moveEmployee);
+  const { selectedIds, toggleSelect, clearSelection } = useSelectionStore();
 
   // Compute layout from filtered employees
   const { nodes: layoutNodes, edges: layoutEdges } = useTreeLayout(filteredEmployees);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(layoutNodes);
+  // Apply selection state to nodes
+  const nodesWithSelection = useMemo(
+    () =>
+      layoutNodes.map((node) => ({
+        ...node,
+        selected: selectedIds.has(node.id),
+      })),
+    [layoutNodes, selectedIds],
+  );
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(nodesWithSelection);
   const [edges, setEdges, onEdgesChange] = useEdgesState(layoutEdges);
 
-  // Sync layout when employees change
+  // Sync layout when employees or selection change
   useEffect(() => {
-    setNodes(layoutNodes);
+    setNodes(nodesWithSelection);
     setEdges(layoutEdges);
-  }, [layoutNodes, layoutEdges, setNodes, setEdges]);
+  }, [nodesWithSelection, layoutEdges, setNodes, setEdges]);
+
+  // Handle node clicks for multi-select
+  const handleNodeClick = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      const employee = node.data as unknown as Employee;
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const isModKey = isMac ? event.metaKey : event.ctrlKey;
+
+      if (isModKey) {
+        // Cmd/Ctrl+Click: toggle selection
+        toggleSelect(employee._id);
+      } else {
+        // Plain click: select this employee only (and open detail panel)
+        useOrgStore.setState({ selectedEmployee: employee });
+        // Don't change multi-selection on plain click — only open panel
+      }
+    },
+    [toggleSelect],
+  );
+
+  // Click on canvas background clears selection
+  const handlePaneClick = useCallback(() => {
+    clearSelection();
+  }, [clearSelection]);
 
   // Drag-to-reparent: detect when a node is dropped onto another node
   const handleNodeDragStop = useCallback(
@@ -75,7 +110,7 @@ export default function OrgChartView() {
         }
       }
     },
-    [nodes, moveEmployee]
+    [nodes, moveEmployee],
   );
 
   return (
@@ -85,6 +120,8 @@ export default function OrgChartView() {
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeClick={handleNodeClick}
+        onPaneClick={handlePaneClick}
         onNodeDragStop={handleNodeDragStop}
         nodeTypes={nodeTypes}
         fitView

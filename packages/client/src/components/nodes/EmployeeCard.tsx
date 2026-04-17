@@ -4,6 +4,7 @@ import { Handle, Position } from '@xyflow/react';
 import type { Employee } from '@/types';
 import { cn } from '@/utils/cn';
 import { useOrgStore } from '@/stores/orgStore';
+import { useSelectionStore } from '@/stores/selectionStore';
 import InlineEditableField from '@/components/inline/InlineEditableField';
 
 const STATUS_COLORS: Record<Employee['status'], string> = {
@@ -61,13 +62,28 @@ type EmployeeNodeData = Employee & { label?: string };
 function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }) {
   const employee = data as Employee;
   const updateEmployee = useOrgStore((s) => s.updateEmployee);
+  const isMultiSelected = useSelectionStore((s) => s.isSelected(employee._id));
+  const toggleSelect = useSelectionStore((s) => s.toggleSelect);
   const [isInlineEditing, setIsInlineEditing] = useState(false);
 
-  const handleClick = useCallback(() => {
-    if (!isInlineEditing) {
-      useOrgStore.setState({ selectedEmployee: employee });
-    }
-  }, [employee, isInlineEditing]);
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const isModKey = isMac ? e.metaKey : e.ctrlKey;
+
+      if (isModKey) {
+        // Cmd/Ctrl+Click: toggle multi-select
+        e.stopPropagation();
+        toggleSelect(employee._id);
+        return;
+      }
+
+      if (!isInlineEditing) {
+        useOrgStore.setState({ selectedEmployee: employee });
+      }
+    },
+    [employee, isInlineEditing, toggleSelect],
+  );
 
   const handleSave = useCallback(
     (field: string, value: string) => {
@@ -94,7 +110,8 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
       className={cn(
         'w-[220px] cursor-pointer rounded-lg border border-gray-200 border-l-4 bg-white shadow-sm transition-shadow hover:shadow-md',
         STATUS_COLORS[employee.status],
-        selected && 'ring-2 ring-blue-500 ring-offset-1',
+        isMultiSelected && 'ring-2 ring-blue-500 ring-offset-1 bg-blue-50',
+        selected && !isMultiSelected && 'ring-2 ring-blue-500 ring-offset-1',
         isInlineEditing && 'nopan nodrag',
       )}
     >

@@ -45,11 +45,22 @@ export interface MoveCommand extends BaseCommand {
   nextOrder: number;
 }
 
-export type UndoableCommand =
+/** Batch of commands that should be undone/redone as a single unit. */
+export interface BatchCommand extends BaseCommand {
+  type: 'batch';
+  commands: SingleCommand[];
+}
+
+/** A single (non-batch) undoable command. */
+export type SingleCommand =
   | CreateCommand
   | EditCommand
   | DeleteCommand
   | MoveCommand;
+
+export type UndoableCommand =
+  | SingleCommand
+  | BatchCommand;
 
 /* ------------------------------------------------------------------ */
 /*  Store                                                              */

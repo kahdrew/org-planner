@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom';
-import { Plus, Upload, Download, Search, Undo2, Redo2 } from 'lucide-react';
+import { Plus, Upload, Download, Search, Undo2, Redo2, Users } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
+import { useSelectionStore } from '@/stores/selectionStore';
 import { exportToCSV, parseCSV } from '@/utils/csv';
 import { cn } from '@/utils/cn';
 import * as employeesApi from '@/api/employees';
@@ -33,6 +34,7 @@ export default function Toolbar({
 }: ToolbarProps) {
   const location = useLocation();
   const { employees, currentScenario } = useOrgStore();
+  const selectionCount = useSelectionStore((s) => s.selectedIds.size);
   const viewName = viewNames[location.pathname] ?? 'Org Chart';
   const { handleUndo, handleRedo, canUndo, canRedo } = useUndoRedo();
 
@@ -106,6 +108,20 @@ export default function Toolbar({
           <Redo2 size={18} />
         </button>
       </div>
+
+      {/* Selection count badge */}
+      {selectionCount > 0 && (
+        <>
+          <div className="mx-2 h-6 w-px bg-gray-200" />
+          <div
+            className="flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700"
+            data-testid="toolbar-selection-count"
+          >
+            <Users size={14} />
+            {selectionCount} selected
+          </div>
+        </>
+      )}
 
       <div className="mx-2 h-6 w-px bg-gray-200" />
 

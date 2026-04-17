@@ -4,7 +4,7 @@ import * as orgsApi from '@/api/orgs';
 import * as scenariosApi from '@/api/scenarios';
 import * as employeesApi from '@/api/employees';
 import { useUndoRedoStore } from './undoRedoStore';
-import type { UndoableCommand } from './undoRedoStore';
+import type { UndoableCommand, SingleCommand } from './undoRedoStore';
 
 interface OrgState {
   orgs: Organization[];
@@ -26,10 +26,18 @@ interface OrgState {
   updateEmployee: (id: string, data: Partial<Employee>) => Promise<void>;
   removeEmployee: (id: string) => Promise<void>;
   moveEmployee: (id: string, managerId: string | null, order: number) => Promise<void>;
+  /** Bulk update a field on multiple employees (undoable as single unit) */
+  bulkUpdateEmployees: (ids: string[], data: Partial<Employee>) => Promise<void>;
+  /** Bulk delete multiple employees (undoable as single unit) */
+  bulkDeleteEmployees: (ids: string[]) => Promise<void>;
   /** Execute an undo command (reverse the operation) */
   executeUndo: (command: UndoableCommand) => Promise<void>;
   /** Execute a redo command (re-apply the operation) */
   executeRedo: (command: UndoableCommand) => Promise<void>;
+  /** Execute a single (non-batch) undo */
+  executeSingleUndo: (command: SingleCommand) => Promise<void>;
+  /** Execute a single (non-batch) redo */
+  executeSingleRedo: (command: SingleCommand) => Promise<void>;
 }
 
 export const useOrgStore = create<OrgState>((set, get) => ({
@@ -192,10 +200,83 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     }
   },
 
-  executeUndo: async (command) => {
+  bulkUpdateEmployees: async (ids, data) => {
+    const editCommands: SingleCommand[] = [];
+
+    for (const id of ids) {
+      const previous = get().employees.find((e) => e._id === id);
+      if (!previous) continue;
+
+      const previousData: Partial<Employee> = {};
+      for (const key of Object.keys(data) as (keyof Employee)[]) {
+        previousData[key] = previous[key] as never;
+      }
+
+      const updated = await employeesApi.updateEmployee(id, data);
+      set((state) => ({
+        employees: state.employees.map((e) => (e._id === id ? updated : e)),
+        selectedEmployee: state.selectedEmployee?._id === id ? updated : state.selectedEmployee,
+      }));
+
+      editCommands.push({
+        type: 'edit',
+        employeeId: id,
+        previousData,
+        nextData: data,
+        timestamp: Date.now(),
+        description: `Edit employee "${previous.name}"`,
+      });
+    }
+
+    // Record as a batch command for single-step undo
+    if (editCommands.length > 0) {
+      useUndoRedoStore.getState().pushCommand({
+        type: 'batch',
+        commands: editCommands,
+        timestamp: Date.now(),
+        description: `Bulk update ${editCommands.length} employees`,
+      });
+    }
+  },
+
+  bulkDeleteEmployees: async (ids) => {
+    const deleteCommands: SingleCommand[] = [];
+    const scenarioId = get().currentScenario?._id;
+    if (!scenarioId) return;
+
+    for (const id of ids) {
+      const employee = get().employees.find((e) => e._id === id);
+      if (!employee) continue;
+
+      await employeesApi.deleteEmployee(id);
+      set((state) => ({
+        employees: state.employees.filter((e) => e._id !== id),
+        selectedEmployee: state.selectedEmployee?._id === id ? null : state.selectedEmployee,
+      }));
+
+      deleteCommands.push({
+        type: 'delete',
+        scenarioId,
+        employee,
+        timestamp: Date.now(),
+        description: `Delete employee "${employee.name}"`,
+      });
+    }
+
+    // Record as a batch command for single-step undo
+    if (deleteCommands.length > 0) {
+      useUndoRedoStore.getState().pushCommand({
+        type: 'batch',
+        commands: deleteCommands,
+        timestamp: Date.now(),
+        description: `Bulk delete ${deleteCommands.length} employees`,
+      });
+    }
+  },
+
+  executeSingleUndo: async (command) => {
     switch (command.type) {
       case 'create': {
-        // Undo create = delete the employee
         await employeesApi.deleteEmployee(command.employee._id);
         set((state) => ({
           employees: state.employees.filter((e) => e._id !== command.employee._id),
@@ -207,7 +288,6 @@ export const useOrgStore = create<OrgState>((set, get) => ({
         break;
       }
       case 'edit': {
-        // Undo edit = restore previous data
         const updated = await employeesApi.updateEmployee(
           command.employeeId,
           command.previousData,
@@ -224,7 +304,6 @@ export const useOrgStore = create<OrgState>((set, get) => ({
         break;
       }
       case 'delete': {
-        // Undo delete = re-create the employee with all original data
         const { _id, ...rest } = command.employee;
         const restored = await employeesApi.createEmployee(
           command.scenarioId,
@@ -233,12 +312,10 @@ export const useOrgStore = create<OrgState>((set, get) => ({
         set((state) => ({
           employees: [...state.employees, restored],
         }));
-        // Update the command's employee reference with the new _id for potential redo
         command.employee = { ...command.employee, _id: restored._id };
         break;
       }
       case 'move': {
-        // Undo move = move back to previous manager/order
         const updated = await employeesApi.moveEmployee(
           command.employeeId,
           command.previousManagerId,
@@ -254,10 +331,9 @@ export const useOrgStore = create<OrgState>((set, get) => ({
     }
   },
 
-  executeRedo: async (command) => {
+  executeSingleRedo: async (command) => {
     switch (command.type) {
       case 'create': {
-        // Redo create = re-create the employee
         const { _id, ...rest } = command.employee;
         const created = await employeesApi.createEmployee(
           command.scenarioId,
@@ -266,12 +342,10 @@ export const useOrgStore = create<OrgState>((set, get) => ({
         set((state) => ({
           employees: [...state.employees, created],
         }));
-        // Update reference for future undo
         command.employee = { ...command.employee, _id: created._id };
         break;
       }
       case 'edit': {
-        // Redo edit = re-apply next data
         const updated = await employeesApi.updateEmployee(
           command.employeeId,
           command.nextData,
@@ -288,7 +362,6 @@ export const useOrgStore = create<OrgState>((set, get) => ({
         break;
       }
       case 'delete': {
-        // Redo delete = delete the employee again
         await employeesApi.deleteEmployee(command.employee._id);
         set((state) => ({
           employees: state.employees.filter(
@@ -302,7 +375,6 @@ export const useOrgStore = create<OrgState>((set, get) => ({
         break;
       }
       case 'move': {
-        // Redo move = move to next manager/order again
         const updated = await employeesApi.moveEmployee(
           command.employeeId,
           command.nextManagerId,
@@ -315,6 +387,28 @@ export const useOrgStore = create<OrgState>((set, get) => ({
         }));
         break;
       }
+    }
+  },
+
+  executeUndo: async (command) => {
+    if (command.type === 'batch') {
+      // Undo batch commands in reverse order
+      for (let i = command.commands.length - 1; i >= 0; i--) {
+        await get().executeSingleUndo(command.commands[i]);
+      }
+    } else {
+      await get().executeSingleUndo(command);
+    }
+  },
+
+  executeRedo: async (command) => {
+    if (command.type === 'batch') {
+      // Redo batch commands in original order
+      for (const cmd of command.commands) {
+        await get().executeSingleRedo(cmd);
+      }
+    } else {
+      await get().executeSingleRedo(command);
     }
   },
 }));

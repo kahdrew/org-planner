@@ -17,6 +17,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ChevronRight, GripVertical } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
+import { useSelectionStore } from '@/stores/selectionStore';
 import { cn } from '@/utils/cn';
 import type { Employee } from '@/types';
 import InlineEditableField from '@/components/inline/InlineEditableField';
@@ -116,6 +117,9 @@ interface TreeRowProps {
   onSelect: (employee: Employee) => void;
   activeId: string | null;
   onInlineEdit: (id: string, field: string, value: string) => void;
+  onMultiSelect: (employee: Employee, event: React.MouseEvent) => void;
+  multiSelectedIds: Set<string>;
+  orderedIds: string[];
 }
 
 function TreeRow({
@@ -127,11 +131,15 @@ function TreeRow({
   onSelect,
   activeId,
   onInlineEdit,
+  onMultiSelect,
+  multiSelectedIds,
+  orderedIds,
 }: TreeRowProps) {
   const { employee } = node;
   const hasChildren = node.children.length > 0;
   const isExpanded = !collapsed.has(employee._id);
   const isSelected = selectedId === employee._id;
+  const isMultiSelected = multiSelectedIds.has(employee._id);
   const [isInlineEditing, setIsInlineEditing] = useState(false);
 
   const {
@@ -184,14 +192,21 @@ function TreeRow({
         style={style}
         className={cn(
           'flex items-center gap-3 rounded-md px-3 py-2 cursor-pointer transition-colors',
-          isSelected && 'bg-blue-50 ring-1 ring-blue-200',
+          isMultiSelected && 'bg-blue-100 ring-2 ring-blue-400',
+          isSelected && !isMultiSelected && 'bg-blue-50 ring-1 ring-blue-200',
           isOver && 'bg-blue-100 ring-2 ring-blue-400',
           isDragging && 'opacity-40',
-          !isSelected && !isOver && !isDragging && 'hover:bg-gray-50',
+          !isSelected && !isMultiSelected && !isOver && !isDragging && 'hover:bg-gray-50',
         )}
-        onClick={() => {
+        onClick={(e) => {
           if (!isInlineEditing) {
-            onSelect(employee);
+            const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+            const isModKey = isMac ? e.metaKey : e.ctrlKey;
+            if (isModKey || e.shiftKey) {
+              onMultiSelect(employee, e);
+            } else {
+              onSelect(employee);
+            }
           }
         }}
       >
@@ -329,6 +344,9 @@ function TreeRow({
                 onSelect={onSelect}
                 activeId={activeId}
                 onInlineEdit={onInlineEdit}
+                onMultiSelect={onMultiSelect}
+                multiSelectedIds={multiSelectedIds}
+                orderedIds={orderedIds}
               />
             ))}
           </div>
@@ -363,6 +381,7 @@ function DragOverlayContent({ employee }: { employee: Employee }) {
 export default function HierarchyView() {
   const { filteredEmployees } = useOutletContext<OutletContext>();
   const { employees, selectedEmployee, moveEmployee, updateEmployee } = useOrgStore();
+  const { selectedIds, toggleSelect, rangeSelect, clearSelection } = useSelectionStore();
 
   // Tracks which nodes are *collapsed* – everything is expanded by default.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -396,7 +415,22 @@ export default function HierarchyView() {
 
   const handleSelect = useCallback((employee: Employee) => {
     useOrgStore.setState({ selectedEmployee: employee });
-  }, []);
+    clearSelection();
+  }, [clearSelection]);
+
+  const handleMultiSelect = useCallback(
+    (employee: Employee, event: React.MouseEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const isModKey = isMac ? event.metaKey : event.ctrlKey;
+
+      if (event.shiftKey) {
+        rangeSelect(employee._id, sortableIds);
+      } else if (isModKey) {
+        toggleSelect(employee._id);
+      }
+    },
+    [sortableIds, toggleSelect, rangeSelect],
+  );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -462,6 +496,9 @@ export default function HierarchyView() {
               onSelect={handleSelect}
               activeId={activeId}
               onInlineEdit={handleInlineEdit}
+              onMultiSelect={handleMultiSelect}
+              multiSelectedIds={selectedIds}
+              orderedIds={sortableIds}
             />
           ))}
           {filteredEmployees.length === 0 && (

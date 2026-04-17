@@ -8,10 +8,12 @@ import type {
   CellValueChangedEvent,
   SelectionChangedEvent,
   ValueParserParams,
+  RowClickedEvent,
 } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { useOrgStore } from '@/stores/orgStore';
+import { useSelectionStore } from '@/stores/selectionStore';
 import type { Employee } from '@/types';
 
 interface OutletContext {
@@ -66,6 +68,7 @@ function numberParser(params: ValueParserParams): number | null {
 export default function SpreadsheetView() {
   const { filteredEmployees } = useOutletContext<OutletContext>();
   const { employees, updateEmployee } = useOrgStore();
+  const { selectedIds, toggleSelect, rangeSelect } = useSelectionStore();
   const gridRef = useRef<AgGridReact<Employee>>(null);
 
   /** Map of employee id → name for manager column display (uses all employees so names resolve even for filtered-out managers). */
@@ -227,6 +230,30 @@ export default function SpreadsheetView() {
     [],
   );
 
+  /** Ordered list of employee IDs for range selection */
+  const orderedIds = useMemo(
+    () => filteredEmployees.map((e) => e._id),
+    [filteredEmployees],
+  );
+
+  const handleRowClicked = useCallback(
+    (event: RowClickedEvent<Employee>) => {
+      if (!event.data) return;
+      const nativeEvent = event.event as MouseEvent | undefined;
+      if (!nativeEvent) return;
+
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const isModKey = isMac ? nativeEvent.metaKey : nativeEvent.ctrlKey;
+
+      if (nativeEvent.shiftKey) {
+        rangeSelect(event.data._id, orderedIds);
+      } else if (isModKey) {
+        toggleSelect(event.data._id);
+      }
+    },
+    [orderedIds, toggleSelect, rangeSelect],
+  );
+
   /* -- Render ------------------------------------------------------- */
 
   return (
@@ -239,8 +266,14 @@ export default function SpreadsheetView() {
         rowSelection="single"
         onCellValueChanged={handleCellValueChanged}
         onSelectionChanged={handleSelectionChanged}
+        onRowClicked={handleRowClicked}
         animateRows={true}
         getRowId={(params) => params.data._id}
+        getRowClass={(params) =>
+          params.data && selectedIds.has(params.data._id)
+            ? 'bg-blue-100'
+            : undefined
+        }
         overlayNoRowsTemplate="<span class='ag-overlay-no-rows-center'>No employees match the current filters.</span>"
       />
     </div>

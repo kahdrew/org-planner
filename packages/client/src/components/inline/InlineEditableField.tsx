@@ -56,6 +56,10 @@ export default function InlineEditableField({
 
   const startEditing = useCallback(
     (e: React.MouseEvent) => {
+      // Don't enter edit mode when modifier keys are held (allows multi-select)
+      if (e.metaKey || e.ctrlKey || e.shiftKey) {
+        return;
+      }
       if (stopPropagation) {
         e.stopPropagation();
       }
