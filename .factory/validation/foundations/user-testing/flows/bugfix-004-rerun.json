@@ -1,0 +1,60 @@
+{
+  "groupId": "bugfix-004-rerun",
+  "testedAt": "2026-04-17T00:31:58.637430+00:00",
+  "isolation": {
+    "surface": "curl",
+    "apiBaseUrl": "http://localhost:3001",
+    "namespacePrefix": "utv2_bugfix004_",
+    "testUser": "utv2_bugfix004_20260417T003114Z@example.com",
+    "scenarioIds": {
+      "left": "495243c5a6ac79c1b7a04b2d",
+      "right": "0a9e9f04f24e925a14e838e9"
+    },
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a"
+  },
+  "toolsUsed": [
+    "curl"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-BUGFIX-004",
+      "title": "Diff with non-existent scenario IDs returns 404",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Register isolated user with namespace prefix utv2_bugfix004_ and login to obtain JWT",
+          "expected": "Register returns HTTP 201 and login returns HTTP 200",
+          "observed": "Register HTTP 201; login HTTP 200"
+        },
+        {
+          "action": "GET /api/scenarios/495243c5a6ac79c1b7a04b2d/diff/0a9e9f04f24e925a14e838e9 with Bearer token",
+          "expected": "HTTP 404 with JSON body exactly {\"error\":\"Scenario not found\"}",
+          "observed": "HTTP 404 with body {\"error\":\"Scenario not found\"}"
+        }
+      ],
+      "evidence": {
+        "network": [
+          "GET /api/scenarios/495243c5a6ac79c1b7a04b2d/diff/0a9e9f04f24e925a14e838e9 -> 404"
+        ],
+        "commandEvidence": "foundations/bugfix-004-rerun/VAL-BUGFIX-004-command.txt",
+        "responseHeaders": "foundations/bugfix-004-rerun/VAL-BUGFIX-004-headers.txt",
+        "responseBody": "foundations/bugfix-004-rerun/VAL-BUGFIX-004-body.json",
+        "statusFile": "foundations/bugfix-004-rerun/VAL-BUGFIX-004-status.txt",
+        "authSetup": [
+          "foundations/bugfix-004-rerun/register-payload.json",
+          "foundations/bugfix-004-rerun/register-headers.txt",
+          "foundations/bugfix-004-rerun/register-body.json",
+          "foundations/bugfix-004-rerun/register-status.txt",
+          "foundations/bugfix-004-rerun/login-payload.json",
+          "foundations/bugfix-004-rerun/login-headers.txt",
+          "foundations/bugfix-004-rerun/login-body.json",
+          "foundations/bugfix-004-rerun/login-status.txt"
+        ]
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 1 assertion: 1 passed, 0 failed, 0 blocked."
+}
