@@ -1,7 +1,9 @@
 import { NavLink } from 'react-router-dom';
-import { GitBranch, List, Table, Columns, GitCompare, LayoutDashboard, Plus, Copy, DollarSign, Users, Clock, BarChart3 } from 'lucide-react';
+import { GitBranch, List, Table, Columns, GitCompare, LayoutDashboard, Plus, Copy, DollarSign, Users, Clock, BarChart3, CheckSquare } from 'lucide-react';
+import { useEffect } from 'react';
 import { useOrgStore } from '@/stores/orgStore';
 import { useScheduledChangeStore } from '@/stores/scheduledChangeStore';
+import { useApprovalStore } from '@/stores/approvalStore';
 import { cn } from '@/utils/cn';
 import * as scenariosApi from '@/api/scenarios';
 import PendingInvitations from '@/components/panels/PendingInvitations';
@@ -13,6 +15,7 @@ const navItems = [
   { to: '/kanban', icon: Columns, label: 'Kanban' },
   { to: '/compare', icon: GitCompare, label: 'Compare' },
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/approvals', icon: CheckSquare, label: 'Approvals' },
 ];
 
 interface SidebarProps {
@@ -32,6 +35,16 @@ export default function Sidebar({ onToggleBudget, onToggleMembers, onTogglePendi
   const pendingCount = useScheduledChangeStore((s) =>
     s.scheduledChanges.filter((c) => c.status === 'pending').length,
   );
+
+  const pendingApprovals = useApprovalStore((s) => s.pendingApprovals);
+  const pendingApprovalsCount = pendingApprovals.length;
+  const fetchPendingApprovals = useApprovalStore((s) => s.fetchPendingApprovals);
+
+  useEffect(() => {
+    if (currentOrg) {
+      fetchPendingApprovals(currentOrg._id);
+    }
+  }, [currentOrg, fetchPendingApprovals]);
 
   const handleOrgChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const org = orgs.find((o) => o._id === e.target.value);
@@ -116,24 +129,36 @@ export default function Sidebar({ onToggleBudget, onToggleMembers, onTogglePendi
       <PendingInvitations />
 
       <nav className="flex-1 space-y-1 p-3">
-        {navItems.map(({ to, icon: Icon, label, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-              )
-            }
-          >
-            <Icon size={18} />
-            {label}
-          </NavLink>
-        ))}
+        {navItems.map(({ to, icon: Icon, label, end }) => {
+          const showApprovalBadge =
+            to === '/approvals' && pendingApprovalsCount > 0;
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                )
+              }
+            >
+              <Icon size={18} />
+              <span className="flex-1">{label}</span>
+              {showApprovalBadge && (
+                <span
+                  data-testid="approvals-nav-badge"
+                  className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500 px-1 text-xs font-bold text-white"
+                >
+                  {pendingApprovalsCount}
+                </span>
+              )}
+            </NavLink>
+          );
+        })}
       </nav>
 
       <div className="space-y-2 border-t border-slate-700 p-4">

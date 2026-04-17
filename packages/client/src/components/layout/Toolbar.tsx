@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom';
-import { Plus, Upload, Download, Search, Undo2, Redo2, Users, Keyboard, FileDown } from 'lucide-react';
+import { Plus, Upload, Download, Search, Undo2, Redo2, Users, Keyboard, FileDown, Send } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { exportToCSV, parseCSV } from '@/utils/csv';
@@ -16,6 +16,8 @@ const viewNames: Record<string, string> = {
   '/spreadsheet': 'Spreadsheet',
   '/kanban': 'Kanban',
   '/compare': 'Compare',
+  '/dashboard': 'Dashboard',
+  '/approvals': 'Approvals',
 };
 
 interface ToolbarProps {
@@ -30,6 +32,8 @@ interface ToolbarProps {
   onOpenShortcutsHelp?: () => void;
   /** Callback to open the org chart export dialog */
   onExportChart?: () => void;
+  /** Callback to open the headcount request dialog */
+  onSubmitHeadcountRequest?: () => void;
   /** When true, write controls (Add Employee, Import) are disabled */
   isViewer?: boolean;
 }
@@ -43,6 +47,7 @@ export default function Toolbar({
   searchInputRef,
   onExportChart,
   onOpenShortcutsHelp,
+  onSubmitHeadcountRequest,
   isViewer = false,
 }: ToolbarProps) {
   const location = useLocation();
@@ -94,6 +99,24 @@ export default function Toolbar({
         <Plus size={16} />
         Add Employee
       </button>
+
+      {onSubmitHeadcountRequest && (
+        <button
+          onClick={onSubmitHeadcountRequest}
+          disabled={isViewer}
+          className={cn(
+            'flex items-center gap-1.5 rounded-md border border-blue-300 px-3 py-1.5 text-sm font-medium transition-colors',
+            isViewer
+              ? 'cursor-not-allowed border-gray-200 text-gray-300'
+              : 'text-blue-700 hover:bg-blue-50'
+          )}
+          title={isViewer ? 'Viewers cannot submit requests' : 'Submit a headcount request for approval'}
+          data-testid="submit-request-toolbar-btn"
+        >
+          <Send size={14} />
+          Request Hire
+        </button>
+      )}
 
       <div className="mx-2 h-6 w-px bg-gray-200" />
 

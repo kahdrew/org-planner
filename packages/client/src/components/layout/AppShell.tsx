@@ -13,6 +13,8 @@ import DeleteConfirmDialog from '@/components/bulk/DeleteConfirmDialog';
 import PendingChangesPanel from '@/components/panels/PendingChangesPanel';
 import SpanOfControlPanel from '@/components/panels/SpanOfControlPanel';
 import TimelineSlider from '@/components/panels/TimelineSlider';
+import HeadcountRequestDialog from '@/components/panels/HeadcountRequestDialog';
+import { useApprovalStore } from '@/stores/approvalStore';
 import { useOrgStore } from '@/stores/orgStore';
 import { useUndoRedoStore } from '@/stores/undoRedoStore';
 import { useSelectionStore } from '@/stores/selectionStore';
@@ -54,6 +56,9 @@ export default function AppShell() {
   const [isExporting, setIsExporting] = useState(false);
   const [pendingChangesOpen, setPendingChangesOpen] = useState(false);
   const [spanOfControlOpen, setSpanOfControlOpen] = useState(false);
+  const [headcountRequestOpen, setHeadcountRequestOpen] = useState(false);
+
+  const fetchApprovalChains = useApprovalStore((s) => s.fetchChains);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -121,10 +126,11 @@ export default function AppShell() {
     if (currentOrg) {
       fetchScenarios(currentOrg._id);
       fetchMyRole(currentOrg._id);
+      fetchApprovalChains(currentOrg._id);
     } else {
       resetRole();
     }
-  }, [currentOrg, fetchScenarios, fetchMyRole, resetRole]);
+  }, [currentOrg, fetchScenarios, fetchMyRole, resetRole, fetchApprovalChains]);
 
   useEffect(() => {
     if (currentScenario) {
@@ -196,6 +202,7 @@ export default function AppShell() {
           searchInputRef={searchInputRef}
           onExportChart={() => setExportDialogOpen(true)}
           onOpenShortcutsHelp={() => setShortcutsHelpOpen(true)}
+          onSubmitHeadcountRequest={() => setHeadcountRequestOpen(true)}
           isViewer={currentRole === 'viewer'}
         />
 
@@ -247,6 +254,12 @@ export default function AppShell() {
         departments={departments}
         isExporting={isExporting}
       />
+
+      {headcountRequestOpen && (
+        <HeadcountRequestDialog
+          onClose={() => setHeadcountRequestOpen(false)}
+        />
+      )}
     </div>
   );
 }

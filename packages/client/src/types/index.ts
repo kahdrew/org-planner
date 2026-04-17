@@ -127,6 +127,91 @@ export interface BudgetSummary {
   };
 }
 
+export interface ApprovalStep {
+  role: string;
+  approverIds: string[];
+}
+
+export interface ApprovalConditions {
+  minLevel?: string;
+  minCost?: number;
+}
+
+export interface ApprovalChain {
+  _id: string;
+  orgId: string;
+  name: string;
+  description?: string;
+  steps: ApprovalStep[];
+  conditions: ApprovalConditions;
+  priority: number;
+  isDefault: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type HeadcountRequestStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'changes_requested';
+
+export type HeadcountRequestType = 'new_hire' | 'comp_change';
+
+export type ApprovalAuditAction =
+  | 'submit'
+  | 'approve'
+  | 'reject'
+  | 'request_changes'
+  | 'resubmit'
+  | 'auto_apply';
+
+export interface ApprovalAuditEntry {
+  action: ApprovalAuditAction;
+  performedBy: string;
+  stepIndex: number;
+  stepRole?: string;
+  comment?: string;
+  timestamp: string;
+}
+
+export interface HeadcountRequestEmployeeData {
+  name: string;
+  title: string;
+  department: string;
+  level: string;
+  location: string;
+  employmentType: 'FTE' | 'Contractor' | 'Intern';
+  status?: 'Active' | 'Planned' | 'Open Req' | 'Backfill';
+  salary?: number;
+  equity?: number;
+  managerId?: string | null;
+  startDate?: string;
+  costCenter?: string;
+  hiringManager?: string;
+  recruiter?: string;
+  requisitionId?: string;
+  justification?: string;
+}
+
+export interface HeadcountRequest {
+  _id: string;
+  orgId: string;
+  scenarioId: string;
+  requestType: HeadcountRequestType;
+  employeeData: HeadcountRequestEmployeeData;
+  targetEmployeeId?: string | null;
+  requestedBy: string;
+  chainId: string;
+  currentStep: number;
+  status: HeadcountRequestStatus;
+  audit: ApprovalAuditEntry[];
+  approvedEmployeeId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type DiffStatus = 'added' | 'removed' | 'moved' | 'changed' | 'unchanged';
 
 export interface DiffEntry {
