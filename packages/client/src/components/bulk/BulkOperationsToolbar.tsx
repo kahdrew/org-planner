@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { Pencil, Trash2, Users, X } from 'lucide-react';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useOrgStore } from '@/stores/orgStore';
+import { useUndoRedoStore } from '@/stores/undoRedoStore';
+import type { SingleCommand } from '@/stores/undoRedoStore';
+import * as employeesApi from '@/api/employees';
 import BulkUpdateDialog, { type BulkField } from './BulkUpdateDialog';
 import BulkDeleteDialog from './BulkDeleteDialog';
 
@@ -23,14 +26,47 @@ export default function BulkOperationsToolbar() {
     const ids = Array.from(selectedIds);
 
     if (updateField === 'managerId') {
-      // Handle manager change — use moveEmployee for each
-      const managerId = value === '__none__' ? null : value;
-      const { moveEmployee } = useOrgStore.getState();
+      // Handle manager change — move each employee but collect commands
+      // into a single BatchCommand so undo/redo works as a single unit
+      const newManagerId = value === '__none__' ? null : value;
+      const capturedScenarioId = useOrgStore.getState().currentScenario?._id;
+      const moveCommands: SingleCommand[] = [];
+
       for (const id of ids) {
         const emp = employees.find((e) => e._id === id);
-        if (emp) {
-          await moveEmployee(id, managerId, emp.order);
-        }
+        if (!emp) continue;
+
+        const previousManagerId = emp.managerId ?? null;
+        const previousOrder = emp.order ?? 0;
+
+        const updated = await employeesApi.moveEmployee(id, newManagerId, emp.order);
+        useOrgStore.setState((state) => ({
+          employees: state.employees.map((e) => (e._id === id ? updated : e)),
+        }));
+
+        moveCommands.push({
+          type: 'move',
+          employeeId: id,
+          previousManagerId,
+          previousOrder,
+          nextManagerId: newManagerId,
+          nextOrder: emp.order,
+          timestamp: Date.now(),
+          description: `Move employee "${emp.name}"`,
+        });
+      }
+
+      // Push as a single batch command for single-step undo
+      if (moveCommands.length > 0 && capturedScenarioId) {
+        useUndoRedoStore.getState().pushCommand(
+          {
+            type: 'batch',
+            commands: moveCommands,
+            timestamp: Date.now(),
+            description: `Bulk change manager for ${moveCommands.length} employees`,
+          },
+          capturedScenarioId,
+        );
       }
     } else {
       await bulkUpdateEmployees(ids, { [updateField]: value });
@@ -127,6 +163,7 @@ export default function BulkOperationsToolbar() {
           field={updateField}
           count={count}
           employees={employees}
+          selectedIds={selectedIds}
           onConfirm={handleBulkUpdate}
           onCancel={() => setUpdateField(null)}
         />

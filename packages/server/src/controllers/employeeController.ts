@@ -3,7 +3,7 @@ import { z } from "zod";
 import mongoose from "mongoose";
 import { AuthRequest } from "../middleware/auth";
 import { checkScenarioAccess } from "../middleware/authorization";
-import Employee from "../models/Employee";
+import Employee, { IEmployee } from "../models/Employee";
 
 const employeeSchema = z.object({
   name: z.string().min(1),
@@ -148,6 +148,37 @@ export const moveEmployee = async (req: AuthRequest, res: Response): Promise<voi
     }
 
     const { managerId, order } = moveSchema.parse(req.body);
+
+    // Self-referential check
+    if (managerId === req.params.id) {
+      res.status(400).json({ error: "Cannot set employee as their own manager (self-referential cycle)" });
+      return;
+    }
+
+    // If managerId is not null, validate it exists and check for cycles
+    if (managerId !== null) {
+      const manager = await Employee.findById(managerId);
+      if (!manager || manager.scenarioId.toString() !== employee.scenarioId.toString()) {
+        res.status(400).json({ error: "Invalid manager: manager not found in the same scenario" });
+        return;
+      }
+
+      // Cycle detection: walk up from the proposed manager's chain;
+      // if we encounter the employee being moved, it would create a cycle.
+      let ancestorId: string | null = managerId;
+      const visited = new Set<string>();
+      while (ancestorId) {
+        if (ancestorId === req.params.id) {
+          res.status(400).json({ error: "Cannot move employee: this would create a cycle in the hierarchy" });
+          return;
+        }
+        if (visited.has(ancestorId)) break; // guard against existing broken data
+        visited.add(ancestorId);
+        const ancestorDoc: IEmployee | null = await Employee.findById(ancestorId);
+        ancestorId = ancestorDoc?.managerId ? ancestorDoc.managerId.toString() : null;
+      }
+    }
+
     const updated = await Employee.findByIdAndUpdate(
       req.params.id,
       { managerId, order },

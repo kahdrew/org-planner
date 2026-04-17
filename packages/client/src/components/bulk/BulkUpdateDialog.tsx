@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { getInvalidManagerIds } from '@/utils/hierarchy';
 import type { Employee } from '@/types';
 
 export type BulkField = 'department' | 'level' | 'status' | 'managerId';
@@ -18,6 +19,8 @@ interface BulkUpdateDialogProps {
   field: BulkField;
   count: number;
   employees: Employee[];
+  /** IDs of the currently selected employees (used to filter invalid manager choices) */
+  selectedIds: Set<string>;
   onConfirm: (value: string) => void;
   onCancel: () => void;
 }
@@ -26,15 +29,26 @@ export default function BulkUpdateDialog({
   field,
   count,
   employees,
+  selectedIds,
   onConfirm,
   onCancel,
 }: BulkUpdateDialogProps) {
   const [value, setValue] = useState('');
 
-  // Build manager options from employees list (exclude selected)
-  const managerOptions = employees
-    .filter((e) => e.status === 'Active' || e.status === 'Planned')
-    .map((e) => ({ id: e._id, name: `${e.name} — ${e.title}` }));
+  // Build manager options, excluding selected employees and their descendants
+  // to prevent self-referential or cyclic hierarchy assignments
+  const managerOptions = useMemo(() => {
+    if (field !== 'managerId') return [];
+
+    const invalidIds = getInvalidManagerIds(selectedIds, employees);
+    return employees
+      .filter(
+        (e) =>
+          (e.status === 'Active' || e.status === 'Planned') &&
+          !invalidIds.has(e._id),
+      )
+      .map((e) => ({ id: e._id, name: `${e.name} — ${e.title}` }));
+  }, [field, employees, selectedIds]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
