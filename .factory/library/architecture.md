@@ -50,7 +50,7 @@ User (email, passwordHash, name)
 - Employee.managerId → Employee._id (self-referential tree within a scenario)
 - Employee.managerId = null → root-level employee (CEO/top of hierarchy)
 - Scenario.baseScenarioId → Scenario._id (tracks clone origin)
-- Organization.memberIds[] → User._id (org membership, not yet used in endpoints)
+- Organization.memberIds[] → User._id (org membership used by authorization middleware for org/scenario/employee access control)
 
 ### Invariants
 - An employee always belongs to exactly one scenario
@@ -83,7 +83,7 @@ Select two scenarios → GET /api/scenarios/:a/diff/:b → Server fetches both e
 ## Layout Structure
 
 AppShell wraps all views:
-- **Sidebar** (left): Org selector, scenario selector, view nav links, new/clone scenario, budget button
+- **Sidebar** (left): Org selector, scenario selector, view nav links, New Organization action, new/clone scenario, budget button
 - **Toolbar** (top): Add employee, status filter pills, search, CSV import/export
 - **Main** (center): Active view via Outlet (passes filteredEmployees in context)
 - **HeadcountSummary** (bottom): Metric pills (total, FTE, contractors, open reqs, planned, salary)

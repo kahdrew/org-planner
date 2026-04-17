@@ -1,0 +1,26 @@
+{
+  "featureId": "fix-spreadsheet-filters",
+  "reviewedAt": "2026-04-17T00:05:56Z",
+  "commitId": "5e5109c",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The commit correctly fixes SpreadsheetView to consume `filteredEmployees` from the AppShell Outlet context and adds targeted tests for status filtering, search, combined filtering, empty state, and filter restoration. The implementation is aligned with the feature description and expected behavior, and no blocking correctness defects were identified in the reviewed diff.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The implementation-worker skill requires explicit test-first (red) workflow, but this run implemented SpreadsheetView changes before creating the new test file and did not run a targeted failing test command first; handoff still marked procedure as fully followed.",
+      "evidence": "In worker transcript skeleton for session 6bbe672f-4697-49d3-b023-791f3f5b5739, `Edit` calls on `packages/client/src/components/views/SpreadsheetView.tsx` occur before `Create` of `packages/client/src/__tests__/SpreadsheetView.test.tsx`, and no `npx vitest run ...SpreadsheetView.test.tsx` red-phase command appears; handoff.skillFeedback.followedProcedure is true."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Shared testing guidance documents auth bootstrap but not concrete org/scenario/employee API bootstrap endpoints used for UI test setup, causing avoidable route discovery during manual verification.",
+      "evidence": "Transcript shows failed `POST /api/scenarios` with `Cannot POST /api/scenarios`, followed by route grep/debug steps to find the right scenario creation route. `.factory/library/user-testing.md` and mission `AGENTS.md` only document auth bootstrap and generic API validation surface."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Review of feature fix-spreadsheet-filters (commit 5e5109c) passes. The fix is correctly scoped and functionally complete for SpreadsheetView toolbar-driven filters/search behavior, with good test coverage in the added client test file. No blocking code issues were found; two shared-state observations were recorded for skill-procedure adherence visibility and test-bootstrap knowledge capture."
+}

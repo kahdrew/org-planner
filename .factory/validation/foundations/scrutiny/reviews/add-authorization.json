@@ -1,0 +1,33 @@
+{
+  "featureId": "add-authorization",
+  "reviewedAt": "2026-04-17T00:07:10Z",
+  "commitId": "04a8903",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The feature adds broad authorization coverage for org/scenario/employee endpoints and extensive tests, but one blocking correctness gap remains in the scenario diff endpoint for non-existent IDs.",
+    "issues": [
+      {
+        "file": "packages/server/src/controllers/scenarioController.ts",
+        "line": 135,
+        "severity": "blocking",
+        "description": "diffScenarios intentionally proceeds when one or both scenario IDs are valid-but-nonexistent (comment: \"return empty diff\"), then queries employees and can return HTTP 200 with empty/partial diff data. This violates VAL-AUTHZ-007, which requires non-existent org/scenario IDs to return 403 or 404 and explicitly forbids 200-with-empty-data behavior."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The implementation-worker skill mandates strict tests-first TDD for backend changes, but this feature's transcript shows implementation work (creating authorization middleware/routes/controllers) occurred before creating authorization tests. This appears to be a practical mismatch for authz middleware work rather than negligence, so skill guidance may need refinement.",
+      "evidence": ".factory/skills/implementation-worker/SKILL.md:28-33 requires tests before implementation; worker transcript skeleton (worker-transcripts.jsonl line 6) shows \"First, let me create the authorization middleware helper\" and later \"Now let me write comprehensive tests.\""
+    },
+    {
+      "area": "knowledge",
+      "observation": "Architecture documentation is stale after this feature: it still says org memberIds are not used in endpoints, but authorization now depends on memberIds/owner checks across scenario and employee access paths.",
+      "evidence": ".factory/library/architecture.md:53 says \"Organization.memberIds[] ... (org membership, not yet used in endpoints)\", while commit 04a8903 adds requireOrgMembership/requireScenarioAccess and checkOrgMembership usage."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed handoff, commit 04a8903 diff, transcript skeleton, and skill docs. Result is FAIL due to a blocking gap: diffScenarios can return 200 for valid-but-nonexistent scenario IDs, conflicting with VAL-AUTHZ-007. Also noted shared-state gaps in skill procedure realism and stale architecture knowledge."
+}

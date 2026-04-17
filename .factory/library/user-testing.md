@@ -18,6 +18,15 @@ Testing surface, tools, and resource cost classification.
 3. Browser: Navigate to http://localhost:5173, fill register form, submit
 4. Subsequent flows use the authenticated session
 
+### API Data Bootstrap (Post-Auth)
+
+Useful endpoints for quickly creating minimal test data after obtaining a JWT:
+
+1. Create org: `POST /api/orgs` with `{ "name": "Test Org" }`
+2. Create scenario: `POST /api/orgs/:orgId/scenarios` with `{ "name": "Baseline" }`
+3. Create employee: `POST /api/scenarios/:scenarioId/employees` with:
+   `{ "name":"Test Employee","title":"Engineer","department":"Engineering","level":"IC3","location":"Remote","employmentType":"FTE","status":"Active" }`
+
 ### Setup Requirements
 
 - Start both services: `npm run dev` (runs API on 3001 + Vite on 5173 concurrently)

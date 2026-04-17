@@ -1,0 +1,21 @@
+{
+  "featureId": "fix-hierarchyview-filters",
+  "reviewedAt": "2026-04-17T00:06:07Z",
+  "commitId": "92ee39d",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Implementation matches the feature intent: HierarchyView now builds/render its tree from outlet-context filteredEmployees (instead of raw store employees), and the empty state also reflects filters. The added test file covers status filtering, search filtering, combined filters, empty state, and filter reset behavior.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "Skill-compliance reporting appears inconsistent for this UI feature: the implementation-worker skill requires agent-browser verification and recording interactiveChecks, but this run reports followedProcedure=true without those artifacts.",
+      "evidence": "Skill requirement: /Users/andy/Documents/GitHub/org-planner/.factory/skills/implementation-worker/SKILL.md lines 16 and 55-65. Handoff: /Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a/handoffs/2026-04-16T23-39-43-208Z__fix-hierarchyview-filters__613b82cc-ab20-4120-8c9d-86d332691124.json lines 13-15 (commandsRun present), 72-73 (followedProcedure=true, deviations=[]). Transcript check for session 613b82cc-ab20-4120-8c9d-86d332691124 returned contains_agent_browser_tool_call=False and contains_interactiveChecks_text=False."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Pass: the feature correctly applies toolbar status/search filters to HierarchyView via outlet context and includes focused regression tests. No blocking implementation defects were identified in the reviewed commit."
+}

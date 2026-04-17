@@ -1,0 +1,26 @@
+{
+  "featureId": "setup-linting",
+  "reviewedAt": "2026-04-17T00:05:53Z",
+  "commitId": "a10161e",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation matches the feature scope: ESLint flat config and Prettier were added at the monorepo root, lint scripts were added to package.json, and blocking lint errors in existing code were resolved without broad reformatting. No correctness defects were found in the reviewed diff.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The implementation-worker skill procedure is too rigid for config-only features: it requires TDD and browser verification for all implementation tasks, but this linting setup feature had no user-facing behavior and no meaningful red/green test cycle.",
+      "evidence": ".factory/skills/implementation-worker/SKILL.md mandates Step 2 (TDD) and Step 5 (agent-browser) broadly; handoff.skillFeedback.deviations for setup-linting explicitly documents skipping both steps for valid scope reasons."
+    },
+    {
+      "area": "conventions",
+      "observation": "Shared guidance is inconsistent for typechecking commands: AGENTS.md still recommends root `npx tsc --noEmit`, while services.yaml uses per-package `-p` commands.",
+      "evidence": "Mission AGENTS.md Code Quality section lists `TypeScript: npx tsc --noEmit`; repo .factory/services.yaml defines `typecheck: npx tsc --noEmit -p packages/server/tsconfig.json && npx tsc --noEmit -p packages/client/tsconfig.json`."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed feature setup-linting (commit a10161e): implementation is correct and within scope, so status is pass. Noted shared-state gaps around skill procedure specificity for config-only work and inconsistent typecheck guidance between AGENTS.md and services.yaml."
+}

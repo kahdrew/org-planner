@@ -1,0 +1,28 @@
+{
+  "featureId": "add-readme",
+  "reviewedAt": "2026-04-17T00:06:27Z",
+  "commitId": "4603a3d49707617af5a3b81d4e2f56df6742ed96",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The README implementation is comprehensive and covers the requested setup/dev/test/build/deploy/project-structure/contributing sections without exposing secrets, but it documents a non-existent root script (`npm run typecheck`) in two places.",
+    "issues": [
+      {
+        "file": "README.md",
+        "line": 105,
+        "severity": "blocking",
+        "description": "README instructs users to run `npm run typecheck` (also repeated at line 181), but the root `package.json` has no `typecheck` script in its `scripts` block. This makes documented verification instructions fail for contributors."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The implementation-worker skill lacks an explicit docs-only exception path for TDD/manual browser verification, causing avoidable procedure deviations on documentation-only features.",
+      "evidence": ".factory/skills/implementation-worker/SKILL.md:28 enforces a generic \"Write Tests First (TDD)\" step; handoff for this feature records deviations for docs-only work and suggests updating the skill (handoff lines 52, 57, 62)."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Review failed due to a blocking documentation correctness issue: README references a non-existent `npm run typecheck` command. Aside from that, required README coverage and secret hygiene are good."
+}

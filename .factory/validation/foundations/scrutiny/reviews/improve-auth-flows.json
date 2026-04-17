@@ -1,0 +1,21 @@
+{
+  "featureId": "improve-auth-flows",
+  "reviewedAt": "2026-04-17T00:07:42Z",
+  "commitId": "bf7aecd",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation is in scope and satisfies the feature’s expected behavior: registration/login now have client-side field validation and loading states, server/auth errors are surfaced correctly (including Zod arrays), auth pages redirect authenticated users to \"/\", unauthenticated users are redirected to \"/login\", and token 401 handling now preserves login/register error UX while still clearing stale auth for protected endpoint failures. The added tests meaningfully expand coverage for API auth cases and client auth flows, and the first-visit flow blocker (creating an organization from the UI) was addressed.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "The shared architecture doc’s Sidebar description is now stale after this feature; it omits the newly added \"New Organization\" action used in first-visit onboarding.",
+      "evidence": ".factory/library/architecture.md:86 describes Sidebar controls as org/scenario selectors plus new/clone scenario and budget; packages/client/src/components/layout/Sidebar.tsx:42-86 now includes handleNewOrg and a \"New Organization\" button."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed improve-auth-flows (commit bf7aecd). Feature implementation is correct and complete for the requested auth flow improvements and first-visit onboarding behavior, so status is pass. One shared-state observation was noted: architecture documentation is now out of date regarding Sidebar controls."
+}

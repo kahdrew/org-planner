@@ -1,0 +1,21 @@
+{
+  "featureId": "fix-api-bugs",
+  "reviewedAt": "2026-04-17T00:06:29Z",
+  "commitId": "9e92348",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The implementation correctly addresses all three scoped API bugs: the client scenario diff call now matches the server path-param route, bulk employee create now sends the raw array expected by the server schema, and auth pages now prioritize server `error` messages over `message`. The reviewed diff is focused and includes targeted tests for each bug area.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The implementation-worker procedure requires browser verification for user-facing changes, but this feature changed Login/Register UI error rendering and no `agent-browser` run appears in the transcript skeleton.",
+      "evidence": ".factory/skills/implementation-worker/SKILL.md (Step 5 requires invoking agent-browser for user-visible behavior); worker-transcripts.jsonl entry for session 10085560-86a5-449d-b800-7af8f3ea7884 shows code edits and automated tests only, with no `Tool: Skill {\"skill\":\"agent-browser\"}` invocation."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed fix-api-bugs (commit 9e92348). Code changes are correct and in scope for the three API bug fixes, so status is pass. Noted a shared-state skill-procedure adherence gap: required browser verification was not performed for user-facing auth error messaging changes."
+}
