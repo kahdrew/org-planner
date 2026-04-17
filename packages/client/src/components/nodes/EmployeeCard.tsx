@@ -1,4 +1,4 @@
-import { memo, useState, useCallback, useRef } from 'react';
+import { memo, useState, useCallback, useRef, useMemo } from 'react';
 import type { NodeProps } from '@xyflow/react';
 import { Handle, Position } from '@xyflow/react';
 import { Clock } from 'lucide-react';
@@ -8,6 +8,8 @@ import { useOrgStore } from '@/stores/orgStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useScheduledChangeStore } from '@/stores/scheduledChangeStore';
 import { useInvitationStore } from '@/stores/invitationStore';
+import { useOverlayStore } from '@/stores/overlayStore';
+import { buildOverlayContext, getOverlayColor } from '@/utils/overlayColors';
 import InlineEditableField from '@/components/inline/InlineEditableField';
 import type { InlineEditableFieldHandle } from '@/components/inline/InlineEditableField';
 
@@ -69,11 +71,24 @@ type EmployeeNodeData = Employee & { label?: string };
 function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }) {
   const employee = data as Employee;
   const updateEmployee = useOrgStore((s) => s.updateEmployee);
+  const allEmployees = useOrgStore((s) => s.employees);
   const isMultiSelected = useSelectionStore((s) => s.isSelected(employee._id));
   const toggleSelect = useSelectionStore((s) => s.toggleSelect);
   const hasPendingChanges = useScheduledChangeStore((s) => s.hasPendingChanges(employee._id));
   const isViewer = useInvitationStore((s) => s.currentRole) === 'viewer';
+  const overlayMode = useOverlayStore((s) => s.mode);
   const [isInlineEditing, setIsInlineEditing] = useState(false);
+
+  /**
+   * Resolve the overlay color for this employee. When the overlay is off,
+   * `overlayColor` is null and the card falls back to the default status
+   * colors (left border, etc.). When active, we apply the overlay color
+   * as the left border and a soft tint to the card background.
+   */
+  const overlayColor = useMemo(() => {
+    if (overlayMode === 'none') return null;
+    return getOverlayColor(employee, overlayMode, buildOverlayContext(allEmployees));
+  }, [employee, overlayMode, allEmployees]);
 
   // Refs for each editable field to enable Tab traversal
   const fieldRefs = useRef<Record<CardField, InlineEditableFieldHandle | null>>({
@@ -133,9 +148,26 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
   return (
     <div
       onClick={handleClick}
+      data-testid={`employee-card-${employee._id}`}
+      data-overlay-mode={overlayMode}
+      data-overlay-color={overlayColor?.color ?? ''}
+      style={
+        overlayColor
+          ? {
+              borderLeftColor: overlayColor.color,
+              // Soft tint — the overlay color at ~18% opacity so the card
+              // stays legible. Categorical colors still pop because the
+              // left border is full-opacity.
+              backgroundColor: `${overlayColor.color}2E`,
+            }
+          : undefined
+      }
+      title={overlayColor ? `${overlayColor.label}` : undefined}
       className={cn(
         'w-[220px] cursor-pointer rounded-lg border border-gray-200 border-l-4 bg-white shadow-sm transition-shadow hover:shadow-md',
-        STATUS_COLORS[employee.status],
+        // Only apply the default status-based border color when there is no
+        // active overlay — otherwise we keep the overlay color on the border.
+        !overlayColor && STATUS_COLORS[employee.status],
         isMultiSelected && 'ring-2 ring-blue-500 ring-offset-1 bg-blue-50',
         selected && !isMultiSelected && 'ring-2 ring-blue-500 ring-offset-1',
         isInlineEditing && 'nopan nodrag',

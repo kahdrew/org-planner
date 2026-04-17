@@ -6,6 +6,7 @@ import { exportToCSV, parseCSV } from '@/utils/csv';
 import { cn } from '@/utils/cn';
 import * as employeesApi from '@/api/employees';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
+import OverlaySelector from '@/components/panels/OverlaySelector';
 
 const STATUS_OPTIONS = ['Active', 'Planned', 'Open Req', 'Backfill'] as const;
 
@@ -209,6 +210,8 @@ export default function Toolbar({
           Export Chart
         </button>
       )}
+
+      <OverlaySelector />
 
       {onOpenShortcutsHelp && (
         <button

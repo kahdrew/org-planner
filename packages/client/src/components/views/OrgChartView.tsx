@@ -25,6 +25,7 @@ import { useTreeLayout } from '@/hooks/useTreeLayout';
 import EmployeeCard from '@/components/nodes/EmployeeCard';
 import VacantCard from '@/components/nodes/VacantCard';
 import SubtreeMoveConfirmDialog from '@/components/bulk/SubtreeMoveConfirmDialog';
+import OverlayLegend from '@/components/panels/OverlayLegend';
 import { isDescendant, getSubtreeSize, getDescendantIds } from '@/utils/subtreeUtils';
 
 interface OutletContext {
@@ -234,7 +235,7 @@ function OrgChartViewInner() {
   }, [nodesWithSelection, setNodes]);
 
   return (
-    <div className="h-full w-full -m-6">
+    <div className="relative h-full w-full -m-6">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -271,6 +272,13 @@ function OrgChartViewInner() {
           style={{ border: '1px solid #e2e8f0', borderRadius: 8 }}
         />
       </ReactFlow>
+
+      {/* Overlay legend sits over the top-right corner of the canvas and
+          is only rendered when an overlay is active (render is driven by
+          the overlay store inside the component). */}
+      <div className="pointer-events-none absolute right-4 top-4 z-10">
+        <OverlayLegend />
+      </div>
 
       {/* Subtree move confirmation dialog */}
       {pendingMove && (
