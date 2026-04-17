@@ -15,9 +15,10 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronRight, GripVertical, Users } from 'lucide-react';
+import { ChevronRight, GripVertical, Users, Clock } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { useSelectionStore } from '@/stores/selectionStore';
+import { useScheduledChangeStore } from '@/stores/scheduledChangeStore';
 import { cn } from '@/utils/cn';
 import type { Employee } from '@/types';
 import InlineEditableField from '@/components/inline/InlineEditableField';
@@ -150,6 +151,7 @@ function TreeRow({
   const isExpanded = !collapsed.has(employee._id);
   const isSelected = selectedId === employee._id;
   const isMultiSelected = multiSelectedIds.has(employee._id);
+  const hasPendingChanges = useScheduledChangeStore((s) => s.hasPendingChanges(employee._id));
   const [isInlineEditing, setIsInlineEditing] = useState(false);
 
   // Refs for each editable field to enable Tab traversal
@@ -346,6 +348,18 @@ function TreeRow({
             onTab={(shiftKey) => handleTab('level', shiftKey)}
           />
         </div>
+
+        {/* Pending change indicator */}
+        {hasPendingChanges && (
+          <span
+            className="shrink-0 inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-600"
+            title="Has pending scheduled changes"
+            data-testid="pending-change-indicator"
+          >
+            <Clock size={10} className="mr-0.5" />
+            Pending
+          </span>
+        )}
 
         {/* Status badge */}
         <span

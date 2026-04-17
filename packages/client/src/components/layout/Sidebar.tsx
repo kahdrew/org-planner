@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
-import { GitBranch, List, Table, Columns, GitCompare, Plus, Copy, DollarSign, Users } from 'lucide-react';
+import { GitBranch, List, Table, Columns, GitCompare, Plus, Copy, DollarSign, Users, Clock } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
+import { useScheduledChangeStore } from '@/stores/scheduledChangeStore';
 import { cn } from '@/utils/cn';
 import * as scenariosApi from '@/api/scenarios';
 import PendingInvitations from '@/components/panels/PendingInvitations';
@@ -16,14 +17,19 @@ const navItems = [
 interface SidebarProps {
   onToggleBudget?: () => void;
   onToggleMembers?: () => void;
+  onTogglePendingChanges?: () => void;
 }
 
-export default function Sidebar({ onToggleBudget, onToggleMembers }: SidebarProps) {
+export default function Sidebar({ onToggleBudget, onToggleMembers, onTogglePendingChanges }: SidebarProps) {
   const {
     orgs, currentOrg, setCurrentOrg, createOrg,
     scenarios, currentScenario, setCurrentScenario,
     fetchScenarios, fetchEmployees,
   } = useOrgStore();
+
+  const pendingCount = useScheduledChangeStore((s) =>
+    s.scheduledChanges.filter((c) => c.status === 'pending').length,
+  );
 
   const handleOrgChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const org = orgs.find((o) => o._id === e.target.value);
@@ -160,6 +166,21 @@ export default function Sidebar({ onToggleBudget, onToggleMembers }: SidebarProp
           >
             <Users size={16} />
             Members
+          </button>
+        )}
+        {onTogglePendingChanges && (
+          <button
+            onClick={onTogglePendingChanges}
+            className="flex w-full items-center justify-center gap-2 rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700"
+            data-testid="pending-changes-sidebar-btn"
+          >
+            <Clock size={16} />
+            Scheduled Changes
+            {pendingCount > 0 && (
+              <span className="ml-auto inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-xs font-bold text-white">
+                {pendingCount}
+              </span>
+            )}
           </button>
         )}
       </div>

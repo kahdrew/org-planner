@@ -10,10 +10,12 @@ import BulkOperationsToolbar from '@/components/bulk/BulkOperationsToolbar';
 import KeyboardShortcutsHelp from '@/components/help/KeyboardShortcutsHelp';
 import ExportDialog from '@/components/panels/ExportDialog';
 import DeleteConfirmDialog from '@/components/bulk/DeleteConfirmDialog';
+import PendingChangesPanel from '@/components/panels/PendingChangesPanel';
 import { useOrgStore } from '@/stores/orgStore';
 import { useUndoRedoStore } from '@/stores/undoRedoStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useInvitationStore } from '@/stores/invitationStore';
+import { useScheduledChangeStore } from '@/stores/scheduledChangeStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { exportOrgChart, type ExportOptions } from '@/utils/exportOrgChart';
 
@@ -29,6 +31,9 @@ export default function AppShell() {
   const resetRole = useInvitationStore((s) => s.resetRole);
   const currentRole = useInvitationStore((s) => s.currentRole);
 
+  const fetchScheduledChanges = useScheduledChangeStore((s) => s.fetchScheduledChanges);
+  const clearScheduledChanges = useScheduledChangeStore((s) => s.clearChanges);
+
   const [statusFilters, setStatusFilters] = useState<string[]>(['Active', 'Planned', 'Open Req', 'Backfill']);
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewEmployee, setShowNewEmployee] = useState(false);
@@ -38,6 +43,7 @@ export default function AppShell() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [pendingChangesOpen, setPendingChangesOpen] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -109,13 +115,15 @@ export default function AppShell() {
   useEffect(() => {
     if (currentScenario) {
       fetchEmployees(currentScenario._id);
+      fetchScheduledChanges(currentScenario._id);
       setActiveScenario(currentScenario._id);
     } else {
       setActiveScenario(null);
+      clearScheduledChanges();
     }
     // Clear selection when scenario changes
     clearSelection();
-  }, [currentScenario, fetchEmployees, setActiveScenario, clearSelection]);
+  }, [currentScenario, fetchEmployees, fetchScheduledChanges, setActiveScenario, clearSelection, clearScheduledChanges]);
 
   const handleToggleStatus = (status: string) => {
     setStatusFilters((prev) =>
@@ -152,6 +160,7 @@ export default function AppShell() {
       <Sidebar
         onToggleBudget={() => setBudgetOpen(!budgetOpen)}
         onToggleMembers={() => setMembersOpen(!membersOpen)}
+        onTogglePendingChanges={() => setPendingChangesOpen(!pendingChangesOpen)}
       />
 
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -187,6 +196,8 @@ export default function AppShell() {
       <BudgetPanel open={budgetOpen} onClose={() => setBudgetOpen(false)} />
 
       <MembersPanel open={membersOpen} onClose={() => setMembersOpen(false)} />
+
+      <PendingChangesPanel open={pendingChangesOpen} onClose={() => setPendingChangesOpen(false)} />
 
       <KeyboardShortcutsHelp
         open={shortcutsHelpOpen}

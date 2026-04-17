@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { X, Trash2, Save, Loader2 } from 'lucide-react';
+import { X, Trash2, Save, Loader2, Calendar } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { useInvitationStore } from '@/stores/invitationStore';
+import { useScheduledChangeStore } from '@/stores/scheduledChangeStore';
 import { cn } from '@/utils/cn';
 import type { Employee } from '@/types';
+import ScheduleChangeDialog from './ScheduleChangeDialog';
 
 const DEPARTMENTS = [
   'Engineering',
@@ -79,9 +81,14 @@ export default function EmployeeDetailPanel({ employee, isNew, onClose }: Employ
   const { employees, currentScenario, addEmployee, updateEmployee, removeEmployee } = useOrgStore();
   const currentRole = useInvitationStore((s) => s.currentRole);
   const isViewer = currentRole === 'viewer';
+  const createScheduledChange = useScheduledChangeStore((s) => s.createScheduledChange);
+  const pendingChanges = useScheduledChangeStore((s) =>
+    employee ? s.getPendingChangesForEmployee(employee._id) : [],
+  );
   const [form, setForm] = useState<FormData>(buildFormData(employee));
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
 
   useEffect(() => {
     setForm(buildFormData(employee));
@@ -333,6 +340,25 @@ export default function EmployeeDetailPanel({ employee, isNew, onClose }: Employ
         </Field>
       </div>
 
+      {/* Pending Scheduled Changes indicator */}
+      {!isNew && employee && pendingChanges.length > 0 && (
+        <div className="border-t border-gray-200 px-5 py-3">
+          <div className="flex items-center gap-2 text-xs text-amber-600">
+            <Calendar size={14} />
+            <span className="font-medium">
+              {pendingChanges.length} pending scheduled {pendingChanges.length === 1 ? 'change' : 'changes'}
+            </span>
+          </div>
+          <div className="mt-1 space-y-1">
+            {pendingChanges.map((pc) => (
+              <div key={pc._id} className="text-xs text-gray-500">
+                {pc.changeType} — {new Date(pc.effectiveDate).toLocaleDateString()}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex items-center gap-2 border-t border-gray-200 px-5 py-4">
         {isViewer ? (
@@ -356,23 +382,48 @@ export default function EmployeeDetailPanel({ employee, isNew, onClose }: Employ
             </button>
 
             {!isNew && employee && (
-              <button
-                onClick={handleDelete}
-                disabled={saving}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                  confirmDelete
-                    ? 'bg-red-600 text-white hover:bg-red-700'
-                    : 'border border-red-300 text-red-600 hover:bg-red-50'
-                )}
-              >
-                <Trash2 size={16} />
-                {confirmDelete ? 'Confirm' : 'Delete'}
-              </button>
+              <>
+                <button
+                  onClick={() => setShowScheduleDialog(true)}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 rounded-md border border-blue-300 px-3 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50"
+                  title="Schedule a future change"
+                  data-testid="schedule-change-btn"
+                >
+                  <Calendar size={16} />
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={saving}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                    confirmDelete
+                      ? 'bg-red-600 text-white hover:bg-red-700'
+                      : 'border border-red-300 text-red-600 hover:bg-red-50'
+                  )}
+                >
+                  <Trash2 size={16} />
+                  {confirmDelete ? 'Confirm' : 'Delete'}
+                </button>
+              </>
             )}
           </>
         )}
       </div>
+
+      {/* Schedule Change Dialog */}
+      {showScheduleDialog && employee && currentScenario && (
+        <ScheduleChangeDialog
+          employee={employee}
+          onSchedule={async (data) => {
+            await createScheduledChange(currentScenario._id, {
+              employeeId: employee._id,
+              ...data,
+            });
+          }}
+          onClose={() => setShowScheduleDialog(false)}
+        />
+      )}
     </div>
   );
 }

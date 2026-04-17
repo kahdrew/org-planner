@@ -5,6 +5,7 @@ import orgRoutes from "./routes/orgRoutes";
 import scenarioRoutes from "./routes/scenarioRoutes";
 import employeeRoutes from "./routes/employeeRoutes";
 import invitationRoutes from "./routes/invitationRoutes";
+import scheduledChangeRoutes from "./routes/scheduledChangeRoutes";
 
 const app = express();
 
@@ -16,5 +17,6 @@ app.use("/api/orgs", orgRoutes);
 app.use("/api", scenarioRoutes);
 app.use("/api", employeeRoutes);
 app.use("/api", invitationRoutes);
+app.use("/api", scheduledChangeRoutes);
 
 export default app;

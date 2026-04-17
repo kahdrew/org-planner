@@ -1,10 +1,12 @@
 import { memo, useState, useCallback, useRef } from 'react';
 import type { NodeProps } from '@xyflow/react';
 import { Handle, Position } from '@xyflow/react';
+import { Clock } from 'lucide-react';
 import type { Employee } from '@/types';
 import { cn } from '@/utils/cn';
 import { useOrgStore } from '@/stores/orgStore';
 import { useSelectionStore } from '@/stores/selectionStore';
+import { useScheduledChangeStore } from '@/stores/scheduledChangeStore';
 import InlineEditableField from '@/components/inline/InlineEditableField';
 import type { InlineEditableFieldHandle } from '@/components/inline/InlineEditableField';
 
@@ -68,6 +70,7 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
   const updateEmployee = useOrgStore((s) => s.updateEmployee);
   const isMultiSelected = useSelectionStore((s) => s.isSelected(employee._id));
   const toggleSelect = useSelectionStore((s) => s.toggleSelect);
+  const hasPendingChanges = useScheduledChangeStore((s) => s.hasPendingChanges(employee._id));
   const [isInlineEditing, setIsInlineEditing] = useState(false);
 
   // Refs for each editable field to enable Tab traversal
@@ -194,6 +197,16 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-1">
+          {hasPendingChanges && (
+            <span
+              className="inline-flex items-center rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-600"
+              title="Has pending scheduled changes"
+              data-testid="pending-change-indicator"
+            >
+              <Clock size={10} className="mr-0.5" />
+              Pending
+            </span>
+          )}
           <span
             className={cn(
               'inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium',

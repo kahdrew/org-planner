@@ -68,6 +68,22 @@ export interface OrgMember {
   role: OrgRole;
 }
 
+export type ScheduledChangeType = 'transfer' | 'promotion' | 'departure' | 'edit';
+export type ScheduledChangeStatus = 'pending' | 'applied' | 'cancelled';
+
+export interface ScheduledChange {
+  _id: string;
+  employeeId: string;
+  scenarioId: string;
+  effectiveDate: string;
+  changeType: ScheduledChangeType;
+  changeData: Record<string, unknown>;
+  createdBy: string;
+  status: ScheduledChangeStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type DiffStatus = 'added' | 'removed' | 'moved' | 'changed' | 'unchanged';
 
 export interface DiffEntry {
