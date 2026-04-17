@@ -16,6 +16,7 @@ import { useUndoRedoStore } from '@/stores/undoRedoStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useInvitationStore } from '@/stores/invitationStore';
 import { useScheduledChangeStore } from '@/stores/scheduledChangeStore';
+import { useExportStore } from '@/stores/exportStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { exportOrgChart, type ExportOptions } from '@/utils/exportOrgChart';
 
@@ -33,6 +34,8 @@ export default function AppShell() {
 
   const fetchScheduledChanges = useScheduledChangeStore((s) => s.fetchScheduledChanges);
   const clearScheduledChanges = useScheduledChangeStore((s) => s.clearChanges);
+
+  const exportContext = useExportStore((s) => s.exportContext);
 
   const [statusFilters, setStatusFilters] = useState<string[]>(['Active', 'Planned', 'Open Req', 'Backfill']);
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,14 +79,18 @@ export default function AppShell() {
   const handleExportChart = useCallback(async (options: ExportOptions) => {
     setIsExporting(true);
     try {
-      await exportOrgChart(currentScenario?.name ?? 'export', options);
+      await exportOrgChart(
+        currentScenario?.name ?? 'export',
+        options,
+        exportContext ?? undefined,
+      );
     } catch (err) {
       console.error('Export failed:', err);
     } finally {
       setIsExporting(false);
       setExportDialogOpen(false);
     }
-  }, [currentScenario]);
+  }, [currentScenario, exportContext]);
 
   // Compute unique departments from employees
   const departments = useMemo(() => {

@@ -201,6 +201,21 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
           />
         </div>
 
+        {employee.salary != null && (
+          <div
+            className="mt-2 text-xs text-gray-500"
+            data-export-salary="true"
+            data-testid="card-salary"
+          >
+            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(employee.salary)}
+            {employee.equity != null && (
+              <span className="ml-1 text-gray-400">
+                + {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(employee.equity)} equity
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="mt-2 flex flex-wrap items-center gap-1">
           {hasPendingChanges && (
             <span

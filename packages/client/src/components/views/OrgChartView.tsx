@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   ReactFlow,
+  ReactFlowProvider,
   Controls,
   MiniMap,
   Background,
   BackgroundVariant,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   type Node,
   type NodeTypes,
   type OnSelectionChangeFunc,
@@ -18,6 +20,7 @@ import '@xyflow/react/dist/style.css';
 import type { Employee } from '@/types';
 import { useOrgStore } from '@/stores/orgStore';
 import { useSelectionStore } from '@/stores/selectionStore';
+import { useExportStore } from '@/stores/exportStore';
 import { useTreeLayout } from '@/hooks/useTreeLayout';
 import EmployeeCard from '@/components/nodes/EmployeeCard';
 import VacantCard from '@/components/nodes/VacantCard';
@@ -37,8 +40,17 @@ const nodeTypes: NodeTypes = {
 };
 
 export default function OrgChartView() {
+  return (
+    <ReactFlowProvider>
+      <OrgChartViewInner />
+    </ReactFlowProvider>
+  );
+}
+
+function OrgChartViewInner() {
   const { filteredEmployees, isViewer } = useOutletContext<OutletContext>();
   const employees = useOrgStore((s) => s.employees);
+  const reactFlowInstance = useReactFlow();
   const moveEmployee = useOrgStore((s) => s.moveEmployee);
   const { selectedIds, toggleSelect, clearSelection, selectAll } = useSelectionStore();
 
@@ -51,6 +63,19 @@ export default function OrgChartView() {
     targetEmp: Employee;
     subtreeSize: number;
   } | null>(null);
+
+  // Register the React Flow instance in the export store so AppShell can pass
+  // it to the export utility for department filtering and fitView support.
+  const setExportContext = useExportStore((s) => s.setExportContext);
+  useEffect(() => {
+    setExportContext({
+      employees,
+      fitView: (opts) => reactFlowInstance.fitView(opts),
+      getViewport: () => reactFlowInstance.getViewport(),
+      setViewport: (vp, opts) => reactFlowInstance.setViewport(vp, opts),
+    });
+    return () => setExportContext(null);
+  }, [employees, reactFlowInstance, setExportContext]);
 
   // Track which node is being dragged for subtree visual feedback
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);

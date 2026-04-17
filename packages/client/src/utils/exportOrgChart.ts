@@ -1,11 +1,27 @@
 import { toBlob } from 'html-to-image';
 import { jsPDF } from 'jspdf';
+import type { Employee } from '@/types';
 
 export interface ExportOptions {
   format: 'png' | 'pdf';
   includeSalary: boolean;
   department: string; // 'all' or specific department name
   orientation?: 'landscape' | 'portrait';
+}
+
+/**
+ * Context passed to the export function so it can interact with the React Flow
+ * instance and employee data without being coupled to React hooks.
+ */
+export interface ExportContext {
+  /** All employees currently loaded in the scenario (unfiltered). */
+  employees: Employee[];
+  /** Callback that calls reactFlowInstance.fitView(). */
+  fitView: (options?: { padding?: number; duration?: number }) => void;
+  /** Callback that calls reactFlowInstance.getViewport() to save current state. */
+  getViewport: () => { x: number; y: number; zoom: number };
+  /** Callback that calls reactFlowInstance.setViewport() to restore state. */
+  setViewport: (viewport: { x: number; y: number; zoom: number }, options?: { duration?: number }) => void;
 }
 
 /**
@@ -49,6 +65,65 @@ function applySalaryVisibility(
 }
 
 /**
+ * Apply department filter to the React Flow viewport before capture.
+ * Hides nodes and edges for employees not in the selected department.
+ * Returns a cleanup function that restores all hidden elements.
+ */
+function applyDepartmentFilter(
+  container: HTMLElement,
+  department: string,
+  employees: Employee[],
+): () => void {
+  if (department === 'all') return () => {};
+
+  // Build set of employee IDs that match the department filter
+  const matchingIds = new Set(
+    employees
+      .filter((e) => e.department === department)
+      .map((e) => e._id),
+  );
+
+  // Hide nodes that don't match
+  const nodeElements = container.querySelectorAll<HTMLElement>('.react-flow__node');
+  const hiddenNodes: { el: HTMLElement; display: string }[] = [];
+  const hiddenNodeIds = new Set<string>();
+
+  nodeElements.forEach((el) => {
+    const nodeId = el.getAttribute('data-id');
+    if (nodeId && !matchingIds.has(nodeId)) {
+      hiddenNodes.push({ el, display: el.style.display });
+      el.style.display = 'none';
+      hiddenNodeIds.add(nodeId);
+    }
+  });
+
+  // Hide edges that connect to hidden nodes using edge data-id format "sourceId-targetId"
+  const edgeElements = container.querySelectorAll<HTMLElement>('.react-flow__edge');
+  const hiddenEdges: { el: HTMLElement; display: string }[] = [];
+
+  edgeElements.forEach((el) => {
+    const edgeId = el.getAttribute('data-id') ?? '';
+    // Check if the edge connects to any hidden node
+    for (const hiddenId of hiddenNodeIds) {
+      if (edgeId.startsWith(hiddenId + '-') || edgeId.endsWith('-' + hiddenId)) {
+        hiddenEdges.push({ el, display: el.style.display });
+        el.style.display = 'none';
+        break;
+      }
+    }
+  });
+
+  return () => {
+    hiddenNodes.forEach(({ el, display }) => {
+      el.style.display = display;
+    });
+    hiddenEdges.forEach(({ el, display }) => {
+      el.style.display = display;
+    });
+  };
+}
+
+/**
  * Find the React Flow viewport element from the page.
  */
 function getReactFlowViewport(): HTMLElement | null {
@@ -56,18 +131,50 @@ function getReactFlowViewport(): HTMLElement | null {
 }
 
 /**
+ * Wait for a specified duration (ms). Used after fitView to let the viewport
+ * transition complete before capturing.
+ */
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
  * Capture the React Flow canvas as a high-resolution PNG blob.
- * Captures the full org chart (not just visible area).
+ * Captures the full org chart by calling fitView before capture.
+ *
+ * When an ExportContext is provided, the function:
+ * 1. Applies department filter (hides non-matching nodes)
+ * 2. Calls fitView to ensure all visible nodes fit in the viewport
+ * 3. Hides salary elements if not included
+ * 4. Captures the canvas
+ * 5. Restores the original viewport and visibility
  */
 async function captureCanvas(
-  includeSalary: boolean,
+  options: ExportOptions,
+  context?: ExportContext,
 ): Promise<Blob> {
   const viewport = getReactFlowViewport();
   if (!viewport) {
     throw new Error('React Flow viewport not found');
   }
 
-  const restoreSalary = applySalaryVisibility(viewport, includeSalary);
+  // Save original viewport so we can restore it after capture
+  const originalViewport = context?.getViewport?.();
+
+  // Step 1: Apply department filter (hide nodes not in selected department)
+  const restoreDepartment = context
+    ? applyDepartmentFilter(viewport, options.department, context.employees)
+    : () => {};
+
+  // Step 2: Apply salary visibility
+  const restoreSalary = applySalaryVisibility(viewport, options.includeSalary);
+
+  // Step 3: Fit view to ensure all visible nodes are in the viewport
+  if (context?.fitView) {
+    context.fitView({ padding: 0.2, duration: 0 });
+    // Wait for the viewport transform to be applied
+    await wait(100);
+  }
 
   try {
     const blob = await toBlob(viewport as HTMLElement, {
@@ -90,7 +197,14 @@ async function captureCanvas(
 
     return blob;
   } finally {
+    // Restore salary visibility
     restoreSalary();
+    // Restore department visibility
+    restoreDepartment();
+    // Restore original viewport
+    if (context?.setViewport && originalViewport) {
+      context.setViewport(originalViewport, { duration: 0 });
+    }
   }
 }
 
@@ -112,8 +226,9 @@ function downloadBlob(blob: Blob, filename: string): void {
 export async function exportAsPng(
   scenarioName: string,
   options: ExportOptions,
+  context?: ExportContext,
 ): Promise<void> {
-  const blob = await captureCanvas(options.includeSalary);
+  const blob = await captureCanvas(options, context);
   const filename = generateExportFilename(scenarioName, 'png');
   downloadBlob(blob, filename);
 }
@@ -124,8 +239,9 @@ export async function exportAsPng(
 export async function exportAsPdf(
   scenarioName: string,
   options: ExportOptions,
+  context?: ExportContext,
 ): Promise<void> {
-  const blob = await captureCanvas(options.includeSalary);
+  const blob = await captureCanvas(options, context);
   const orientation = options.orientation ?? 'landscape';
 
   // Convert blob to data URL for jsPDF
@@ -199,11 +315,12 @@ export async function exportAsPdf(
 export async function exportOrgChart(
   scenarioName: string,
   options: ExportOptions,
+  context?: ExportContext,
 ): Promise<void> {
   if (options.format === 'png') {
-    await exportAsPng(scenarioName, options);
+    await exportAsPng(scenarioName, options, context);
   } else {
-    await exportAsPdf(scenarioName, options);
+    await exportAsPdf(scenarioName, options, context);
   }
 }
 
