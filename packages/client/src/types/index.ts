@@ -84,6 +84,49 @@ export interface ScheduledChange {
   updatedAt: string;
 }
 
+export interface BudgetEnvelope {
+  _id: string;
+  orgId: string;
+  scenarioId: string;
+  department: string;
+  totalBudget: number;
+  headcountCap: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BudgetStatus = 'under' | 'warning' | 'exceeded';
+
+export interface DepartmentBudgetSummary {
+  department: string;
+  envelopeId: string | null;
+  totalBudget: number | null;
+  headcountCap: number | null;
+  actualSpend: number;
+  actualHeadcount: number;
+  remainingBudget: number | null;
+  remainingHeadcount: number | null;
+  utilizationPct: number | null;
+  headcountUtilizationPct: number | null;
+  budgetStatus: BudgetStatus | null;
+  headcountStatus: BudgetStatus | null;
+}
+
+export interface BudgetSummary {
+  departments: DepartmentBudgetSummary[];
+  totals: {
+    totalBudget: number;
+    headcountCap: number;
+    actualSpend: number;
+    actualHeadcount: number;
+    remainingBudget: number;
+    remainingHeadcount: number;
+    utilizationPct: number | null;
+    headcountUtilizationPct: number | null;
+  };
+}
+
 export type DiffStatus = 'added' | 'removed' | 'moved' | 'changed' | 'unchanged';
 
 export interface DiffEntry {

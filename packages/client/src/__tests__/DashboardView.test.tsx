@@ -51,6 +51,25 @@ vi.mock('@/stores/orgStore', () => {
   };
 });
 
+// --- Mocked budgetStore (DashboardView reads envelopes for budget widgets) ---
+vi.mock('@/stores/budgetStore', () => {
+  return {
+    useBudgetStore: (selector?: (s: Record<string, unknown>) => unknown) => {
+      const state = {
+        envelopes: [],
+        loading: false,
+        error: null,
+        fetchEnvelopes: vi.fn(),
+        clearEnvelopes: vi.fn(),
+        createEnvelope: vi.fn(),
+        updateEnvelope: vi.fn(),
+        deleteEnvelope: vi.fn(),
+      };
+      return selector ? selector(state) : state;
+    },
+  };
+});
+
 function makeEmployee(overrides: Partial<Employee> = {}): Employee {
   return {
     _id: 'emp-' + Math.random().toString(36).slice(2, 9),

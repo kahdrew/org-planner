@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ResponsiveContainer,
   LineChart,
@@ -15,14 +15,19 @@ import {
   Cell,
 } from 'recharts';
 import {
+  AlertCircle,
+  AlertTriangle,
   BarChart3,
   Briefcase,
+  CheckCircle2,
+  DollarSign,
   TrendingUp,
   PieChart as PieIcon,
   Users,
   Clock,
 } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
+import { useBudgetStore } from '@/stores/budgetStore';
 import {
   computeHeadcountTrend,
   computeCostBreakdown,
@@ -31,6 +36,10 @@ import {
   computeHiringVelocity,
   type BreakdownDimension,
 } from '@/utils/dashboardMetrics';
+import {
+  computeBudgetSummary,
+  computeCostProjection,
+} from '@/utils/budgetMetrics';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -123,7 +132,29 @@ function NoScenarioState() {
 export default function DashboardView() {
   const employees = useOrgStore((s) => s.employees);
   const currentScenario = useOrgStore((s) => s.currentScenario);
+  const envelopes = useBudgetStore((s) => s.envelopes);
+  const fetchEnvelopes = useBudgetStore((s) => s.fetchEnvelopes);
+  const clearEnvelopes = useBudgetStore((s) => s.clearEnvelopes);
   const [dimension, setDimension] = useState<BreakdownDimension>('department');
+
+  // Refresh envelopes when scenario changes so the dashboard is always
+  // scenario-aware. Clears when there is no current scenario.
+  useEffect(() => {
+    if (currentScenario?._id) {
+      fetchEnvelopes(currentScenario._id);
+    } else {
+      clearEnvelopes();
+    }
+  }, [currentScenario?._id, fetchEnvelopes, clearEnvelopes]);
+
+  const budgetSummary = useMemo(
+    () => computeBudgetSummary(envelopes, employees),
+    [envelopes, employees],
+  );
+  const costProjection = useMemo(
+    () => computeCostProjection(employees, 12),
+    [employees],
+  );
 
   const headcountTrend = useMemo(() => computeHeadcountTrend(employees), [employees]);
   const velocity = useMemo(() => computeHiringVelocity(employees), [employees]);
@@ -449,6 +480,198 @@ export default function DashboardView() {
               />
             </BarChart>
           </ResponsiveContainer>
+        </Widget>
+
+        {/* Budget vs Actual */}
+        <Widget
+          title="Budget vs. Actual by Department"
+          icon={<DollarSign size={16} />}
+          testId="widget-budget-comparison"
+          className="lg:col-span-2"
+          headerRight={
+            <span
+              className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700"
+              data-testid="budget-envelope-count"
+            >
+              {envelopes.length} envelope{envelopes.length === 1 ? '' : 's'}
+            </span>
+          }
+        >
+          {budgetSummary.departments.filter((d) => d.totalBudget !== null)
+            .length === 0 ? (
+            <div
+              className="flex h-full items-center justify-center text-sm text-gray-500"
+              data-testid="budget-comparison-empty"
+            >
+              No budget envelopes set. Open the Budget panel to add one.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart
+                data={budgetSummary.departments
+                  .filter((d) => d.totalBudget !== null)
+                  .map((d) => ({
+                    department: d.department,
+                    Budget: d.totalBudget ?? 0,
+                    Actual: d.actualSpend,
+                  }))}
+                margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis
+                  dataKey="department"
+                  stroke="#6b7280"
+                  fontSize={12}
+                  interval={0}
+                  angle={-15}
+                  textAnchor="end"
+                  height={50}
+                />
+                <YAxis
+                  tickFormatter={(v: number) => currencyFormatter.format(v)}
+                  stroke="#6b7280"
+                  fontSize={12}
+                />
+                <Tooltip
+                  formatter={(value) => [
+                    fullCurrencyFormatter.format(Number(value ?? 0)),
+                    '',
+                  ]}
+                  contentStyle={{ fontSize: 12 }}
+                />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar
+                  dataKey="Budget"
+                  fill="#3b82f6"
+                  radius={[4, 4, 0, 0]}
+                  isAnimationActive={false}
+                />
+                <Bar
+                  dataKey="Actual"
+                  fill="#10b981"
+                  radius={[4, 4, 0, 0]}
+                  isAnimationActive={false}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </Widget>
+
+        {/* Cost Projection */}
+        <Widget
+          title="Cost Projection (12 months)"
+          icon={<TrendingUp size={16} />}
+          testId="widget-cost-projection"
+          className="lg:col-span-2"
+        >
+          {costProjection.every((p) => p.projected === 0) ? (
+            <div
+              className="flex h-full items-center justify-center text-sm text-gray-500"
+              data-testid="cost-projection-empty"
+            >
+              Add Active or Planned employees to project future spend.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart
+                data={costProjection}
+                margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="label" stroke="#6b7280" fontSize={12} />
+                <YAxis
+                  tickFormatter={(v: number) => currencyFormatter.format(v)}
+                  stroke="#6b7280"
+                  fontSize={12}
+                />
+                <Tooltip
+                  formatter={(value) => [
+                    fullCurrencyFormatter.format(Number(value ?? 0)),
+                    '',
+                  ]}
+                  contentStyle={{ fontSize: 12 }}
+                />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Line
+                  type="monotone"
+                  dataKey="committed"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  dot={false}
+                  isAnimationActive={false}
+                  name="Committed"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="projected"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                  isAnimationActive={false}
+                  name="Projected"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </Widget>
+
+        {/* Budget alerts list */}
+        <Widget
+          title="Budget Alerts"
+          icon={<AlertTriangle size={16} />}
+          testId="widget-budget-alerts"
+          className="lg:col-span-2"
+        >
+          {budgetSummary.departments.filter(
+            (d) => d.budgetStatus === 'warning' || d.budgetStatus === 'exceeded',
+          ).length === 0 ? (
+            <div
+              className="flex items-center gap-2 text-sm text-emerald-700"
+              data-testid="budget-alerts-empty"
+            >
+              <CheckCircle2 size={16} /> All departments are on track.
+            </div>
+          ) : (
+            <ul className="space-y-2 text-sm" data-testid="budget-alerts-list">
+              {budgetSummary.departments
+                .filter(
+                  (d) =>
+                    d.budgetStatus === 'warning' ||
+                    d.budgetStatus === 'exceeded',
+                )
+                .map((d) => (
+                  <li
+                    key={d.department}
+                    className={`flex items-center justify-between rounded-md border px-3 py-2 ${
+                      d.budgetStatus === 'exceeded'
+                        ? 'border-red-200 bg-red-50'
+                        : 'border-amber-200 bg-amber-50'
+                    }`}
+                    data-testid={`budget-alert-${d.department}`}
+                  >
+                    <span className="flex items-center gap-2">
+                      {d.budgetStatus === 'exceeded' ? (
+                        <AlertCircle size={14} className="text-red-600" />
+                      ) : (
+                        <AlertTriangle size={14} className="text-amber-600" />
+                      )}
+                      <span className="font-medium text-gray-800">
+                        {d.department}
+                      </span>
+                    </span>
+                    <span className="text-xs text-gray-600">
+                      {fullCurrencyFormatter.format(d.actualSpend)} /{' '}
+                      {fullCurrencyFormatter.format(d.totalBudget ?? 0)}
+                      {d.utilizationPct !== null && (
+                        <span className="ml-2 font-semibold">
+                          ({d.utilizationPct.toFixed(0)}%)
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          )}
         </Widget>
       </div>
     </div>
