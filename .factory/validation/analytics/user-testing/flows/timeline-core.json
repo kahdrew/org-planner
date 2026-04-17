@@ -1,0 +1,208 @@
+{
+  "groupId": "timeline-core",
+  "testedAt": "2026-04-17T18:41:45.488507Z",
+  "isolation": {
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001",
+    "agentBrowserSession": "timeline-core",
+    "testUserEmail": "testuser-timeline-core-20260417-1128@orgplanner.test",
+    "orgId": "69e27c056ac64af31c6690af",
+    "orgName": "Timeline Core Org 20260417",
+    "scenarioId": "69e27c146ac64af31c6690b6",
+    "scenarioName": "Timeline Core Org 20260417"
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-AV-001",
+      "title": "Timeline slider renders on org chart view",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open Org Chart view in isolated scenario",
+          "expected": "Timeline slider panel is visible with start/end labels and default current state",
+          "observed": "Timeline panel rendered with 'Showing: Current', start/end labels (Apr 16, 2026 to Apr 19, 2026), and range slider"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/timeline-core/VAL-AV-001-timeline-slider-current.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/69e27c146ac64af31c6690b6/timeline -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AV-002",
+      "title": "Dragging slider to past date shows historical org snapshot",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Scrub timeline to first create marker (historical)",
+          "expected": "Employees added later disappear",
+          "observed": "Only Alice is shown; later hires (Carol/Bob) are not visible"
+        },
+        {
+          "action": "Scrub timeline to move-event point",
+          "expected": "Removed employee reappears in historical view",
+          "observed": "Bob reappears in chart at historical point"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/timeline-core/VAL-AV-002-past-before-later-hires.png",
+          "analytics/timeline-core/VAL-AV-002-historical-removed-employee-reappears.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/69e27c146ac64af31c6690b6/history?date=... -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AV-003",
+      "title": "Timeline tracks headcount, departures, and reorgs",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Scrub timeline to move-event point",
+          "expected": "Headcount indicator updates and reorg is reflected",
+          "observed": "Reorg state is reflected (Bob under Carol), but Total headcount pill remains 2 while 3 employees are visible"
+        },
+        {
+          "action": "Scrub to delete-event point",
+          "expected": "Departure reflected by employee disappearance",
+          "observed": "Bob disappears after delete-event point"
+        },
+        {
+          "action": "Return to current state",
+          "expected": "Current count matches HeadcountSummary",
+          "observed": "Current chart and summary both show 2"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/timeline-core/VAL-AV-003-move-state-headcount-mismatch.png",
+          "analytics/timeline-core/VAL-AV-003-departure-after-delete-marker.png",
+          "analytics/timeline-core/VAL-AV-003-current-state.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/69e27c146ac64af31c6690b6/history?date=2026-04-17T18:33:12.355Z -> 200 (3 employees); UI summary remained 2"
+      },
+      "issues": "Headcount summary pill does not update while scrubbing historical timeline states."
+    },
+    {
+      "id": "VAL-AV-004",
+      "title": "Timeline granularity controls",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Switch granularity from Day to Week to Month",
+          "expected": "Tick marks/snap granularity adjust per mode",
+          "observed": "Granularity toggles work and timeline tick spacing changes across Day/Week/Month modes"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/timeline-core/VAL-AV-004-granularity-day.png",
+          "analytics/timeline-core/VAL-AV-004-granularity-week.png",
+          "analytics/timeline-core/VAL-AV-004-granularity-month.png"
+        ],
+        "consoleErrors": "none",
+        "network": "UI-only toggle behavior; no failing network requests observed"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-008",
+      "title": "Scheduled changes reflect on timeline slider",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Create future scheduled title change for Alice (effective 2026-04-18)",
+          "expected": "Pending marker/indicator visible while current title remains unchanged",
+          "observed": "Pending indicator shown; current title remains 'Director Engineering'"
+        },
+        {
+          "action": "Scrub timeline forward past effective date",
+          "expected": "Future title is shown",
+          "observed": "Title updates to 'VP Engineering' in scrubbed future view"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/timeline-core/VAL-CROSS-008-current-title-with-pending-marker.png",
+          "analytics/timeline-core/VAL-CROSS-008-future-date-new-title-visible.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e27c146ac64af31c6690b6/scheduled-changes -> 201; GET /api/scenarios/69e27c146ac64af31c6690b6/timeline -> 200; GET /api/scenarios/69e27c146ac64af31c6690b6/history?date=2026-04-18T23:59:59.000Z -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-014",
+      "title": "Filter state preserved when switching views",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Apply filters (Active-only) and search query 'Alice' on Org Chart",
+          "expected": "Toolbar filter/search state applies to current view",
+          "observed": "Only Alice is shown under current filters/search"
+        },
+        {
+          "action": "Navigate Org Chart -> Hierarchy -> Spreadsheet -> Kanban -> Compare -> Org Chart",
+          "expected": "Status toggles and search text persist across all view switches; results remain consistent",
+          "observed": "Search/filter state persisted across all navigations and result set remained consistent"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/timeline-core/VAL-CROSS-014-orgchart-filter-search-state.png",
+          "analytics/timeline-core/VAL-CROSS-014-hierarchy-filter-search-state.png",
+          "analytics/timeline-core/VAL-CROSS-014-spreadsheet-filter-search-state.png",
+          "analytics/timeline-core/VAL-CROSS-014-kanban-filter-search-state.png",
+          "analytics/timeline-core/VAL-CROSS-014-compare-filter-search-state.png",
+          "analytics/timeline-core/VAL-CROSS-014-orgchart-return-filter-search-state.png"
+        ],
+        "consoleErrors": "none",
+        "network": "View-route navigation only; no request failures observed"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Timeline event markers overlap visually, causing pointer-click interception between adjacent markers.",
+      "resolved": true,
+      "resolution": "Used keyboard slider controls and marker click handlers via in-session script to scrub exact event points.",
+      "affectedAssertions": [
+        "VAL-AV-002",
+        "VAL-AV-003"
+      ]
+    },
+    {
+      "description": "Timeline panel did not refresh immediately after creating timeline events in-session.",
+      "resolved": true,
+      "resolution": "Reloaded the page once to force timeline refetch for the active scenario.",
+      "affectedAssertions": [
+        "VAL-AV-001",
+        "VAL-AV-002",
+        "VAL-AV-003",
+        "VAL-AV-004"
+      ]
+    },
+    {
+      "description": "Scheduling flow entry from card interactions was unreliable due inline-edit interception.",
+      "resolved": true,
+      "resolution": "Bootstrapped one scheduled change via authenticated in-session API (allowed by flow guidance) and validated behavior through UI timeline scrubbing.",
+      "affectedAssertions": [
+        "VAL-CROSS-008"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 6 assertions: 5 passed, 1 failed (VAL-AV-003: headcount indicator does not update to historical snapshot while scrubbing timeline)."
+}

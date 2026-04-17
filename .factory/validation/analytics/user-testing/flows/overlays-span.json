@@ -1,0 +1,232 @@
+{
+  "groupId": "overlays-span",
+  "testedAt": "2026-04-17T18:37:20Z",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001",
+    "email": "testuser-overlays-span-1776450553@orgplanner.test",
+    "orgId": "69e27bfa6ac64af31c66905c",
+    "scenarioId": "69e27bfa6ac64af31c66905f",
+    "evidenceDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a/evidence/analytics/overlays-span/"
+  },
+  "toolsUsed": [
+    "agent-browser",
+    "curl"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-AV-005",
+      "title": "Heatmap overlay toggle with multiple modes",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open Org Chart default state after login",
+          "expected": "Default overlay is off",
+          "observed": "Overlay button displayed as \"Overlay\" and legend count was 0"
+        },
+        {
+          "action": "Open Overlay menu",
+          "expected": "Modes include Salary Band, Tenure, Department, Employment Type, Status (plus Off)",
+          "observed": "Menu showed Off, Salary Band, Tenure, Department, Employment Type, Status"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/overlays-span/VAL-AV-005-default-off.png",
+          "analytics/overlays-span/VAL-AV-005-overlay-menu-modes.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/orgs -> 200; GET /api/orgs/69e27bfa6ac64af31c66905c/scenarios -> 200; GET /api/scenarios/69e27bfa6ac64af31c66905f/employees -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AV-006",
+      "title": "Overlay colors nodes by selected data dimension",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Switch overlays across Salary Band, Tenure, Department, Employment Type, Status",
+          "expected": "Nodes recolor by chosen dimension",
+          "observed": "Overlay button and node colors changed per mode"
+        },
+        {
+          "action": "Validate representative color mappings in DOM",
+          "expected": "Salary/Tenure gradients, categorical distinct colors, gray for missing salary",
+          "observed": "Salary: CEO #ef4444, manager #f3831c, no-salary employee #d1d5db; Tenure: long-tenure hotter than recent; Department/Employment Type/Status used distinct categorical colors and legends"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/overlays-span/VAL-AV-006-salary-overlay.png",
+          "analytics/overlays-span/VAL-AV-006-tenure-overlay.png",
+          "analytics/overlays-span/VAL-AV-006-department-overlay.png",
+          "analytics/overlays-span/VAL-AV-006-employment-type-overlay.png",
+          "analytics/overlays-span/VAL-AV-006-status-overlay.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/69e27bfa6ac64af31c66905f/employees -> 200; GET /api/scenarios/69e27bfa6ac64af31c66905f/timeline -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AV-007",
+      "title": "Heatmap legend displays when overlay is active",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Enable Salary overlay",
+          "expected": "Gradient legend with min/max labels appears",
+          "observed": "Legend title \"Salary Band\" with min $70,000 and max $300,000 displayed"
+        },
+        {
+          "action": "Enable Department overlay",
+          "expected": "Categorical swatch legend appears",
+          "observed": "Categorical legend rendered with department swatches"
+        },
+        {
+          "action": "Turn overlay off",
+          "expected": "Legend disappears",
+          "observed": "Overlay legend count returned 0"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/overlays-span/VAL-AV-006-salary-overlay.png",
+          "analytics/overlays-span/VAL-AV-006-department-overlay.png",
+          "analytics/overlays-span/VAL-AV-007-overlay-off-no-legend.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/69e27bfa6ac64af31c66905f/employees -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AV-008",
+      "title": "Overlay does not break node interactions",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Keep overlay active and click manager card",
+          "expected": "Employee detail panel opens",
+          "observed": "Detail panel opened while salary overlay remained active"
+        },
+        {
+          "action": "Use chart controls and drag gestures with overlay active",
+          "expected": "Zoom and pan still function",
+          "observed": "Zoom In changed viewport transform from matrix(0.302837...) to matrix(0.363404...); middle-mouse pan changed translation from -7.66809 to -187.668"
+        },
+        {
+          "action": "Switch overlay mode while chart is active",
+          "expected": "Node colors update immediately",
+          "observed": "Manager card color changed from department #14b8a6 to salary #f3831c immediately after mode switch"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/overlays-span/VAL-AV-008-overlay-active-detail-panel.png",
+          "analytics/overlays-span/VAL-AV-008-zoom-pan-overlay.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/69e27bfa6ac64af31c66905f/employees -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AV-009",
+      "title": "Span-of-control panel displays manager:report ratios",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open Span of Control panel from sidebar",
+          "expected": "Panel lists managers with name/title/report count/ratio",
+          "observed": "Panel rendered with 3 managers and ratio strings (e.g., Maya Overload 10 direct reports · 1:10; Casey Chief 1:2; Uma Underutilized 1:1)"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/overlays-span/VAL-AV-009-span-panel-ratios.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/69e27bfa6ac64af31c66905f/employees -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AV-010",
+      "title": "Flags overloaded and underutilized managers",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Inspect Span of Control panel flagging",
+          "expected": "Managers >8 reports flagged overloaded; managers <2 reports flagged underutilized",
+          "observed": "Maya Overload flagged Overloaded with count 10; Uma Underutilized flagged Underutilized with count 1; panel summary showed Overloaded=1 and Underutilized=1"
+        },
+        {
+          "action": "Inspect org chart nodes",
+          "expected": "Warning indicators optionally shown on nodes",
+          "observed": "Maya node showed \"10 reports\" overloaded badge; Uma node showed \"1 report\" underutilized badge"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/overlays-span/VAL-AV-010-span-flags.png",
+          "analytics/overlays-span/VAL-AV-010-span-overloaded-top.png",
+          "analytics/overlays-span/VAL-AV-010-span-underutilized-bottom.png",
+          "analytics/overlays-span/VAL-AV-010-node-warning-badges.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/69e27bfa6ac64af31c66905f/employees -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AV-011",
+      "title": "Span-of-control data accuracy matches org chart",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Cross-reference Maya Overload count between panel and org chart",
+          "expected": "Panel report count equals visible org chart child count",
+          "observed": "Panel count for Maya = 10 and org chart badge = \"10 reports\" (match)"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/overlays-span/VAL-AV-011-panel-vs-chart-count.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/69e27bfa6ac64af31c66905f/employees -> 200"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "agent-browser network request log did not include HTTP status codes directly.",
+      "resolved": true,
+      "resolution": "Validated the same observed API reads via authenticated curl calls to capture explicit 200 statuses.",
+      "affectedAssertions": [
+        "VAL-AV-005",
+        "VAL-AV-006",
+        "VAL-AV-007",
+        "VAL-AV-008",
+        "VAL-AV-009",
+        "VAL-AV-010",
+        "VAL-AV-011"
+      ]
+    },
+    {
+      "description": "Annotated span panel screenshots surfaced only a subset of rows as interactive refs.",
+      "resolved": true,
+      "resolution": "Used panel data-testid DOM extraction to verify all manager rows, flags, and ratios (overloaded/healthy/underutilized) were present.",
+      "affectedAssertions": [
+        "VAL-AV-009",
+        "VAL-AV-010",
+        "VAL-AV-011"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 7 assertions (VAL-AV-005 through VAL-AV-011): 7 passed, 0 failed, 0 blocked."
+}

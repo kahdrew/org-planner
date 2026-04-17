@@ -1,0 +1,55 @@
+{
+  "milestone": "analytics",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 20,
+    "passed": 18,
+    "failed": 2,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-AV-001",
+    "VAL-AV-002",
+    "VAL-AV-004",
+    "VAL-AV-005",
+    "VAL-AV-006",
+    "VAL-AV-007",
+    "VAL-AV-008",
+    "VAL-AV-009",
+    "VAL-AV-010",
+    "VAL-AV-011",
+    "VAL-AV-012",
+    "VAL-AV-013",
+    "VAL-AV-014",
+    "VAL-AV-015",
+    "VAL-AV-016",
+    "VAL-CROSS-008",
+    "VAL-CROSS-014",
+    "VAL-CROSS-016"
+  ],
+  "failedAssertions": [
+    {
+      "id": "VAL-AV-003",
+      "reason": "Headcount summary pill does not update while scrubbing historical timeline states."
+    },
+    {
+      "id": "VAL-CROSS-015",
+      "reason": "Diff output did not match expected change-type counts for the prepared A\u2192B scenario pair."
+    }
+  ],
+  "blockedAssertions": [],
+  "appliedUpdates": [
+    {
+      "target": "services.yaml",
+      "description": "Updated API service healthcheck to treat any reachable HTTP response as healthy so validation setup no longer fails on expected 400 from /api/auth/login with empty payload.",
+      "source": "setup"
+    },
+    {
+      "target": "user-testing.md",
+      "description": "Added analytics-specific agent-browser guidance for timeline marker interaction reliability and one-refresh timeline visibility after in-session event creation.",
+      "source": "flow-report"
+    }
+  ],
+  "previousRound": null
+}

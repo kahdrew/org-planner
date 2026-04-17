@@ -37,6 +37,8 @@ Testing surface, required tools, isolation guidance, and resource limits for val
 - If a step depends on drag-and-drop, record both UI result and persisted result after refresh when assertion requires persistence.
 - If `@ref` drag targeting is unreliable, use coordinate-based mouse drag with DOM-derived element bounds.
 - If prompt-driven org/scenario bootstrap is flaky in automation, use authenticated in-session API bootstrap, then perform assertion checks via UI.
+- In analytics timeline flows, adjacent timeline markers may intercept clicks; use slider keyboard/scrub controls (or precise script-assisted slider values) to hit exact event points reliably.
+- After creating timeline/scheduled-change events in-session, refresh once before final timeline assertions if markers or history do not appear immediately.
 
 ## Flow Validator Guidance: curl
 

@@ -1,0 +1,239 @@
+{
+  "groupId": "dashboard-cross",
+  "testedAt": "2026-04-17T18:53:09Z",
+  "isolation": {
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001",
+    "testUserEmail": "testuser-dashboard-cross-1776451383@orgplanner.test",
+    "org": {
+      "id": "69e27fa66ac64af31c6691f9",
+      "name": "Org dashboard-cross-1776451383"
+    },
+    "scenarios": {
+      "a": {
+        "id": "69e27fa66ac64af31c6691fc",
+        "name": "Scenario A dashboard-cross-1776451383"
+      },
+      "b": {
+        "id": "69e27fa96ac64af31c66922b",
+        "name": "Scenario A dashboard-cross-1776451383 (Copy)"
+      },
+      "empty": {
+        "id": "69e27fab6ac64af31c66925e",
+        "name": "Scenario Empty dashboard-cross-1776451383"
+      }
+    }
+  },
+  "toolsUsed": [
+    "agent-browser",
+    "curl"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-AV-012",
+      "title": "Dashboard route exists with headcount trends chart",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Navigate to /dashboard with Scenario A selected",
+          "expected": "Dashboard renders in app shell with headcount trends chart",
+          "observed": "Dashboard rendered with 'Headcount Trends' chart and labeled axes"
+        },
+        {
+          "action": "Cross-check chart latest value against HeadcountSummary total",
+          "expected": "Latest chart point equals current total",
+          "observed": "Dashboard Headcount=7 and chart endpoint label shows 7; footer HeadcountSummary Total=7"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/dashboard-cross/VAL-AV-012-dashboard-headcount-trends.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Observed GET /api/scenarios/69e27fa66ac64af31c6691fc/employees and GET /api/scenarios/69e27fa66ac64af31c6691fc/timeline via Vite proxy"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AV-013",
+      "title": "Dashboard displays cost breakdown and employment distribution",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open Dashboard for Scenario A",
+          "expected": "Cost Breakdown, Employment Distribution, and Open Positions widgets are visible",
+          "observed": "All widgets rendered"
+        },
+        {
+          "action": "Inspect widget values",
+          "expected": "Employment type and open positions counts match scenario data",
+          "observed": "Employment Distribution shows FTE 5 / Contractor 1 / Intern 1; Open Positions shows Open Req 1 / Backfill 1"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/dashboard-cross/VAL-AV-013-dashboard-cost-employment-open-positions.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Observed scenario analytics data fetches from /api/scenarios/69e27fa66ac64af31c6691fc/employees and /timeline"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AV-014",
+      "title": "Dashboard data accuracy and empty state",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Cross-check Dashboard totals against HeadcountSummary and BudgetPanel in Scenario A",
+          "expected": "Totals align",
+          "observed": "Dashboard Total Comp $1,110,000 matches BudgetPanel Grand Total $1,110,000; HeadcountSummary Total=7 matches dashboard headcount"
+        },
+        {
+          "action": "Switch to empty scenario",
+          "expected": "Zero/empty state appears without NaN or chart breakage",
+          "observed": "Dashboard shows 'No data to display' and guidance message; HeadcountSummary shows all zero values; no NaN text observed"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/dashboard-cross/VAL-AV-014-dashboard-budget-cross-check.png",
+          "analytics/dashboard-cross/VAL-AV-014-dashboard-empty-state.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Observed GET /api/scenarios/69e27fa66ac64af31c6691fc/employees (data scenario) and GET /api/scenarios/69e27fab6ac64af31c66925e/employees (empty scenario)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AV-015",
+      "title": "Dashboard reflects selected scenario",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "View dashboard for Scenario A",
+          "expected": "Scenario A metrics shown",
+          "observed": "Headcount 7, Total Comp $1,110,000"
+        },
+        {
+          "action": "Switch to Scenario B (Copy)",
+          "expected": "Dashboard metrics update to Scenario B",
+          "observed": "Headcount 9, Total Comp $1,445,000; values differ from Scenario A"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/dashboard-cross/VAL-AV-015-dashboard-scenario-A.png",
+          "analytics/dashboard-cross/VAL-AV-015-dashboard-scenario-B.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Observed scenario switch requests to /api/scenarios/69e27fa66ac64af31c6691fc/* and /api/scenarios/69e27fa96ac64af31c66922b/*"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AV-016",
+      "title": "Analytics features do not degrade org chart performance",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Enable overlay mode and open span-of-control analytics panel on Org Chart with timeline visible",
+          "expected": "All analytics surfaces can be enabled together",
+          "observed": "Overlay remained active ('Turn overlay off' control shown), timeline slider visible, span-of-control panel opened with manager ratios"
+        },
+        {
+          "action": "Exercise interactions (zoom in/out, pan drag, node click)",
+          "expected": "Interactions remain responsive",
+          "observed": "Zoom/pan actions executed and node click entered inline edit mode; no console errors detected"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/dashboard-cross/VAL-AV-016-org-chart-analytics-enabled.png",
+          "analytics/dashboard-cross/VAL-AV-016-org-chart-overlay-timeline-span-panel.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Observed ongoing timeline/scenario employee fetches while interactions executed"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-015",
+      "title": "Scenario diff shows structural and field-level changes",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Open Compare view and select Scenario A vs Scenario B",
+          "expected": "Diff summary shows added=2, changed=1, moved=1 based on seeded changes",
+          "observed": "Diff summary rendered +2 added, 0 removed, 4 moved, 2 changed"
+        },
+        {
+          "action": "Inspect tree labels",
+          "expected": "Only one employee marked moved and one marked changed",
+          "observed": "Multiple employees marked moved/changed beyond intended edits"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/dashboard-cross/VAL-CROSS-015-compare-diff-summary.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Observed GET /api/scenarios/69e27fa66ac64af31c6691fc/diff/69e27fa96ac64af31c66922b"
+      },
+      "issues": "Diff output did not match expected change-type counts for the prepared A\u2192B scenario pair."
+    },
+    {
+      "id": "VAL-CROSS-016",
+      "title": "Cloned scenario is independent copy",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Inspect Carol Engineer salary in Scenario A",
+          "expected": "Original salary retained",
+          "observed": "Scenario A shows $150,000"
+        },
+        {
+          "action": "Inspect same employee in Scenario B after B-only edit",
+          "expected": "B value differs while A remains unchanged",
+          "observed": "Scenario B shows $165,000 while Scenario A remained $150,000"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/dashboard-cross/VAL-CROSS-016-scenario-A-salary.png",
+          "analytics/dashboard-cross/VAL-CROSS-016-scenario-B-salary.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Observed scenario-specific employee fetches for both A and B in Spreadsheet view"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Direct 'New Organization' prompt interaction was flaky in automation and did not reliably create org/scenario data.",
+      "resolved": true,
+      "resolution": "Used authenticated API bootstrap for isolated org/scenario/employee setup, then validated all assigned assertions through UI.",
+      "affectedAssertions": [
+        "VAL-AV-012",
+        "VAL-AV-013",
+        "VAL-AV-014",
+        "VAL-AV-015",
+        "VAL-AV-016",
+        "VAL-CROSS-015",
+        "VAL-CROSS-016"
+      ]
+    },
+    {
+      "description": "After canvas pan, lower-node clicks could be intercepted by the React Flow minimap overlay.",
+      "resolved": true,
+      "resolution": "Used Fit View/repositioning and validated click responsiveness on non-obstructed nodes.",
+      "affectedAssertions": [
+        "VAL-AV-016"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 7 assertions: 6 passed, 1 failed (VAL-CROSS-015 diff counts did not match expected added/changed/moved totals)."
+}
