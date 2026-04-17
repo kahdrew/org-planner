@@ -6,6 +6,7 @@ import scenarioRoutes from "./routes/scenarioRoutes";
 import employeeRoutes from "./routes/employeeRoutes";
 import invitationRoutes from "./routes/invitationRoutes";
 import scheduledChangeRoutes from "./routes/scheduledChangeRoutes";
+import timelineRoutes from "./routes/timelineRoutes";
 
 const app = express();
 
@@ -18,5 +19,6 @@ app.use("/api", scenarioRoutes);
 app.use("/api", employeeRoutes);
 app.use("/api", invitationRoutes);
 app.use("/api", scheduledChangeRoutes);
+app.use("/api", timelineRoutes);
 
 export default app;

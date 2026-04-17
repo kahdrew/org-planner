@@ -11,11 +11,13 @@ import KeyboardShortcutsHelp from '@/components/help/KeyboardShortcutsHelp';
 import ExportDialog from '@/components/panels/ExportDialog';
 import DeleteConfirmDialog from '@/components/bulk/DeleteConfirmDialog';
 import PendingChangesPanel from '@/components/panels/PendingChangesPanel';
+import TimelineSlider from '@/components/panels/TimelineSlider';
 import { useOrgStore } from '@/stores/orgStore';
 import { useUndoRedoStore } from '@/stores/undoRedoStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useInvitationStore } from '@/stores/invitationStore';
 import { useScheduledChangeStore } from '@/stores/scheduledChangeStore';
+import { useTimelineStore } from '@/stores/timelineStore';
 import { useExportStore } from '@/stores/exportStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { exportOrgChart, type ExportOptions } from '@/utils/exportOrgChart';
@@ -34,6 +36,9 @@ export default function AppShell() {
 
   const fetchScheduledChanges = useScheduledChangeStore((s) => s.fetchScheduledChanges);
   const clearScheduledChanges = useScheduledChangeStore((s) => s.clearChanges);
+
+  const historicalEmployees = useTimelineStore((s) => s.historicalEmployees);
+  const clearTimeline = useTimelineStore((s) => s.clear);
 
   const exportContext = useExportStore((s) => s.exportContext);
 
@@ -128,9 +133,12 @@ export default function AppShell() {
       setActiveScenario(null);
       clearScheduledChanges();
     }
+    // Reset timeline scrub when scenario changes so we don't display stale
+    // historical employees from a previous scenario.
+    clearTimeline();
     // Clear selection when scenario changes
     clearSelection();
-  }, [currentScenario, fetchEmployees, fetchScheduledChanges, setActiveScenario, clearSelection, clearScheduledChanges]);
+  }, [currentScenario, fetchEmployees, fetchScheduledChanges, setActiveScenario, clearSelection, clearScheduledChanges, clearTimeline]);
 
   const handleToggleStatus = (status: string) => {
     setStatusFilters((prev) =>
@@ -138,7 +146,12 @@ export default function AppShell() {
     );
   };
 
-  const filteredEmployees = employees.filter((emp) => {
+  // When the user is scrubbing the timeline to a historical date, prefer the
+  // historical snapshot over the live employee list. Filters and search still
+  // apply so the user gets a consistent view.
+  const employeesSource = historicalEmployees ?? employees;
+
+  const filteredEmployees = employeesSource.filter((emp) => {
     if (!statusFilters.includes(emp.status)) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -188,6 +201,8 @@ export default function AppShell() {
         <main className="flex-1 overflow-auto bg-gray-50">
           <Outlet context={{ filteredEmployees, statusFilters, searchQuery, isViewer: currentRole === 'viewer' }} />
         </main>
+
+        <TimelineSlider />
 
         <HeadcountSummary />
       </div>

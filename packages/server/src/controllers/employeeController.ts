@@ -4,6 +4,46 @@ import mongoose from "mongoose";
 import { AuthRequest } from "../middleware/auth";
 import { checkScenarioAccess, getUserOrgRole } from "../middleware/authorization";
 import Employee, { IEmployee } from "../models/Employee";
+import AuditLog, { AuditAction } from "../models/AuditLog";
+
+/**
+ * Serialize an Employee document to a plain snapshot suitable for audit storage.
+ * Strips Mongoose internals while preserving fields relevant to reconstructing history.
+ */
+function serializeEmployee(emp: IEmployee): Record<string, unknown> {
+  const obj = emp.toObject({ depopulate: true });
+  // Remove Mongoose metadata we don't need in the snapshot
+  delete obj.__v;
+  return obj;
+}
+
+/**
+ * Write an audit log entry. Errors are swallowed to avoid breaking the
+ * primary request flow if auditing fails for any reason.
+ */
+async function writeAuditLog(params: {
+  scenarioId: mongoose.Types.ObjectId | string;
+  employeeId: mongoose.Types.ObjectId | string;
+  action: AuditAction;
+  snapshot: Record<string, unknown>;
+  changes?: Record<string, unknown>;
+  performedBy: string;
+  timestamp?: Date;
+}): Promise<void> {
+  try {
+    await AuditLog.create({
+      scenarioId: params.scenarioId,
+      employeeId: params.employeeId,
+      action: params.action,
+      snapshot: params.snapshot,
+      changes: params.changes,
+      performedBy: params.performedBy,
+      timestamp: params.timestamp ?? new Date(),
+    });
+  } catch (err) {
+    console.error("Failed to write audit log:", err);
+  }
+}
 
 const employeeSchema = z.object({
   name: z.string().min(1),
@@ -49,6 +89,15 @@ export const createEmployee = async (req: AuthRequest, res: Response): Promise<v
       ...data,
       scenarioId: req.params.scenarioId,
     });
+
+    await writeAuditLog({
+      scenarioId: employee.scenarioId,
+      employeeId: employee._id as mongoose.Types.ObjectId,
+      action: "create",
+      snapshot: serializeEmployee(employee),
+      performedBy: req.user!.userId,
+    });
+
     res.status(201).json(employee);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -93,6 +142,18 @@ export const updateEmployee = async (req: AuthRequest, res: Response): Promise<v
 
     const updates = updateEmployeeSchema.parse(req.body);
     const updated = await Employee.findByIdAndUpdate(req.params.id, updates, { new: true });
+
+    if (updated) {
+      await writeAuditLog({
+        scenarioId: updated.scenarioId,
+        employeeId: updated._id as mongoose.Types.ObjectId,
+        action: "update",
+        snapshot: serializeEmployee(updated),
+        changes: updates,
+        performedBy: req.user!.userId,
+      });
+    }
+
     res.json(updated);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -135,7 +196,17 @@ export const deleteEmployee = async (req: AuthRequest, res: Response): Promise<v
       }
     }
 
+    const snapshot = serializeEmployee(employee);
     await Employee.findByIdAndDelete(req.params.id);
+
+    await writeAuditLog({
+      scenarioId: employee.scenarioId,
+      employeeId: employee._id as mongoose.Types.ObjectId,
+      action: "delete",
+      snapshot,
+      performedBy: req.user!.userId,
+    });
+
     res.json({ message: "Employee deleted" });
   } catch {
     res.status(500).json({ error: "Internal server error" });
@@ -206,11 +277,31 @@ export const moveEmployee = async (req: AuthRequest, res: Response): Promise<voi
       }
     }
 
+    const previousManagerId = employee.managerId ? employee.managerId.toString() : null;
+    const previousOrder = employee.order;
+
     const updated = await Employee.findByIdAndUpdate(
       req.params.id,
       { managerId, order },
       { new: true }
     );
+
+    if (updated) {
+      await writeAuditLog({
+        scenarioId: updated.scenarioId,
+        employeeId: updated._id as mongoose.Types.ObjectId,
+        action: "move",
+        snapshot: serializeEmployee(updated),
+        changes: {
+          managerId,
+          order,
+          previousManagerId,
+          previousOrder,
+        },
+        performedBy: req.user!.userId,
+      });
+    }
+
     res.json(updated);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -228,6 +319,21 @@ export const bulkCreate = async (req: AuthRequest, res: Response): Promise<void>
     const employees = await Employee.insertMany(
       items.map((item) => ({ ...item, scenarioId: req.params.scenarioId }))
     );
+
+    const timestamp = new Date();
+    await Promise.all(
+      employees.map((emp) =>
+        writeAuditLog({
+          scenarioId: emp.scenarioId,
+          employeeId: emp._id as mongoose.Types.ObjectId,
+          action: "bulk_create",
+          snapshot: serializeEmployee(emp as unknown as IEmployee),
+          performedBy: req.user!.userId,
+          timestamp,
+        }),
+      ),
+    );
+
     res.status(201).json(employees);
   } catch (err) {
     if (err instanceof z.ZodError) {
