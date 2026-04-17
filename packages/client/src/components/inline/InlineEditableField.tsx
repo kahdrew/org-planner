@@ -1,5 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { cn } from '@/utils/cn';
+
+export interface InlineEditableFieldHandle {
+  /** Programmatically activate edit mode (used for Tab traversal) */
+  startEditing: () => void;
+}
 
 export interface InlineEditableFieldProps {
   value: string;
@@ -21,7 +26,7 @@ export interface InlineEditableFieldProps {
   onTab?: (shiftKey: boolean) => void;
 }
 
-export default function InlineEditableField({
+const InlineEditableField = forwardRef<InlineEditableFieldHandle, InlineEditableFieldProps>(function InlineEditableField({
   value,
   fieldName,
   onSave,
@@ -34,7 +39,7 @@ export default function InlineEditableField({
   onEditStart,
   onEditEnd,
   onTab,
-}: InlineEditableFieldProps) {
+}, ref) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +50,16 @@ export default function InlineEditableField({
     setPrevValue(value);
     setEditValue(value);
   }
+
+  // Expose startEditing for programmatic Tab traversal
+  useImperativeHandle(ref, () => ({
+    startEditing: () => {
+      setIsEditing(true);
+      setEditValue(value);
+      setError(null);
+      onEditStart?.();
+    },
+  }), [value, onEditStart]);
 
   // Focus input when entering edit mode
   useEffect(() => {
@@ -191,4 +206,6 @@ export default function InlineEditableField({
       {value}
     </span>
   );
-}
+});
+
+export default InlineEditableField;

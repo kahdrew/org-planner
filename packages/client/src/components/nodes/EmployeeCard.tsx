@@ -1,4 +1,4 @@
-import { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback, useRef } from 'react';
 import type { NodeProps } from '@xyflow/react';
 import { Handle, Position } from '@xyflow/react';
 import type { Employee } from '@/types';
@@ -6,6 +6,7 @@ import { cn } from '@/utils/cn';
 import { useOrgStore } from '@/stores/orgStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import InlineEditableField from '@/components/inline/InlineEditableField';
+import type { InlineEditableFieldHandle } from '@/components/inline/InlineEditableField';
 
 const STATUS_COLORS: Record<Employee['status'], string> = {
   Active: 'border-l-blue-500',
@@ -50,7 +51,10 @@ function getAvatarColor(name: string): string {
 }
 
 /** Editable field names on the card */
-type CardField = 'name' | 'title' | 'department';
+type CardField = 'name' | 'title' | 'department' | 'level';
+
+/** Deterministic field order for Tab traversal */
+const CARD_FIELD_ORDER: CardField[] = ['name', 'title', 'department', 'level'];
 
 function validateName(value: string): string | null {
   if (!value.trim()) return 'Name is required';
@@ -65,6 +69,14 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
   const isMultiSelected = useSelectionStore((s) => s.isSelected(employee._id));
   const toggleSelect = useSelectionStore((s) => s.toggleSelect);
   const [isInlineEditing, setIsInlineEditing] = useState(false);
+
+  // Refs for each editable field to enable Tab traversal
+  const fieldRefs = useRef<Record<CardField, InlineEditableFieldHandle | null>>({
+    name: null,
+    title: null,
+    department: null,
+    level: null,
+  });
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -100,8 +112,17 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
     setIsInlineEditing(false);
   }, []);
 
-  const handleTab = useCallback((_field: CardField, _shiftKey: boolean) => {
-    // Tab navigation between fields — currently handled by save + blur
+  const handleTab = useCallback((field: CardField, shiftKey: boolean) => {
+    const currentIndex = CARD_FIELD_ORDER.indexOf(field);
+    if (currentIndex === -1) return;
+    const nextIndex = shiftKey ? currentIndex - 1 : currentIndex + 1;
+    if (nextIndex >= 0 && nextIndex < CARD_FIELD_ORDER.length) {
+      const nextField = CARD_FIELD_ORDER[nextIndex];
+      // Use setTimeout to allow current field's save/blur to complete before activating next
+      setTimeout(() => {
+        fieldRefs.current[nextField]?.startEditing();
+      }, 0);
+    }
   }, []);
 
   return (
@@ -130,6 +151,7 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
 
           <div className="min-w-0 flex-1">
             <InlineEditableField
+              ref={(el) => { fieldRefs.current.name = el; }}
               value={employee.name}
               fieldName="name"
               onSave={(v) => handleSave('name', v)}
@@ -142,6 +164,7 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
               onTab={(shiftKey) => handleTab('name', shiftKey)}
             />
             <InlineEditableField
+              ref={(el) => { fieldRefs.current.title = el; }}
               value={employee.title}
               fieldName="title"
               onSave={(v) => handleSave('title', v)}
@@ -157,6 +180,7 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
 
         <div className="mt-2 flex items-center gap-1 text-xs text-gray-400">
           <InlineEditableField
+            ref={(el) => { fieldRefs.current.department = el; }}
             value={employee.department}
             fieldName="department"
             onSave={(v) => handleSave('department', v)}
@@ -182,9 +206,18 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
             {employee.employmentType}
           </span>
           {employee.level && (
-            <span className="inline-flex items-center rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
-              {employee.level}
-            </span>
+            <InlineEditableField
+              ref={(el) => { fieldRefs.current.level = el; }}
+              value={employee.level}
+              fieldName="level"
+              onSave={(v) => handleSave('level', v)}
+              displayClassName="inline-flex items-center rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600"
+              inputClassName="text-[10px]"
+              testIdPrefix="card-inline"
+              onEditStart={handleEditStart}
+              onEditEnd={handleEditEnd}
+              onTab={(shiftKey) => handleTab('level', shiftKey)}
+            />
           )}
         </div>
       </div>

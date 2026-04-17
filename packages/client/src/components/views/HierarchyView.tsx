@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   DndContext,
@@ -21,6 +21,7 @@ import { useSelectionStore } from '@/stores/selectionStore';
 import { cn } from '@/utils/cn';
 import type { Employee } from '@/types';
 import InlineEditableField from '@/components/inline/InlineEditableField';
+import type { InlineEditableFieldHandle } from '@/components/inline/InlineEditableField';
 import { isInputElement } from '@/hooks/useKeyboardShortcuts';
 
 interface OutletContext {
@@ -104,6 +105,9 @@ function flattenIds(nodes: TreeNode[], collapsed: Set<string>): string[] {
 /** Editable field names for a hierarchy row */
 type RowField = 'name' | 'title' | 'department' | 'level';
 
+/** Deterministic field order for Tab traversal */
+const ROW_FIELD_ORDER: RowField[] = ['name', 'title', 'department', 'level'];
+
 function validateName(value: string): string | null {
   if (!value.trim()) return 'Name is required';
   return null;
@@ -143,6 +147,14 @@ function TreeRow({
   const isMultiSelected = multiSelectedIds.has(employee._id);
   const [isInlineEditing, setIsInlineEditing] = useState(false);
 
+  // Refs for each editable field to enable Tab traversal
+  const fieldRefs = useRef<Record<RowField, InlineEditableFieldHandle | null>>({
+    name: null,
+    title: null,
+    department: null,
+    level: null,
+  });
+
   const {
     attributes,
     listeners,
@@ -181,9 +193,17 @@ function TreeRow({
     [employee._id, onInlineEdit],
   );
 
-  const handleTab = useCallback((_field: RowField, _shiftKey: boolean) => {
-    // Tab navigation between fields is handled by browser focus management
-    // within the InlineEditableField component
+  const handleTab = useCallback((field: RowField, shiftKey: boolean) => {
+    const currentIndex = ROW_FIELD_ORDER.indexOf(field);
+    if (currentIndex === -1) return;
+    const nextIndex = shiftKey ? currentIndex - 1 : currentIndex + 1;
+    if (nextIndex >= 0 && nextIndex < ROW_FIELD_ORDER.length) {
+      const nextField = ROW_FIELD_ORDER[nextIndex];
+      // Use setTimeout to allow current field's save/blur to complete before activating next
+      setTimeout(() => {
+        fieldRefs.current[nextField]?.startEditing();
+      }, 0);
+    }
   }, []);
 
   return (
@@ -256,6 +276,7 @@ function TreeRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <InlineEditableField
+              ref={(el) => { fieldRefs.current.name = el; }}
               value={employee.name}
               fieldName="name"
               onSave={(v) => handleSave('name', v)}
@@ -274,6 +295,7 @@ function TreeRow({
             )}
           </div>
           <InlineEditableField
+            ref={(el) => { fieldRefs.current.title = el; }}
             value={employee.title}
             fieldName="title"
             onSave={(v) => handleSave('title', v)}
@@ -289,6 +311,7 @@ function TreeRow({
         {/* Department */}
         <div className="hidden w-28 shrink-0 md:block">
           <InlineEditableField
+            ref={(el) => { fieldRefs.current.department = el; }}
             value={employee.department}
             fieldName="department"
             onSave={(v) => handleSave('department', v)}
@@ -304,6 +327,7 @@ function TreeRow({
         {/* Level */}
         <div className="hidden w-16 shrink-0 lg:block">
           <InlineEditableField
+            ref={(el) => { fieldRefs.current.level = el; }}
             value={employee.level}
             fieldName="level"
             onSave={(v) => handleSave('level', v)}
