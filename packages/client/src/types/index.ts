@@ -181,6 +181,12 @@ export type ApprovalAuditAction =
   | 'resubmit'
   | 'auto_apply';
 
+export interface AuditFieldChange {
+  field: string;
+  from: unknown;
+  to: unknown;
+}
+
 export interface ApprovalAuditEntry {
   action: ApprovalAuditAction;
   performedBy: string;
@@ -188,6 +194,11 @@ export interface ApprovalAuditEntry {
   stepRole?: string;
   comment?: string;
   timestamp: string;
+  /**
+   * Populated on `resubmit` audit entries to record a field-level diff
+   * between the previous and new employeeData (VAL-APPROVAL-012).
+   */
+  changes?: AuditFieldChange[];
 }
 
 export interface HeadcountRequestEmployeeData {

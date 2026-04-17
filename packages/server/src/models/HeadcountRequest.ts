@@ -16,6 +16,17 @@ export type ApprovalAuditAction =
   | "resubmit"
   | "auto_apply";
 
+/**
+ * Single field-level change recorded on an audit entry — used when a
+ * request is resubmitted so the audit trail carries an "edit history"
+ * (VAL-APPROVAL-012).
+ */
+export interface IAuditFieldChange {
+  field: string;
+  from: unknown;
+  to: unknown;
+}
+
 export interface IApprovalAuditEntry {
   action: ApprovalAuditAction;
   performedBy: Types.ObjectId;
@@ -23,6 +34,11 @@ export interface IApprovalAuditEntry {
   stepRole?: string;
   comment?: string;
   timestamp: Date;
+  /**
+   * Field-level edit history captured on resubmit. Empty/absent for
+   * non-edit actions.
+   */
+  changes?: IAuditFieldChange[];
 }
 
 /**
@@ -70,6 +86,15 @@ export interface IHeadcountRequest extends Document {
   updatedAt: Date;
 }
 
+const AuditFieldChangeSchema = new Schema<IAuditFieldChange>(
+  {
+    field: { type: String, required: true },
+    from: { type: Schema.Types.Mixed },
+    to: { type: Schema.Types.Mixed },
+  },
+  { _id: false },
+);
+
 const AuditEntrySchema = new Schema<IApprovalAuditEntry>(
   {
     action: {
@@ -82,6 +107,7 @@ const AuditEntrySchema = new Schema<IApprovalAuditEntry>(
     stepRole: { type: String },
     comment: { type: String },
     timestamp: { type: Date, default: Date.now },
+    changes: { type: [AuditFieldChangeSchema], default: undefined },
   },
   { _id: false },
 );

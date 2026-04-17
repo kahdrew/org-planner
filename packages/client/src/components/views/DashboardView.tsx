@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { useBudgetStore } from '@/stores/budgetStore';
+import { useApprovalStore } from '@/stores/approvalStore';
 import {
   computeHeadcountTrend,
   computeCostBreakdown,
@@ -131,10 +132,13 @@ function NoScenarioState() {
 
 export default function DashboardView() {
   const employees = useOrgStore((s) => s.employees);
+  const currentOrg = useOrgStore((s) => s.currentOrg);
   const currentScenario = useOrgStore((s) => s.currentScenario);
   const envelopes = useBudgetStore((s) => s.envelopes);
   const fetchEnvelopes = useBudgetStore((s) => s.fetchEnvelopes);
   const clearEnvelopes = useBudgetStore((s) => s.clearEnvelopes);
+  const approvalRequests = useApprovalStore((s) => s.requests);
+  const fetchOrgRequests = useApprovalStore((s) => s.fetchOrgRequests);
   const [dimension, setDimension] = useState<BreakdownDimension>('department');
 
   // Refresh envelopes when scenario changes so the dashboard is always
@@ -147,9 +151,28 @@ export default function DashboardView() {
     }
   }, [currentScenario?._id, fetchEnvelopes, clearEnvelopes]);
 
+  // Fetch pending approvals so the planned column in the per-dept budget
+  // breakdown reflects requests currently in-flight (VAL-BUDGET-007).
+  useEffect(() => {
+    if (currentOrg?._id) {
+      fetchOrgRequests(currentOrg._id).catch(() => {});
+    }
+  }, [currentOrg?._id, fetchOrgRequests]);
+
+  // Scoped to the current scenario only so the planned column matches
+  // the employees we are rendering.
+  const scenarioPendingRequests = useMemo(
+    () =>
+      approvalRequests.filter(
+        (r) =>
+          r.status === 'pending' && r.scenarioId === currentScenario?._id,
+      ),
+    [approvalRequests, currentScenario?._id],
+  );
+
   const budgetSummary = useMemo(
-    () => computeBudgetSummary(envelopes, employees),
-    [envelopes, employees],
+    () => computeBudgetSummary(envelopes, employees, scenarioPendingRequests),
+    [envelopes, employees, scenarioPendingRequests],
   );
   const costProjection = useMemo(
     () => computeCostProjection(employees, 12),
@@ -554,6 +577,136 @@ export default function DashboardView() {
                 />
               </BarChart>
             </ResponsiveContainer>
+          )}
+        </Widget>
+
+        {/* Per-department Budget Breakdown table (VAL-BUDGET-007) */}
+        <Widget
+          title="Department Budget Breakdown"
+          icon={<DollarSign size={16} />}
+          testId="widget-budget-breakdown"
+          className="lg:col-span-2"
+        >
+          {budgetSummary.departments.length === 0 ? (
+            <div
+              className="flex h-full items-center justify-center text-sm text-gray-500"
+              data-testid="budget-breakdown-empty"
+            >
+              No departments yet.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table
+                className="min-w-full text-sm"
+                data-testid="budget-breakdown-table"
+              >
+                <thead className="bg-gray-50 text-left text-[11px] uppercase tracking-wide text-gray-500">
+                  <tr>
+                    <th className="px-3 py-2">Department</th>
+                    <th className="px-3 py-2 text-right">Envelope</th>
+                    <th className="px-3 py-2 text-right">Committed</th>
+                    <th className="px-3 py-2 text-right">Planned</th>
+                    <th className="px-3 py-2 text-right">Remaining</th>
+                    <th className="px-3 py-2 text-right">Utilization %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {budgetSummary.departments.map((d) => {
+                    const envelopeLabel =
+                      d.totalBudget === null
+                        ? '—'
+                        : fullCurrencyFormatter.format(d.totalBudget);
+                    const committedLabel = fullCurrencyFormatter.format(
+                      d.actualSpend,
+                    );
+                    const plannedLabel = fullCurrencyFormatter.format(
+                      d.plannedSpend,
+                    );
+                    // Remaining: envelope - (committed + planned); fall back
+                    // to committed remaining when no envelope set.
+                    const remainingLabel =
+                      d.totalBudget === null
+                        ? '—'
+                        : fullCurrencyFormatter.format(
+                            d.totalBudget - d.actualSpend - d.plannedSpend,
+                          );
+                    // Utilization combines committed + planned against envelope.
+                    const projectedUtilization =
+                      d.totalBudget === null
+                        ? null
+                        : d.totalBudget === 0
+                          ? d.actualSpend + d.plannedSpend > 0
+                            ? 100
+                            : 0
+                          : ((d.actualSpend + d.plannedSpend) /
+                              d.totalBudget) *
+                            100;
+                    const utilizationLabel =
+                      projectedUtilization === null
+                        ? '—'
+                        : `${projectedUtilization.toFixed(1)}%`;
+                    const rowStatusClass =
+                      d.projectedBudgetStatus === 'exceeded'
+                        ? 'bg-red-50'
+                        : d.projectedBudgetStatus === 'warning'
+                          ? 'bg-amber-50'
+                          : '';
+                    return (
+                      <tr
+                        key={d.department}
+                        className={`border-t border-gray-100 ${rowStatusClass}`}
+                        data-testid={`budget-breakdown-row-${d.department}`}
+                      >
+                        <td className="px-3 py-2 font-medium text-gray-800">
+                          {d.department}
+                        </td>
+                        <td
+                          className="px-3 py-2 text-right text-gray-700"
+                          data-testid={`breakdown-envelope-${d.department}`}
+                        >
+                          {envelopeLabel}
+                        </td>
+                        <td
+                          className="px-3 py-2 text-right text-gray-700"
+                          data-testid={`breakdown-committed-${d.department}`}
+                        >
+                          {committedLabel}
+                        </td>
+                        <td
+                          className="px-3 py-2 text-right text-gray-700"
+                          data-testid={`breakdown-planned-${d.department}`}
+                        >
+                          {plannedLabel}
+                        </td>
+                        <td
+                          className={`px-3 py-2 text-right font-medium ${
+                            d.totalBudget !== null &&
+                            d.totalBudget - d.actualSpend - d.plannedSpend < 0
+                              ? 'text-red-700'
+                              : 'text-gray-800'
+                          }`}
+                          data-testid={`breakdown-remaining-${d.department}`}
+                        >
+                          {remainingLabel}
+                        </td>
+                        <td
+                          className={`px-3 py-2 text-right font-semibold ${
+                            d.projectedBudgetStatus === 'exceeded'
+                              ? 'text-red-700'
+                              : d.projectedBudgetStatus === 'warning'
+                                ? 'text-amber-700'
+                                : 'text-gray-800'
+                          }`}
+                          data-testid={`breakdown-utilization-${d.department}`}
+                        >
+                          {utilizationLabel}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </Widget>
 

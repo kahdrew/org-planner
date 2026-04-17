@@ -335,8 +335,19 @@ interface RequestDetailProps {
   envelopes: BudgetEnvelope[];
   members: OrgMember[];
   currentUserId?: string;
+  /** True if the current user is an approver for the current step. */
+  actionable: boolean;
   onClose: () => void;
   onResubmit?: () => void;
+  onAction?: (kind: 'approve' | 'reject' | 'request_changes') => void;
+}
+
+function formatChangeValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'number') {
+    return new Intl.NumberFormat('en-US').format(value);
+  }
+  return String(value);
 }
 
 function RequestDetail({
@@ -346,8 +357,10 @@ function RequestDetail({
   envelopes,
   members,
   currentUserId,
+  actionable,
   onClose,
   onResubmit,
+  onAction,
 }: RequestDetailProps) {
   // Resolve the employee targeted by a comp-change request for delta display.
   const targetEmployee =
@@ -651,12 +664,94 @@ function RequestDetail({
                       “{entry.comment}”
                     </div>
                   )}
+                  {isResubmit && entry.changes && entry.changes.length > 0 && (
+                    <ul
+                      className="mt-1 space-y-0.5 rounded border border-blue-100 bg-blue-50 px-2 py-1"
+                      data-testid={`audit-edit-history-${idx}`}
+                    >
+                      {entry.changes.map((chg, cIdx) => (
+                        <li
+                          key={`${chg.field}-${cIdx}`}
+                          className="flex flex-wrap gap-1 text-[11px] text-blue-900"
+                          data-testid={`audit-edit-history-${idx}-${chg.field}`}
+                        >
+                          <span className="font-semibold capitalize">
+                            {chg.field}:
+                          </span>
+                          <span className="text-blue-700 line-through">
+                            {formatChangeValue(chg.from)}
+                          </span>
+                          <span className="text-blue-500">→</span>
+                          <span className="font-medium text-blue-900">
+                            {formatChangeValue(chg.to)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               );
             })}
           </ol>
         </div>
       </div>
+
+      {/* Action footer for approvers + self-approval guard (VAL-APPROVAL-013) */}
+      {request.status === 'pending' && (
+        <div
+          className="border-t border-gray-200 bg-gray-50 px-5 py-3"
+          data-testid="request-detail-actions"
+        >
+          {currentUserId && request.requestedBy === currentUserId ? (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-gray-600">
+                You submitted this request.
+              </span>
+              <button
+                type="button"
+                disabled
+                className="flex items-center gap-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-400"
+                title="Cannot approve your own request"
+                aria-label="Cannot approve your own request"
+                data-testid="detail-self-approve-disabled"
+              >
+                <Ban size={12} /> Approve
+              </button>
+            </div>
+          ) : actionable ? (
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => onAction?.('request_changes')}
+                className="flex items-center gap-1 rounded-md border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50"
+                data-testid="detail-request-changes-btn"
+              >
+                <MessageSquare size={12} /> Request Changes
+              </button>
+              <button
+                type="button"
+                onClick={() => onAction?.('reject')}
+                className="flex items-center gap-1 rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+                data-testid="detail-reject-btn"
+              >
+                <XCircle size={12} /> Reject
+              </button>
+              <button
+                type="button"
+                onClick={() => onAction?.('approve')}
+                className="flex items-center gap-1 rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
+                data-testid="detail-approve-btn"
+              >
+                <CheckCircle2 size={12} /> Approve
+              </button>
+            </div>
+          ) : (
+            <div className="text-xs text-gray-500">
+              Not awaiting your action on this request.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1303,12 +1398,20 @@ export default function ApprovalsView() {
           envelopes={envelopes}
           members={members}
           currentUserId={currentUser?._id}
+          actionable={canActOnRequest(detailRequest)}
           onClose={() => setDetailId(null)}
           onResubmit={
             detailRequest.status === 'changes_requested' &&
             currentUser?._id === detailRequest.requestedBy
               ? () => setResubmitId(detailRequest._id)
               : undefined
+          }
+          onAction={(kind) =>
+            setActionDialog({
+              kind,
+              requestId: detailRequest._id,
+              requestName: detailRequest.employeeData.name,
+            })
           }
         />
       )}

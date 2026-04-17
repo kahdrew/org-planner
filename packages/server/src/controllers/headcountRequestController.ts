@@ -691,11 +691,49 @@ export const resubmitHeadcountRequest = async (
       return;
     }
 
-    // Allow editing employee data on resubmit
+    // Allow editing employee data on resubmit — capture a field-level diff
+    // so the audit trail preserves edit history (VAL-APPROVAL-012).
     const parsed = z
       .object({ employeeData: employeeDataSchema.optional() })
       .parse(req.body ?? {});
+
+    const changes: { field: string; from: unknown; to: unknown }[] = [];
+
     if (parsed.employeeData) {
+      // `request.employeeData` is a Mongoose subdocument; convert to a plain
+      // object so we can safely enumerate fields without pulling in circular
+      // parent references (which BSON.serialize rejects).
+      const prevDoc = (
+        request.employeeData as unknown as {
+          toObject?: () => Record<string, unknown>;
+        }
+      ).toObject
+        ? (request.employeeData as unknown as {
+            toObject: () => Record<string, unknown>;
+          }).toObject()
+        : ({ ...(request.employeeData as unknown as Record<string, unknown>) });
+      const previousData: Record<string, unknown> = prevDoc;
+      const nextData = parsed.employeeData as unknown as Record<string, unknown>;
+      const allKeys = new Set<string>([
+        ...Object.keys(previousData),
+        ...Object.keys(nextData),
+      ]);
+      for (const key of allKeys) {
+        const prev = previousData[key];
+        const next = nextData[key];
+        const prevEmpty = prev === undefined || prev === null || prev === "";
+        const nextEmpty = next === undefined || next === null || next === "";
+        if (prevEmpty && nextEmpty) continue;
+        // Normalize scalars to strings for comparison so 100 === "100"
+        const equals = String(prev ?? "") === String(next ?? "");
+        if (!equals) {
+          changes.push({
+            field: key,
+            from: prev === undefined ? null : prev,
+            to: next === undefined ? null : next,
+          });
+        }
+      }
       request.employeeData = parsed.employeeData as IEmployeeRequestData;
     }
 
@@ -708,6 +746,7 @@ export const resubmitHeadcountRequest = async (
       stepIndex: 0,
       stepRole: chain?.steps[0]?.role,
       timestamp: new Date(),
+      ...(changes.length > 0 ? { changes } : {}),
     });
 
     await request.save();
