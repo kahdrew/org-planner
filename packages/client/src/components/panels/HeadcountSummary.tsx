@@ -1,5 +1,6 @@
 import { Users, UserCheck, UserPlus, Briefcase, DollarSign, Clock } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
+import { useTimelineStore } from '@/stores/timelineStore';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -24,7 +25,13 @@ function MetricPill({ icon, label, value }: MetricPillProps) {
 }
 
 export default function HeadcountSummary() {
-  const employees = useOrgStore((s) => s.employees);
+  const liveEmployees = useOrgStore((s) => s.employees);
+  const historicalEmployees = useTimelineStore((s) => s.historicalEmployees);
+
+  // When the user is scrubbing the timeline to a historical date, prefer the
+  // historical snapshot so the headcount pills reflect the same employee set
+  // rendered in the org chart. When no scrub is active, use the live roster.
+  const employees = historicalEmployees ?? liveEmployees;
 
   const total = employees.length;
   const fteCount = employees.filter((e) => e.employmentType === 'FTE').length;

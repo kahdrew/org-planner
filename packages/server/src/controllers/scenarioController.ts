@@ -163,16 +163,35 @@ export const diffScenarios = async (req: AuthRequest, res: Response): Promise<vo
       nameKeyA.set(`${e.name}|${e.title}`, e);
     }
 
+    // Build managerId -> "name|title" lookups for each scenario so we can
+    // compare manager relationships semantically. This matters for cloned
+    // scenarios where IDs are remapped but the underlying hierarchy is
+    // preserved — raw managerId comparison would falsely flag every
+    // employee as "moved" just because their manager got a new DB id.
+    const managerKeyById = (
+      employees: typeof employeesA,
+    ): Map<string, string> => {
+      const lookup = new Map<string, string>();
+      for (const e of employees) {
+        lookup.set(e._id.toString(), `${e.name}|${e.title}`);
+      }
+      return lookup;
+    };
+    const managerKeyA = managerKeyById(employeesA);
+    const managerKeyB = managerKeyById(employeesB);
+
     const result: DiffResult = { added: [], removed: [], moved: [], changed: [], unchanged: [] };
     const matchedB = new Set<string>();
 
     for (const empB of employeesB) {
       const bId = empB._id.toString();
       let empA = mapA.get(bId);
+      let matchedById = !!empA;
 
       if (!empA) {
         const key = `${empB.name}|${empB.title}`;
         empA = nameKeyA.get(key);
+        matchedById = false;
       }
 
       if (!empA) {
@@ -192,8 +211,24 @@ export const diffScenarios = async (req: AuthRequest, res: Response): Promise<vo
         "costCenter", "hiringManager", "recruiter", "requisitionId", "order",
       ] as const;
 
-      const managerChanged =
-        (empA.managerId?.toString() ?? null) !== (empB.managerId?.toString() ?? null);
+      // For ID-matched employees (same scenario lineage) we compare manager
+      // ids directly. For name-matched employees (cross-scenario after a
+      // clone) we compare the manager's resolved name|title, otherwise a
+      // harmless ID remap would be misreported as a reparent.
+      let managerChanged: boolean;
+      if (matchedById) {
+        managerChanged =
+          (empA.managerId?.toString() ?? null) !==
+          (empB.managerId?.toString() ?? null);
+      } else {
+        const managerAKey = empA.managerId
+          ? managerKeyA.get(empA.managerId.toString()) ?? null
+          : null;
+        const managerBKey = empB.managerId
+          ? managerKeyB.get(empB.managerId.toString()) ?? null
+          : null;
+        managerChanged = managerAKey !== managerBKey;
+      }
 
       const changes: Record<string, { from: unknown; to: unknown }> = {};
       for (const field of compareFields) {
