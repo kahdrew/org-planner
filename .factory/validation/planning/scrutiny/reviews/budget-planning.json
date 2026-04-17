@@ -1,0 +1,45 @@
+{
+  "featureId": "budget-planning",
+  "reviewedAt": "2026-04-17T20:14:00Z",
+  "commitId": "0a348257f3621dac185c228d877f10f6e8625ca0",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "Core budget APIs/UI are implemented and broadly align with scope, but there are correctness gaps around department key normalization (causing budget/actual mismatches) and lifecycle cleanup for the new BudgetEnvelope model.",
+    "issues": [
+      {
+        "file": "packages/server/src/controllers/budgetController.ts",
+        "line": 262,
+        "severity": "blocking",
+        "description": "Department aggregation uses raw employee department text after only checking trim truthiness (`emp.department` instead of `emp.department.trim()`). Because employee creation accepts untrimmed department strings (`packages/server/src/controllers/employeeController.ts:51`), entries like \"Engineering \" will not match envelope \"Engineering\", producing incorrect summary totals/status."
+      },
+      {
+        "file": "packages/client/src/utils/budgetMetrics.ts",
+        "line": 56,
+        "severity": "blocking",
+        "description": "Client-side real-time summary repeats the same normalization bug (`emp.department` is used as map key when non-empty after trim). This causes immediate UI drift/misclassification for departments with leading/trailing whitespace, undermining the real-time budget impact requirement."
+      },
+      {
+        "file": "packages/server/src/controllers/scenarioController.ts",
+        "line": 96,
+        "severity": "non_blocking",
+        "description": "Scenario deletion cascades to Employee documents only; the new BudgetEnvelope model introduced by this feature is not cleaned up. This leaves orphaned envelopes tied to deleted scenarios."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Department normalization expectations are not clearly codified in shared state. Employee inputs allow untrimmed department values while budget aggregation assumes exact string matching, leading to mismatches.",
+      "evidence": "packages/server/src/controllers/employeeController.ts:51 uses `z.string().min(1)` (no trim); packages/server/src/controllers/budgetController.ts:262 and packages/client/src/utils/budgetMetrics.ts:56 use raw department strings as grouping keys."
+    },
+    {
+      "area": "conventions",
+      "observation": "There is no explicit shared rule for updating scenario lifecycle cleanup when introducing new scenario-scoped models, which likely contributed to missing BudgetEnvelope cascade deletion.",
+      "evidence": "packages/server/src/controllers/scenarioController.ts:96 deletes Employee records on scenario delete, but no corresponding BudgetEnvelope cleanup exists."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Result: fail. The feature is largely complete, but department-key normalization bugs in both server and client summaries can produce incorrect budget utilization/alerts, and BudgetEnvelope records are not cascaded on scenario deletion."
+}

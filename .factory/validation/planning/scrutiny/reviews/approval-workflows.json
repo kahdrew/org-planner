@@ -1,0 +1,34 @@
+{
+  "featureId": "approval-workflows",
+  "reviewedAt": "2026-04-17T20:09:36Z",
+  "commitId": "3f0f9a883ec23b07c3bdb2b967a0c1d605f80ad0",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The feature delivers substantial approval-workflow functionality, but it misses a required submission path and contains a server-side authorization gap for approver actions.",
+    "issues": [
+      {
+        "file": "packages/client/src/components/panels/EmployeeDetailPanel.tsx",
+        "line": 125,
+        "severity": "blocking",
+        "description": "The Add Employee / EmployeeDetail flow still creates employees directly (`addEmployee`) instead of submitting a headcount request into the approval pipeline. The only wired request-entry point is the toolbar dialog (`Request Hire` in Toolbar/AppShell), so the requirement to submit from EmployeeDetailPanel or Add Employee flow is not met."
+      },
+      {
+        "file": "packages/server/src/controllers/headcountRequestController.ts",
+        "line": 402,
+        "severity": "blocking",
+        "description": "`ensureActionable` authorizes actions only by request status + current-step approver ID and never verifies org membership. Since chain creation/update only validates approver IDs as ObjectId format (not org membership) in `approvalChainController`, a non-member user can be configured as approver and successfully call approve/reject/bulk action endpoints directly."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Authorization conventions are ambiguous for approval action endpoints: architecture docs emphasize role/membership middleware, but these routes rely on controller-level approver checks without org-membership enforcement.",
+      "evidence": ".factory/library/architecture.md states role-based org membership middleware; packages/server/src/routes/approvalRoutes.ts:91-100 mounts action endpoints with only `auth`; packages/server/src/controllers/headcountRequestController.ts:402-450 lacks org membership check."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Fail. Key blockers: (1) Add Employee / EmployeeDetail flow bypasses approvals instead of submitting requests, and (2) approver-action authorization does not enforce org membership, enabling non-member approver IDs to act via direct API calls."
+}
