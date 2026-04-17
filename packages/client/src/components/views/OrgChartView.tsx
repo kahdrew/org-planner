@@ -123,23 +123,33 @@ export default function OrgChartView() {
         return dx < THRESHOLD * 2 && dy < THRESHOLD;
       });
 
+      let moved = false;
+
       if (dropTarget) {
         const draggedEmp = draggedNode.data as unknown as Employee;
         const targetEmp = dropTarget.data as unknown as Employee;
 
         // Prevent circular: can't reparent to self or already a child
-        if (draggedEmp.managerId === targetEmp._id) return;
+        if (draggedEmp.managerId !== targetEmp._id) {
+          const confirmed = window.confirm(
+            `Move "${draggedEmp.name}" to report to "${targetEmp.name}"?`
+          );
 
-        const confirmed = window.confirm(
-          `Move "${draggedEmp.name}" to report to "${targetEmp.name}"?`
-        );
-
-        if (confirmed) {
-          moveEmployee(draggedEmp._id, targetEmp._id, draggedEmp.order);
+          if (confirmed) {
+            moveEmployee(draggedEmp._id, targetEmp._id, draggedEmp.order);
+            moved = true;
+          }
         }
       }
+
+      // If the node was not successfully moved (no drop target, same manager,
+      // or user cancelled), reset all nodes back to their computed layout
+      // positions so the dragged node snaps back to its correct place.
+      if (!moved) {
+        setNodes(nodesWithSelection);
+      }
     },
-    [nodes, moveEmployee],
+    [nodes, moveEmployee, nodesWithSelection, setNodes],
   );
 
   return (
