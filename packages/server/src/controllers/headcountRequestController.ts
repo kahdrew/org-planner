@@ -418,6 +418,20 @@ async function ensureActionable(
     return { ok: false, status: 404, error: "Request not found" };
   }
 
+  // Verify the acting user is a member (or owner) of the org that owns this
+  // request. Even if they happen to be listed on an approval chain, they must
+  // still belong to the org to act.
+  const org = await Organization.findById(request.orgId);
+  if (!org) {
+    return { ok: false, status: 403, error: "Forbidden" };
+  }
+  const isMember =
+    org.memberIds.some((id) => id.toString() === userId) ||
+    org.ownerId.toString() === userId;
+  if (!isMember) {
+    return { ok: false, status: 403, error: "Forbidden" };
+  }
+
   if (request.status !== "pending") {
     return {
       ok: false,

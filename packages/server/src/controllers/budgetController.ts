@@ -248,9 +248,18 @@ export const getBudgetSummary = async (
       Employee.find({ scenarioId }).lean(),
     ]);
 
+    // Normalize department keys (trim) so that "Engineering", "Engineering "
+    // and " Engineering" group together consistently on both the envelope
+    // side and the actuals side. Empty / whitespace-only values bucket into
+    // "Unassigned".
+    const normalizeDept = (raw: unknown): string => {
+      const trimmed = typeof raw === "string" ? raw.trim() : "";
+      return trimmed.length > 0 ? trimmed : "Unassigned";
+    };
+
     const envelopeByDept = new Map<string, typeof envelopes[number]>();
     for (const env of envelopes) {
-      envelopeByDept.set(env.department, env);
+      envelopeByDept.set(normalizeDept(env.department), env);
     }
 
     // Aggregate employee actuals by department
@@ -259,7 +268,7 @@ export const getBudgetSummary = async (
       { spend: number; headcount: number }
     >();
     for (const emp of employees) {
-      const dept = emp.department && emp.department.trim() ? emp.department : "Unassigned";
+      const dept = normalizeDept(emp.department);
       const entry = actualsByDept.get(dept) ?? { spend: 0, headcount: 0 };
       entry.spend += (emp.salary ?? 0) + (emp.equity ?? 0);
       entry.headcount += 1;

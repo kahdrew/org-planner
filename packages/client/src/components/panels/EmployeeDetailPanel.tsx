@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Trash2, Save, Loader2, Calendar } from 'lucide-react';
+import { X, Trash2, Save, Loader2, Calendar, AlertTriangle } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { useInvitationStore } from '@/stores/invitationStore';
+import { useApprovalStore } from '@/stores/approvalStore';
 import { useScheduledChangeStore } from '@/stores/scheduledChangeStore';
 import { cn } from '@/utils/cn';
 import type { Employee } from '@/types';
@@ -81,6 +82,11 @@ export default function EmployeeDetailPanel({ employee, isNew, onClose }: Employ
   const { employees, currentScenario, addEmployee, updateEmployee, removeEmployee } = useOrgStore();
   const currentRole = useInvitationStore((s) => s.currentRole);
   const isViewer = currentRole === 'viewer';
+  const approvalChains = useApprovalStore((s) => s.chains);
+  const hasApprovalChains = approvalChains.length > 0;
+  // Direct creation is gated when approval chains exist — users must route
+  // through "Request Hire" so headcount follows the configured workflow.
+  const directCreationBlocked = isNew && hasApprovalChains;
   const createScheduledChange = useScheduledChangeStore((s) => s.createScheduledChange);
   const pendingChanges = useScheduledChangeStore((s) =>
     employee ? s.getPendingChangesForEmployee(employee._id) : [],
@@ -101,6 +107,7 @@ export default function EmployeeDetailPanel({ employee, isNew, onClose }: Employ
 
   const handleSave = async () => {
     if (!form.name.trim()) return;
+    if (directCreationBlocked) return;
     setSaving(true);
     try {
       const payload: Partial<Employee> = {
@@ -166,6 +173,20 @@ export default function EmployeeDetailPanel({ employee, isNew, onClose }: Employ
 
       {/* Form */}
       <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+        {directCreationBlocked && (
+          <div
+            className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+            data-testid="approval-gating-notice"
+          >
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <div>
+              This org uses approval chains for new hires. Direct employee
+              creation is disabled — please use{' '}
+              <span className="font-medium">&quot;Request Hire&quot;</span> in
+              the toolbar to submit a headcount request for approval.
+            </div>
+          </div>
+        )}
         <Field label="Name">
           <input
             type="text"
@@ -369,13 +390,19 @@ export default function EmployeeDetailPanel({ employee, isNew, onClose }: Employ
           <>
             <button
               onClick={handleSave}
-              disabled={saving || !form.name.trim()}
+              disabled={saving || !form.name.trim() || directCreationBlocked}
               className={cn(
                 'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white transition-colors',
-                saving || !form.name.trim()
+                saving || !form.name.trim() || directCreationBlocked
                   ? 'cursor-not-allowed bg-blue-300'
                   : 'bg-blue-600 hover:bg-blue-700'
               )}
+              title={
+                directCreationBlocked
+                  ? 'Approval chains are configured — use "Request Hire" instead'
+                  : undefined
+              }
+              data-testid="save-employee-btn"
             >
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               {isNew ? 'Create Employee' : 'Save Changes'}

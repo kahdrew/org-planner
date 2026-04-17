@@ -5,6 +5,7 @@ import { AuthRequest } from "../middleware/auth";
 import { checkScenarioAccess } from "../middleware/authorization";
 import Scenario from "../models/Scenario";
 import Employee from "../models/Employee";
+import BudgetEnvelope from "../models/BudgetEnvelope";
 
 const createScenarioSchema = z.object({
   name: z.string().min(1),
@@ -93,7 +94,11 @@ export const deleteScenario = async (req: AuthRequest, res: Response): Promise<v
       res.status(404).json({ error: "Scenario not found" });
       return;
     }
-    await Employee.deleteMany({ scenarioId: scenario._id });
+    // Cascade delete scoped resources so orphaned data does not linger.
+    await Promise.all([
+      Employee.deleteMany({ scenarioId: scenario._id }),
+      BudgetEnvelope.deleteMany({ scenarioId: scenario._id }),
+    ]);
     res.json({ message: "Scenario deleted" });
   } catch {
     res.status(500).json({ error: "Internal server error" });

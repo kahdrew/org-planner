@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom';
 import { Plus, Upload, Download, Search, Undo2, Redo2, Users, Keyboard, FileDown, Send } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
+import { useApprovalStore } from '@/stores/approvalStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { exportToCSV, parseCSV } from '@/utils/csv';
 import { cn } from '@/utils/cn';
@@ -53,8 +54,22 @@ export default function Toolbar({
   const location = useLocation();
   const { employees, currentScenario } = useOrgStore();
   const selectionCount = useSelectionStore((s) => s.selectedIds.size);
+  const approvalChains = useApprovalStore((s) => s.chains);
+  const hasApprovalChains = approvalChains.length > 0;
   const viewName = viewNames[location.pathname] ?? 'Org Chart';
   const { handleUndo, handleRedo, canUndo, canRedo } = useUndoRedo();
+
+  const addEmployeeDisabled = isViewer || hasApprovalChains;
+  const addEmployeeTitle = isViewer
+    ? 'Viewers cannot add employees'
+    : hasApprovalChains
+      ? 'This org uses approval chains. Use "Request Hire" to submit a headcount request for approval.'
+      : undefined;
+
+  const handleAddEmployeeClick = () => {
+    if (addEmployeeDisabled) return;
+    onAddEmployee?.();
+  };
 
   const handleExport = () => {
     exportToCSV(employees, `org-planner-${currentScenario?.name ?? 'export'}.csv`);
@@ -86,15 +101,17 @@ export default function Toolbar({
       <div className="mx-4 h-6 w-px bg-gray-200" />
 
       <button
-        onClick={onAddEmployee}
-        disabled={isViewer}
+        onClick={handleAddEmployeeClick}
+        disabled={addEmployeeDisabled}
         className={cn(
           'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white transition-colors',
-          isViewer
+          addEmployeeDisabled
             ? 'cursor-not-allowed bg-gray-300'
             : 'bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)]'
         )}
-        title={isViewer ? 'Viewers cannot add employees' : undefined}
+        title={addEmployeeTitle}
+        data-testid="add-employee-btn"
+        data-approval-gated={hasApprovalChains ? 'true' : 'false'}
       >
         <Plus size={16} />
         Add Employee

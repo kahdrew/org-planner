@@ -46,14 +46,21 @@ export function computeBudgetSummary(
   envelopes: BudgetEnvelope[],
   employees: Employee[],
 ): BudgetSummary {
+  // Normalize department keys (trim) so envelopes and actuals match even if
+  // one side carries whitespace. Mirrors the server's `getBudgetSummary`.
+  const normalizeDept = (raw: unknown): string => {
+    const trimmed = typeof raw === 'string' ? raw.trim() : '';
+    return trimmed.length > 0 ? trimmed : 'Unassigned';
+  };
+
   const envelopeByDept = new Map<string, BudgetEnvelope>();
   for (const env of envelopes) {
-    envelopeByDept.set(env.department, env);
+    envelopeByDept.set(normalizeDept(env.department), env);
   }
 
   const actualsByDept = new Map<string, { spend: number; headcount: number }>();
   for (const emp of employees) {
-    const dept = emp.department?.trim() ? emp.department : 'Unassigned';
+    const dept = normalizeDept(emp.department);
     const entry = actualsByDept.get(dept) ?? { spend: 0, headcount: 0 };
     entry.spend += totalComp(emp);
     entry.headcount += 1;

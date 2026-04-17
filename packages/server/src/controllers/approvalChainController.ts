@@ -3,6 +3,38 @@ import { z } from "zod";
 import mongoose from "mongoose";
 import { AuthRequest } from "../middleware/auth";
 import ApprovalChain from "../models/ApprovalChain";
+import Organization from "../models/Organization";
+
+interface ApprovalStepInput {
+  role: string;
+  approverIds: string[];
+}
+
+/**
+ * Verify that every approver referenced in `steps` is a member (or owner)
+ * of the given org. Returns the offending approver id on failure.
+ */
+async function validateApproversAgainstOrg(
+  orgId: string,
+  steps: ApprovalStepInput[],
+): Promise<{ ok: true } | { ok: false; invalidApproverId: string }> {
+  const org = await Organization.findById(orgId);
+  if (!org) return { ok: false, invalidApproverId: "<org-missing>" };
+
+  const validMemberIds = new Set<string>([
+    org.ownerId.toString(),
+    ...org.memberIds.map((id) => id.toString()),
+  ]);
+
+  for (const step of steps) {
+    for (const id of step.approverIds) {
+      if (!validMemberIds.has(id)) {
+        return { ok: false, invalidApproverId: id };
+      }
+    }
+  }
+  return { ok: true };
+}
 
 const stepSchema = z.object({
   role: z.string().trim().min(1, "Role is required"),
@@ -66,6 +98,16 @@ export const createApprovalChain = async (
           return;
         }
       }
+    }
+
+    // Validate approvers are members of the org. Prevents chains that route
+    // approvals to users with no access to this org.
+    const membershipCheck = await validateApproversAgainstOrg(orgId, data.steps);
+    if (!membershipCheck.ok) {
+      res.status(400).json({
+        error: `Approver is not a member of this organization: ${membershipCheck.invalidApproverId}`,
+      });
+      return;
     }
 
     try {
@@ -188,6 +230,16 @@ export const updateApprovalChain = async (
             return;
           }
         }
+      }
+      const membershipCheck = await validateApproversAgainstOrg(
+        orgId,
+        updates.steps,
+      );
+      if (!membershipCheck.ok) {
+        res.status(400).json({
+          error: `Approver is not a member of this organization: ${membershipCheck.invalidApproverId}`,
+        });
+        return;
       }
     }
 
