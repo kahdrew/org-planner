@@ -1,0 +1,76 @@
+{
+  "milestone": "planning",
+  "round": 1,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run test",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run lint",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 2,
+    "passed": 0,
+    "failed": 2,
+    "failedFeatures": [
+      "budget-planning",
+      "approval-workflows"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "budget-planning",
+      "severity": "blocking",
+      "description": "Budget summary aggregation groups by untrimmed department keys, so whitespace variants (e.g. 'Engineering ') drift from envelope keys and produce incorrect actual/remaining/utilization values."
+    },
+    {
+      "featureId": "budget-planning",
+      "severity": "blocking",
+      "description": "Client-side budget summary computation repeats untrimmed department grouping, causing real-time UI budget metrics and alert classification to diverge from expected department totals."
+    },
+    {
+      "featureId": "approval-workflows",
+      "severity": "blocking",
+      "description": "Add Employee / EmployeeDetail flow still directly creates employees instead of submitting approval requests, so required submission entry path through that flow is missing."
+    },
+    {
+      "featureId": "approval-workflows",
+      "severity": "blocking",
+      "description": "Approval action authorization does not enforce org membership for approvers; with only ObjectId validation in chain setup, non-members can be configured as approvers and act via direct endpoints."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add an explicit normalization rule for user-provided string identifiers used as grouping keys (for example department): trim and canonicalize at input boundaries, and use normalized values consistently in both server summaries and client metrics.",
+      "evidence": "budget-planning review found server and client budget summaries grouping with raw department strings while employee input allows trailing/leading whitespace.",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Add a lifecycle checklist item for new scenario-scoped models: update scenario/org deletion paths (or model middleware) so new entities are cleaned up with parent deletions.",
+      "evidence": "budget-planning review found Scenario deletion cascading employees but not BudgetEnvelope documents, leaving orphans.",
+      "isSystemic": true
+    },
+    {
+      "target": "scrutiny-feature-reviewer skill",
+      "suggestion": "Strengthen review checklist to explicitly verify that action endpoints enforce both authentication and org membership/role constraints, not just identity-based controller checks.",
+      "evidence": "approval-workflows review found approver actions protected by auth + step checks but without org membership enforcement.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [],
+  "previousRound": null
+}

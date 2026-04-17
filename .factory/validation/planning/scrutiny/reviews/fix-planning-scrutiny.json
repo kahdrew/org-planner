@@ -1,0 +1,21 @@
+{
+  "featureId": "fix-planning-scrutiny",
+  "reviewedAt": "2026-04-17T20:36:48Z",
+  "commitId": "a005bb73b76c07ab6cfa0902068ecce225578afc",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Pass. The fix commit adequately resolves all prior blocking findings from both failed features. Resolutions: (1) budget-planning/server normalization bug resolved in getBudgetSummary via normalized department keys for both envelopes and employee aggregation; (2) budget-planning/client normalization bug resolved in computeBudgetSummary with matching normalization; (3) budget-planning scenario cleanup gap resolved by cascading BudgetEnvelope deletion in deleteScenario; (4) approval-workflows Add Employee/EmployeeDetail bypass resolved by disabling toolbar Add Employee and blocking new-employee save with a Request Hire notice when approval chains exist; (5) approval-workflows authorization gap resolved by requiring org membership in ensureActionable and validating approval-chain approverIds against org membership on create/update.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The implementation-worker skill requires agent-browser manual verification for UI changes, but this fix feature changed UI behavior (Toolbar + EmployeeDetailPanel) without any recorded agent-browser invocation or interactive checks.",
+      "evidence": ".factory/skills/implementation-worker/SKILL.md:18,59,64 require agent-browser/manual verification; handoff file /Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a/handoffs/2026-04-17T20-32-11-906Z__fix-planning-scrutiny__071c86c3-cdd1-4261-a14a-6c0509198c49.json includes verification.commandsRun only (lines 13-14) and no interactiveChecks entry; transcript skeleton for session 071c86c3-cdd1-4261-a14a-6c0509198c49 contains no agent-browser skill call."
+    }
+  ],
+  "addressesFailureFrom": "/Users/andy/Documents/GitHub/org-planner/.factory/validation/planning/scrutiny/reviews/budget-planning.json; /Users/andy/Documents/GitHub/org-planner/.factory/validation/planning/scrutiny/reviews/approval-workflows.json",
+  "summary": "Reviewed fix feature against both prior failed reviews and commit a005bb7. All prior blockers are resolved with code and tests in place: department normalization now matches server/client, direct employee creation is gated when chains exist, approval actions enforce org membership and chain approver membership, and scenario deletion cascades BudgetEnvelope cleanup. No new blocking or non-blocking code defects were found in scope."
+}
