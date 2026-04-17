@@ -1,87 +1,54 @@
 {
   "milestone": "planning",
-  "round": 1,
+  "round": 2,
   "status": "fail",
   "assertionsSummary": {
-    "total": 27,
-    "passed": 15,
-    "failed": 12,
+    "total": 12,
+    "passed": 6,
+    "failed": 6,
     "blocked": 0
   },
   "passedAssertions": [
-    "VAL-APPROVAL-001",
-    "VAL-APPROVAL-004",
-    "VAL-APPROVAL-006",
-    "VAL-APPROVAL-007",
-    "VAL-APPROVAL-011",
-    "VAL-BUDGET-001",
-    "VAL-BUDGET-002",
-    "VAL-BUDGET-005",
-    "VAL-BUDGET-006",
-    "VAL-BUDGET-008",
-    "VAL-BUDGET-009",
-    "VAL-BUDGET-010",
-    "VAL-BUDGET-011",
-    "VAL-CROSS-017",
-    "VAL-CROSS-018"
+    "VAL-BUDGET-003",
+    "VAL-BUDGET-004",
+    "VAL-APPROVAL-002",
+    "VAL-APPROVAL-005",
+    "VAL-APPROVAL-008",
+    "VAL-CROSS-019"
   ],
   "failedAssertions": [
     {
-      "id": "VAL-APPROVAL-002",
-      "reason": "Compensation-change submission UX (and delta rendering) is missing from tested UI path."
+      "id": "VAL-BUDGET-007",
+      "reason": "Required per-department envelope/committed/planned/remaining/utilization column breakdown is still not visible in the dashboard UI."
     },
     {
       "id": "VAL-APPROVAL-003",
-      "reason": "Required budget impact metrics are not rendered on submitter or approver surfaces."
-    },
-    {
-      "id": "VAL-APPROVAL-005",
-      "reason": "Dashboard surfaces non-VP-pending items, contrary to assertion requirement."
-    },
-    {
-      "id": "VAL-APPROVAL-008",
-      "reason": "Rejection flow works, but required submitter notification UX was not observed."
+      "reason": "Submitter-side budget impact is present, but approver review surface still does not show equivalent budget impact summary metrics."
     },
     {
       "id": "VAL-APPROVAL-009",
-      "reason": "Resubmit/edit UX for submitter after changes requested is missing."
+      "reason": "Changes-requested flow still lacks submitter edit/resubmit UI to restart chain from step 1."
     },
     {
       "id": "VAL-APPROVAL-010",
-      "reason": "Event-specific notification UX (bell/feed + submitter notifications) was not present."
+      "reason": "Dedicated notification feed/bell event content is still not visible; only approval badges/counters are observed."
     },
     {
       "id": "VAL-APPROVAL-012",
-      "reason": "Audit UI is chronological but incomplete versus contract (missing explicit actor identity and edit-history detail)."
+      "reason": "Audit trail shows chronological approvals but still lacks completed-request edit-history entries required by contract."
     },
     {
       "id": "VAL-APPROVAL-013",
-      "reason": "Self-approval is blocked functionally, but required disabled-button tooltip UX is not implemented as specified."
-    },
-    {
-      "id": "VAL-BUDGET-003",
-      "reason": "Budget impact preview is incomplete vs contract requirements (missing current spend / projected spend / utilization%)."
-    },
-    {
-      "id": "VAL-BUDGET-004",
-      "reason": "Expected over-budget/over-headcount warnings and flagging were not present."
-    },
-    {
-      "id": "VAL-BUDGET-007",
-      "reason": "Required per-department committed/planned/remaining column breakdown was not present in the rendered vs Actual UI."
-    },
-    {
-      "id": "VAL-CROSS-019",
-      "reason": "Cascade was incomplete: report managerId references remained pointed at the deleted manager ID instead of being reassigned/cleared."
+      "reason": "Expected disabled self-approve button with tooltip is not rendered; row remains view-only without specified affordance."
     }
   ],
   "blockedAssertions": [],
   "appliedUpdates": [
     {
       "target": "user-testing.md",
-      "description": "Added planning milestone flow guidance for stale agent-browser refs, icon-only approval actions, and approval-chain Add Employee limitations with setup fallback strategy.",
+      "description": "Added guidance for post-login selector reload behavior and using sidebar navigation when direct /approvals navigation is unstable.",
       "source": "flow-report"
     }
   ],
-  "previousRound": null
+  "previousRound": ".factory/validation/planning/user-testing/synthesis.round1.json"
 }

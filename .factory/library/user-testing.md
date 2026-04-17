@@ -38,7 +38,9 @@ Testing surface, required tools, isolation guidance, and resource limits for val
 - If `@ref` drag targeting is unreliable, use coordinate-based mouse drag with DOM-derived element bounds.
 - If prompt-driven org/scenario bootstrap is flaky in automation, use authenticated in-session API bootstrap, then perform assertion checks via UI.
 - After navigation, modal submits, or auth transitions, refresh element references with a new `snapshot -i` before the next click/type action to avoid stale-ref failures.
+- If org/scenario selectors show empty right after login, run a single page reload before continuing assertions.
 - In Approvals queues, action buttons can be icon-only; verify the action by tooltip/icon/color mapping before bulk or destructive actions.
+- If direct navigation to `/approvals` intermittently returns to `/`, enter Approvals through the sidebar link after login.
 - Enabling approval chains can disable direct **Add Employee** UI paths; for assertions that still require setup data, bootstrap test employees through isolated request flows or authenticated in-session API setup, then validate outcomes in UI.
 - In analytics timeline flows, adjacent timeline markers may intercept clicks; use slider keyboard/scrub controls (or precise script-assisted slider values) to hit exact event points reliably.
 - After creating timeline/scheduled-change events in-session, refresh once before final timeline assertions if markers or history do not appear immediately.
