@@ -19,6 +19,7 @@ export const createOrg = async (req: AuthRequest, res: Response): Promise<void> 
       name,
       ownerId: userId,
       memberIds: [userId],
+      memberRoles: [{ userId, role: "owner" }],
     });
     res.status(201).json(org);
   } catch (err) {

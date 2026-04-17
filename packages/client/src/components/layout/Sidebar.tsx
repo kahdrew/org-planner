@@ -1,8 +1,9 @@
 import { NavLink } from 'react-router-dom';
-import { GitBranch, List, Table, Columns, GitCompare, Plus, Copy, DollarSign } from 'lucide-react';
+import { GitBranch, List, Table, Columns, GitCompare, Plus, Copy, DollarSign, Users } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { cn } from '@/utils/cn';
 import * as scenariosApi from '@/api/scenarios';
+import PendingInvitations from '@/components/panels/PendingInvitations';
 
 const navItems = [
   { to: '/', icon: GitBranch, label: 'Org Chart', end: true },
@@ -14,9 +15,10 @@ const navItems = [
 
 interface SidebarProps {
   onToggleBudget?: () => void;
+  onToggleMembers?: () => void;
 }
 
-export default function Sidebar({ onToggleBudget }: SidebarProps) {
+export default function Sidebar({ onToggleBudget, onToggleMembers }: SidebarProps) {
   const {
     orgs, currentOrg, setCurrentOrg, createOrg,
     scenarios, currentScenario, setCurrentScenario,
@@ -103,6 +105,8 @@ export default function Sidebar({ onToggleBudget }: SidebarProps) {
         </select>
       </div>
 
+      <PendingInvitations />
+
       <nav className="flex-1 space-y-1 p-3">
         {navItems.map(({ to, icon: Icon, label, end }) => (
           <NavLink
@@ -147,6 +151,15 @@ export default function Sidebar({ onToggleBudget }: SidebarProps) {
           >
             <DollarSign size={16} />
             Budget
+          </button>
+        )}
+        {onToggleMembers && (
+          <button
+            onClick={onToggleMembers}
+            className="flex w-full items-center justify-center gap-2 rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700"
+          >
+            <Users size={16} />
+            Members
           </button>
         )}
       </div>

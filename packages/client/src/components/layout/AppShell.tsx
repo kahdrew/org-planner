@@ -5,12 +5,14 @@ import Toolbar from './Toolbar';
 import HeadcountSummary from '@/components/panels/HeadcountSummary';
 import EmployeeDetailPanel from '@/components/panels/EmployeeDetailPanel';
 import BudgetPanel from '@/components/panels/BudgetPanel';
+import MembersPanel from '@/components/panels/MembersPanel';
 import BulkOperationsToolbar from '@/components/bulk/BulkOperationsToolbar';
 import KeyboardShortcutsHelp from '@/components/help/KeyboardShortcutsHelp';
 import DeleteConfirmDialog from '@/components/bulk/DeleteConfirmDialog';
 import { useOrgStore } from '@/stores/orgStore';
 import { useUndoRedoStore } from '@/stores/undoRedoStore';
 import { useSelectionStore } from '@/stores/selectionStore';
+import { useInvitationStore } from '@/stores/invitationStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 
 export default function AppShell() {
@@ -21,10 +23,15 @@ export default function AppShell() {
   const clearSelection = useSelectionStore((s) => s.clearSelection);
   const selectedIds = useSelectionStore((s) => s.selectedIds);
 
+  const fetchMyRole = useInvitationStore((s) => s.fetchMyRole);
+  const resetRole = useInvitationStore((s) => s.resetRole);
+  const currentRole = useInvitationStore((s) => s.currentRole);
+
   const [statusFilters, setStatusFilters] = useState<string[]>(['Active', 'Planned', 'Open Req', 'Backfill']);
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewEmployee, setShowNewEmployee] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
@@ -70,8 +77,11 @@ export default function AppShell() {
   useEffect(() => {
     if (currentOrg) {
       fetchScenarios(currentOrg._id);
+      fetchMyRole(currentOrg._id);
+    } else {
+      resetRole();
     }
-  }, [currentOrg, fetchScenarios]);
+  }, [currentOrg, fetchScenarios, fetchMyRole, resetRole]);
 
   useEffect(() => {
     if (currentScenario) {
@@ -116,7 +126,10 @@ export default function AppShell() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar onToggleBudget={() => setBudgetOpen(!budgetOpen)} />
+      <Sidebar
+        onToggleBudget={() => setBudgetOpen(!budgetOpen)}
+        onToggleMembers={() => setMembersOpen(!membersOpen)}
+      />
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <Toolbar
@@ -127,12 +140,13 @@ export default function AppShell() {
           onAddEmployee={() => { setShowNewEmployee(true); selectEmployee(null); }}
           searchInputRef={searchInputRef}
           onOpenShortcutsHelp={() => setShortcutsHelpOpen(true)}
+          isViewer={currentRole === 'viewer'}
         />
 
         <BulkOperationsToolbar />
 
         <main className="flex-1 overflow-auto bg-gray-50">
-          <Outlet context={{ filteredEmployees, statusFilters, searchQuery }} />
+          <Outlet context={{ filteredEmployees, statusFilters, searchQuery, isViewer: currentRole === 'viewer' }} />
         </main>
 
         <HeadcountSummary />
@@ -147,6 +161,8 @@ export default function AppShell() {
       )}
 
       <BudgetPanel open={budgetOpen} onClose={() => setBudgetOpen(false)} />
+
+      <MembersPanel open={membersOpen} onClose={() => setMembersOpen(false)} />
 
       <KeyboardShortcutsHelp
         open={shortcutsHelpOpen}

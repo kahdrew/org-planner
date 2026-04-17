@@ -2,7 +2,7 @@ import { Response } from "express";
 import { z } from "zod";
 import mongoose from "mongoose";
 import { AuthRequest } from "../middleware/auth";
-import { checkScenarioAccess } from "../middleware/authorization";
+import { checkScenarioAccess, getUserOrgRole } from "../middleware/authorization";
 import Employee, { IEmployee } from "../models/Employee";
 
 const employeeSchema = z.object({
@@ -73,13 +73,22 @@ export const updateEmployee = async (req: AuthRequest, res: Response): Promise<v
     }
 
     // Check authorization via scenario→org chain
-    const { hasAccess } = await checkScenarioAccess(
+    const { hasAccess, scenario } = await checkScenarioAccess(
       employee.scenarioId.toString(),
       req.user!.userId
     );
     if (!hasAccess) {
       res.status(403).json({ error: "Forbidden" });
       return;
+    }
+
+    // Check role-based write access (viewers cannot edit)
+    if (scenario) {
+      const role = await getUserOrgRole(scenario.orgId.toString(), req.user!.userId);
+      if (role === "viewer") {
+        res.status(403).json({ error: "Insufficient permissions" });
+        return;
+      }
     }
 
     const updates = updateEmployeeSchema.parse(req.body);
@@ -108,13 +117,22 @@ export const deleteEmployee = async (req: AuthRequest, res: Response): Promise<v
     }
 
     // Check authorization via scenario→org chain
-    const { hasAccess } = await checkScenarioAccess(
+    const { hasAccess, scenario } = await checkScenarioAccess(
       employee.scenarioId.toString(),
       req.user!.userId
     );
     if (!hasAccess) {
       res.status(403).json({ error: "Forbidden" });
       return;
+    }
+
+    // Check role-based write access (viewers cannot delete)
+    if (scenario) {
+      const role = await getUserOrgRole(scenario.orgId.toString(), req.user!.userId);
+      if (role === "viewer") {
+        res.status(403).json({ error: "Insufficient permissions" });
+        return;
+      }
     }
 
     await Employee.findByIdAndDelete(req.params.id);
@@ -138,13 +156,22 @@ export const moveEmployee = async (req: AuthRequest, res: Response): Promise<voi
     }
 
     // Check authorization via scenario→org chain
-    const { hasAccess } = await checkScenarioAccess(
+    const { hasAccess, scenario } = await checkScenarioAccess(
       employee.scenarioId.toString(),
       req.user!.userId
     );
     if (!hasAccess) {
       res.status(403).json({ error: "Forbidden" });
       return;
+    }
+
+    // Check role-based write access (viewers cannot move)
+    if (scenario) {
+      const role = await getUserOrgRole(scenario.orgId.toString(), req.user!.userId);
+      if (role === "viewer") {
+        res.status(403).json({ error: "Insufficient permissions" });
+        return;
+      }
     }
 
     const { managerId, order } = moveSchema.parse(req.body);

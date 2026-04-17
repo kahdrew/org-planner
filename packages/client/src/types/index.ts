@@ -45,6 +45,29 @@ export interface Employee {
   metadata?: Record<string, unknown>;
 }
 
+export type OrgRole = 'owner' | 'admin' | 'viewer';
+
+export type InvitationStatus = 'pending' | 'accepted' | 'declined';
+
+export interface Invitation {
+  _id: string;
+  orgId: string | { _id: string; name: string };
+  email: string;
+  role: OrgRole;
+  invitedBy: string;
+  status: InvitationStatus;
+  token: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrgMember {
+  _id: string;
+  email: string;
+  name: string;
+  role: OrgRole;
+}
+
 export type DiffStatus = 'added' | 'removed' | 'moved' | 'changed' | 'unchanged';
 
 export interface DiffEntry {

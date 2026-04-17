@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Trash2, Save, Loader2 } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
+import { useInvitationStore } from '@/stores/invitationStore';
 import { cn } from '@/utils/cn';
 import type { Employee } from '@/types';
 
@@ -76,6 +77,8 @@ function buildFormData(employee: Employee | null): FormData {
 
 export default function EmployeeDetailPanel({ employee, isNew, onClose }: EmployeeDetailPanelProps) {
   const { employees, currentScenario, addEmployee, updateEmployee, removeEmployee } = useOrgStore();
+  const currentRole = useInvitationStore((s) => s.currentRole);
+  const isViewer = currentRole === 'viewer';
   const [form, setForm] = useState<FormData>(buildFormData(employee));
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -332,34 +335,42 @@ export default function EmployeeDetailPanel({ employee, isNew, onClose }: Employ
 
       {/* Actions */}
       <div className="flex items-center gap-2 border-t border-gray-200 px-5 py-4">
-        <button
-          onClick={handleSave}
-          disabled={saving || !form.name.trim()}
-          className={cn(
-            'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white transition-colors',
-            saving || !form.name.trim()
-              ? 'cursor-not-allowed bg-blue-300'
-              : 'bg-blue-600 hover:bg-blue-700'
-          )}
-        >
-          {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-          {isNew ? 'Create Employee' : 'Save Changes'}
-        </button>
+        {isViewer ? (
+          <p className="flex-1 text-center text-sm text-gray-400">
+            Viewer role — read-only access
+          </p>
+        ) : (
+          <>
+            <button
+              onClick={handleSave}
+              disabled={saving || !form.name.trim()}
+              className={cn(
+                'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-white transition-colors',
+                saving || !form.name.trim()
+                  ? 'cursor-not-allowed bg-blue-300'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              )}
+            >
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              {isNew ? 'Create Employee' : 'Save Changes'}
+            </button>
 
-        {!isNew && employee && (
-          <button
-            onClick={handleDelete}
-            disabled={saving}
-            className={cn(
-              'flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-              confirmDelete
-                ? 'bg-red-600 text-white hover:bg-red-700'
-                : 'border border-red-300 text-red-600 hover:bg-red-50'
+            {!isNew && employee && (
+              <button
+                onClick={handleDelete}
+                disabled={saving}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                  confirmDelete
+                    ? 'bg-red-600 text-white hover:bg-red-700'
+                    : 'border border-red-300 text-red-600 hover:bg-red-50'
+                )}
+              >
+                <Trash2 size={16} />
+                {confirmDelete ? 'Confirm' : 'Delete'}
+              </button>
             )}
-          >
-            <Trash2 size={16} />
-            {confirmDelete ? 'Confirm' : 'Delete'}
-          </button>
+          </>
         )}
       </div>
     </div>

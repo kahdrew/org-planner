@@ -1,6 +1,6 @@
 import { Router } from "express";
 import auth from "../middleware/auth";
-import { requireOrgMembership, requireScenarioAccess } from "../middleware/authorization";
+import { requireOrgMembership, requireOrgRole, requireScenarioRole } from "../middleware/authorization";
 import {
   createScenario,
   getScenarios,
@@ -13,10 +13,10 @@ const router = Router();
 
 router.use(auth);
 
-router.post("/orgs/:orgId/scenarios", requireOrgMembership, createScenario);
+router.post("/orgs/:orgId/scenarios", requireOrgRole("owner", "admin"), createScenario);
 router.get("/orgs/:orgId/scenarios", requireOrgMembership, getScenarios);
-router.post("/scenarios/:id/clone", requireScenarioAccess, cloneScenario);
-router.delete("/scenarios/:id", requireScenarioAccess, deleteScenario);
+router.post("/scenarios/:id/clone", requireScenarioRole("owner", "admin"), cloneScenario);
+router.delete("/scenarios/:id", requireScenarioRole("owner", "admin"), deleteScenario);
 router.get("/scenarios/:a/diff/:b", diffScenarios);
 
 export default router;

@@ -2,6 +2,7 @@ import { Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import { AuthRequest } from "./auth";
 import Organization from "../models/Organization";
+import type { OrgRole } from "../models/Organization";
 import Scenario from "../models/Scenario";
 
 /**
@@ -154,6 +155,115 @@ export async function checkOrgMembership(
   const isOwner = org.ownerId.toString() === userId;
 
   return isMember || isOwner;
+}
+
+/**
+ * Helper function: Get the user's role in an org.
+ * Returns the role or null if not a member.
+ */
+export async function getUserOrgRole(
+  orgId: string,
+  userId: string
+): Promise<OrgRole | null> {
+  if (!isValidObjectId(orgId)) return null;
+
+  const org = await Organization.findById(orgId);
+  if (!org) return null;
+
+  if (org.ownerId.toString() === userId) return "owner";
+
+  const roleEntry = org.memberRoles.find(
+    (mr) => mr.userId.toString() === userId
+  );
+  if (roleEntry) return roleEntry.role;
+
+  // Legacy: member in memberIds but no role entry → treat as admin
+  const isMember = org.memberIds.some(
+    (id) => id.toString() === userId
+  );
+  return isMember ? "admin" : null;
+}
+
+/**
+ * Middleware factory: Require a minimum role level for org access.
+ * Role hierarchy: owner > admin > viewer
+ *
+ * Use on write routes to enforce that viewers cannot modify data.
+ */
+export function requireOrgRole(...allowedRoles: OrgRole[]) {
+  return async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const orgId = req.params.orgId || req.params.id;
+      if (!orgId || !isValidObjectId(orgId)) {
+        res.status(400).json({ error: "Invalid organization ID" });
+        return;
+      }
+
+      const userId = req.user!.userId;
+      const role = await getUserOrgRole(orgId, userId);
+
+      if (!role) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+
+      if (!allowedRoles.includes(role)) {
+        res.status(403).json({ error: "Insufficient permissions" });
+        return;
+      }
+
+      next();
+    } catch {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  };
+}
+
+/**
+ * Middleware factory: Require a minimum role level for scenario-level access.
+ * Resolves scenario → org → membership → role.
+ */
+export function requireScenarioRole(...allowedRoles: OrgRole[]) {
+  return async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const scenarioId = req.params.scenarioId || req.params.id;
+      if (!scenarioId || !isValidObjectId(scenarioId)) {
+        res.status(400).json({ error: "Invalid scenario ID" });
+        return;
+      }
+
+      const scenario = await Scenario.findById(scenarioId);
+      if (!scenario) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+
+      const userId = req.user!.userId;
+      const role = await getUserOrgRole(scenario.orgId.toString(), userId);
+
+      if (!role) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+
+      if (!allowedRoles.includes(role)) {
+        res.status(403).json({ error: "Insufficient permissions" });
+        return;
+      }
+
+      next();
+    } catch {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  };
 }
 
 /**

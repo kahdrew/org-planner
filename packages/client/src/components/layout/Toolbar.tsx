@@ -27,6 +27,8 @@ interface ToolbarProps {
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
   /** Callback to open the keyboard shortcuts help dialog */
   onOpenShortcutsHelp?: () => void;
+  /** When true, write controls (Add Employee, Import) are disabled */
+  isViewer?: boolean;
 }
 
 export default function Toolbar({
@@ -37,6 +39,7 @@ export default function Toolbar({
   onSearchChange,
   searchInputRef,
   onOpenShortcutsHelp,
+  isViewer = false,
 }: ToolbarProps) {
   const location = useLocation();
   const { employees, currentScenario } = useOrgStore();
@@ -75,7 +78,14 @@ export default function Toolbar({
 
       <button
         onClick={onAddEmployee}
-        className="flex items-center gap-1.5 rounded-md bg-[var(--color-primary)] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[var(--color-primary-hover)]"
+        disabled={isViewer}
+        className={cn(
+          'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white transition-colors',
+          isViewer
+            ? 'cursor-not-allowed bg-gray-300'
+            : 'bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)]'
+        )}
+        title={isViewer ? 'Viewers cannot add employees' : undefined}
       >
         <Plus size={16} />
         Add Employee
@@ -165,7 +175,14 @@ export default function Toolbar({
 
       <button
         onClick={handleImport}
-        className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+        disabled={isViewer}
+        className={cn(
+          'flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium transition-colors',
+          isViewer
+            ? 'cursor-not-allowed text-gray-400'
+            : 'text-gray-700 hover:bg-gray-50'
+        )}
+        title={isViewer ? 'Viewers cannot import data' : undefined}
       >
         <Upload size={16} />
         Import CSV
