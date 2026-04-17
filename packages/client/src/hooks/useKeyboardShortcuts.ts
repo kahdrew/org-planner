@@ -58,6 +58,11 @@ export function useKeyboardShortcuts({
     (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
 
+      // All global shortcuts are suppressed inside input elements.
+      // Escape is the only exception — it should still close panels / deselect
+      // even when an input is focused (the browser will also blur / cancel the input).
+      if (e.key !== 'Escape' && isInputElement(target)) return;
+
       // --- Cmd+K: focus search ---
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const mod = isMac ? e.metaKey : e.ctrlKey;
@@ -70,21 +75,30 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      // All other shortcuts are suppressed inside input elements
-      if (isInputElement(target)) return;
-
       // --- Escape: close panels, deselect ---
+      // Process ALL close/deselect actions so mixed states are fully resolved.
+      // First press closes detail panel AND clears multi-select.
       if (e.key === 'Escape') {
+        let handled = false;
+
         // Close detail panel if open
         if (selectedEmployee) {
           selectEmployee(null);
-          e.preventDefault();
-          return;
+          handled = true;
         }
-        // Close any panel
+
+        // Clear multi-selection if any
+        if (selectedIds.size > 0) {
+          clearSelection();
+          handled = true;
+        }
+
+        // Close any open panels (budget panel, etc.)
         onClosePanel();
-        clearSelection();
-        e.preventDefault();
+
+        if (handled) {
+          e.preventDefault();
+        }
         return;
       }
 
