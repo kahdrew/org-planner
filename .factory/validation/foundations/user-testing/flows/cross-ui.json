@@ -1,0 +1,150 @@
+{
+  "groupId": "cross-ui",
+  "testedAt": "2026-04-17T00:25:57.276226+00:00",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "namespacePrefix": "fdn_cross_ui",
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
+    "browserSession": "fdn_cross_ui",
+    "testUser": {
+      "email": "fdn_cross_ui_bd6cd2dc@example.com",
+      "name": "fdn_cross_ui user"
+    },
+    "org": "fdn_cross_ui org a",
+    "scenarios": {
+      "withEmployee": "fdn_cross_ui scenario 1",
+      "empty": "fdn_cross_ui scenario empty"
+    }
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-CROSS-001",
+      "title": "Complete first-visit flow",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open app and navigate from sign-in page to registration",
+          "expected": "Registration surface is available for first-time user",
+          "observed": "Register page loaded with Name/Email/Password form"
+        },
+        {
+          "action": "Submit isolated user registration",
+          "expected": "User is authenticated and redirected to app shell",
+          "observed": "Redirected to / with authenticated shell and org/scenario controls visible"
+        },
+        {
+          "action": "Create organization via toolbar/side control",
+          "expected": "New org becomes selected",
+          "observed": "Organization 'fdn_cross_ui org a' created and selected"
+        },
+        {
+          "action": "Create scenario",
+          "expected": "Scenario is created and selected in app shell",
+          "observed": "Scenario 'fdn_cross_ui scenario 1' created and selected"
+        },
+        {
+          "action": "Add first employee from Add Employee toolbar button",
+          "expected": "OrgChart shows a single employee node with name and title",
+          "observed": "OrgChart rendered one node for 'fdn_cross_ui Employee One' with title 'Software Engineer'"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundations/cross-ui/VAL-CROSS-001-register-page.png",
+          "foundations/cross-ui/VAL-CROSS-001-register-form.png",
+          "foundations/cross-ui/VAL-CROSS-001-empty-shell.png",
+          "foundations/cross-ui/VAL-CROSS-001-org-created.png",
+          "foundations/cross-ui/VAL-CROSS-001-scenario-created-empty-orgchart.png",
+          "foundations/cross-ui/VAL-CROSS-001-add-employee-modal.png",
+          "foundations/cross-ui/VAL-CROSS-001-first-employee-visible-orgchart.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/orgs; POST /api/orgs/:orgId/scenarios; POST /api/scenarios/:scenarioId/employees observed (xhr)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-002",
+      "title": "Empty states in all views before adding data",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Create and switch to empty scenario with zero employees",
+          "expected": "Scenario selected with no employee data",
+          "observed": "Scenario 'fdn_cross_ui scenario empty' selected and totals show 0"
+        },
+        {
+          "action": "Check OrgChart, Hierarchy, Spreadsheet, Kanban, Compare views",
+          "expected": "Each view shows meaningful empty state without breakage",
+          "observed": "OrgChart empty canvas with shell intact; Hierarchy/Spreadsheet show 'No employees match the current filters'; Kanban shows 'No employees to display'; Compare shows 'Select two scenarios to compare'"
+        },
+        {
+          "action": "Check browser errors during empty-view navigation",
+          "expected": "No JS errors",
+          "observed": "No console errors captured"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundations/cross-ui/VAL-CROSS-002-orgchart-empty.png",
+          "foundations/cross-ui/VAL-CROSS-002-hierarchy-empty.png",
+          "foundations/cross-ui/VAL-CROSS-002-spreadsheet-empty.png",
+          "foundations/cross-ui/VAL-CROSS-002-kanban-empty.png",
+          "foundations/cross-ui/VAL-CROSS-002-compare-empty.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/:scenarioId/employees and GET /api/orgs/:orgId/scenarios observed while loading empty views"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-003",
+      "title": "New employee appears in all views without page reload",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "From empty scenario, add first employee via Add Employee toolbar button",
+          "expected": "Employee is created in current scenario",
+          "observed": "Created 'fdn_cross_ui Employee Two' (QA Engineer, Engineering, Active)"
+        },
+        {
+          "action": "Navigate without browser refresh: OrgChart -> Hierarchy -> Spreadsheet -> Kanban",
+          "expected": "Each view shows same employee data",
+          "observed": "Employee visible in all four views with consistent title, department, and status"
+        },
+        {
+          "action": "Check browser errors after cross-view navigation",
+          "expected": "No JS errors",
+          "observed": "No console errors captured"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundations/cross-ui/VAL-CROSS-003-orgchart-employee.png",
+          "foundations/cross-ui/VAL-CROSS-003-hierarchy-employee.png",
+          "foundations/cross-ui/VAL-CROSS-003-spreadsheet-employee.png",
+          "foundations/cross-ui/VAL-CROSS-003-kanban-employee.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/:scenarioId/employees followed by GET /api/scenarios/:scenarioId/employees across view transitions"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Org/scenario creation uses native prompt dialogs; dialog value had to be pre-staged (dialog accept before click) for deterministic automation.",
+      "resolved": true,
+      "resolution": "Queued `agent-browser dialog accept <value>` immediately before clicking New Organization/New Scenario.",
+      "affectedAssertions": [
+        "VAL-CROSS-001",
+        "VAL-CROSS-002"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 3 assertions: 3 passed, 0 failed, 0 blocked."
+}

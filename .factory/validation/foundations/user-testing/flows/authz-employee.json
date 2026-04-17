@@ -1,0 +1,181 @@
+{
+  "groupId": "authz-employee",
+  "testedAt": "2026-04-17T00:22:59Z",
+  "isolation": {
+    "namespacePrefix": "fdn_authz_emp",
+    "namespaceUsed": "fdn_authz_emp_20260417T002253Z_b66d9f",
+    "apiUrl": "http://localhost:3001/api",
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
+    "credentials": {
+      "userAEmail": "fdn_authz_emp_20260417T002253Z_b66d9f_a@example.com",
+      "userBEmail": "fdn_authz_emp_20260417T002253Z_b66d9f_b@example.com"
+    },
+    "resourceIds": {
+      "orgId": "69e17d5dbee9dfbd178c6737",
+      "scenarioId": "69e17d5dbee9dfbd178c673a",
+      "employeeId": "69e17d5ebee9dfbd178c673e"
+    }
+  },
+  "toolsUsed": [
+    "curl"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-AUTHZ-005",
+      "title": "Employee endpoints enforce org membership via scenario\u2192org chain",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "User B GET /scenarios/:scenarioId/employees on User A scenario",
+          "expected": "403",
+          "observed": "403"
+        },
+        {
+          "action": "User B POST /scenarios/:scenarioId/employees",
+          "expected": "403",
+          "observed": "403"
+        },
+        {
+          "action": "User B POST /scenarios/:scenarioId/employees/bulk",
+          "expected": "403",
+          "observed": "403"
+        },
+        {
+          "action": "User B PATCH /employees/:id",
+          "expected": "403",
+          "observed": "403"
+        },
+        {
+          "action": "User B DELETE /employees/:id",
+          "expected": "403",
+          "observed": "403"
+        },
+        {
+          "action": "User B PATCH /employees/:id/move",
+          "expected": "403",
+          "observed": "403"
+        },
+        {
+          "action": "User A re-GET employees to verify no mutation",
+          "expected": "original employee unchanged",
+          "observed": "unchanged"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (curl)",
+        "network": "GET/POST/POST-bulk/PATCH/DELETE/PATCH-move all returned 403 for non-member",
+        "artifacts": [
+          "foundations/authz-employee/VAL-AUTHZ-005-curl.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTHZ-006",
+      "title": "Org members can perform all CRUD on their own resources",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Owner create scenario",
+          "expected": "201",
+          "observed": "201"
+        },
+        {
+          "action": "Owner list scenarios",
+          "expected": "200",
+          "observed": "200"
+        },
+        {
+          "action": "Owner clone scenario",
+          "expected": "201",
+          "observed": "201"
+        },
+        {
+          "action": "Owner diff scenarios",
+          "expected": "200",
+          "observed": "200"
+        },
+        {
+          "action": "Owner delete cloned scenario",
+          "expected": "200",
+          "observed": "200"
+        },
+        {
+          "action": "Owner list/create/bulk-create employees",
+          "expected": "200/201/201",
+          "observed": "200/201/201"
+        },
+        {
+          "action": "Owner update/move/delete employee",
+          "expected": "200/200/200",
+          "observed": "200/200/200"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (curl)",
+        "network": "Scenario CRUD and employee CRUD on owned org returned expected success statuses",
+        "artifacts": [
+          "foundations/authz-employee/VAL-AUTHZ-006-curl.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTHZ-007",
+      "title": "Non-existent org/scenario IDs return 403 or 404",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /orgs/:nonexistent/scenarios",
+          "expected": "403 or 404",
+          "observed": "403"
+        },
+        {
+          "action": "GET /scenarios/:nonexistent/employees",
+          "expected": "403 or 404",
+          "observed": "403"
+        },
+        {
+          "action": "POST /scenarios/:nonexistent/clone",
+          "expected": "403 or 404",
+          "observed": "403"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (curl)",
+        "network": "Non-existent ObjectID endpoint checks returned 403/404 and never 200",
+        "artifacts": [
+          "foundations/authz-employee/VAL-AUTHZ-007-curl.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTHZ-008",
+      "title": "Malformed IDs return 400 or 404, not 500",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "PATCH /employees/not-a-valid-id",
+          "expected": "400 or 404 (not 500)",
+          "observed": "400"
+        }
+      ],
+      "evidence": {
+        "screenshots": [],
+        "consoleErrors": "n/a (curl)",
+        "network": "Malformed employee ID returned non-500 error",
+        "artifacts": [
+          "foundations/authz-employee/VAL-AUTHZ-008-curl.json"
+        ]
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 4 assertions: 4 passed, 0 failed."
+}

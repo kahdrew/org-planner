@@ -1,0 +1,140 @@
+{
+  "groupId": "auth-ui",
+  "testedAt": "2026-04-16T17:25:00Z",
+  "isolation": {
+    "namespacePrefix": "fdn_auth_ui",
+    "appUrl": "http://localhost:5173",
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
+    "browserSession": "fdn_auth_ui",
+    "accounts": [
+      "fdn_auth_ui_004_20260416_1801@example.com",
+      "fdn_auth_ui_004b_20260416_1802@example.com",
+      "fdn_auth_ui_007_20260416_1803@example.com",
+      "fdn_auth_ui_012_20260416_1804@example.com"
+    ]
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-AUTH-004",
+      "title": "Registration UI end-to-end with error display",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Navigate to /register and submit valid credentials",
+          "expected": "Redirect to / and localStorage has token/user",
+          "observed": "Redirected to http://localhost:5173/; localStorage token and user present"
+        },
+        {
+          "action": "Submit /register again with the same email",
+          "expected": "Error banner shows server error value \"Email already in use\"",
+          "observed": "Error banner text shown exactly as \"Email already in use\""
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundations/auth-ui/VAL-AUTH-004-register-form.png",
+          "foundations/auth-ui/VAL-AUTH-004-success-redirect.png",
+          "foundations/auth-ui/VAL-AUTH-004-duplicate-error.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/auth/register -> 201 (valid registration); POST /api/auth/register -> 409 (duplicate)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTH-007",
+      "title": "Login UI end-to-end with error display",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Navigate to /login and submit valid credentials",
+          "expected": "Redirect to / and localStorage populated",
+          "observed": "Redirected to http://localhost:5173/; localStorage token and user present"
+        },
+        {
+          "action": "Submit /login with wrong password",
+          "expected": "Error banner shows \"Invalid credentials\"",
+          "observed": "Error banner displayed text \"Invalid credentials\""
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundations/auth-ui/VAL-AUTH-007-success-redirect.png",
+          "foundations/auth-ui/VAL-AUTH-007-invalid-credentials-error.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/auth/login -> 200 (valid login); POST /api/auth/login -> 401 (wrong password)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTH-009",
+      "title": "Client redirects to /login when unauthenticated",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Clear localStorage and open /",
+          "expected": "Protected route redirects to /login",
+          "observed": "URL redirected to http://localhost:5173/login"
+        },
+        {
+          "action": "Login successfully, corrupt token, then open /",
+          "expected": "401 interceptor clears localStorage and redirects to /login",
+          "observed": "After token corruption, app redirected to /login and localStorage token/user were both cleared"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundations/auth-ui/VAL-AUTH-009-unauthenticated-redirect-login.png",
+          "foundations/auth-ui/VAL-AUTH-009-corrupt-token-redirect-login.png"
+        ],
+        "consoleErrors": "Request failed with status code 401 (expected during invalid-token interceptor path)",
+        "network": "GET /api/orgs with corrupted bearer token -> 401; subsequent app route transitioned to /login with cleared localStorage"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTH-012",
+      "title": "XSS payload in name field is safely rendered",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Register via /register with name \"<script>alert(1)</script>\"",
+          "expected": "Registration succeeds without script execution",
+          "observed": "Registration succeeded and redirected to / with no alert dialog"
+        },
+        {
+          "action": "Inspect runtime behavior after registration",
+          "expected": "Payload remains literal text and does not execute JS",
+          "observed": "Stored user payload remained literal \"<script>alert(1)</script>\" and window.__alertCalls remained empty"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundations/auth-ui/VAL-AUTH-012-post-register.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/auth/register -> 201; GET /api/orgs -> 200"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "agent-browser built-in `network requests` output returned \"No requests captured\" during these flows, so request/response evidence was gathered via in-page XHR instrumentation.",
+      "resolved": true,
+      "resolution": "Injected temporary XMLHttpRequest logging in browser context and recorded observed endpoint status codes for each assertion.",
+      "affectedAssertions": [
+        "VAL-AUTH-004",
+        "VAL-AUTH-007",
+        "VAL-AUTH-009",
+        "VAL-AUTH-012"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 4 assertions (VAL-AUTH-004, VAL-AUTH-007, VAL-AUTH-009, VAL-AUTH-012): 4 passed, 0 failed, 0 blocked."
+}

@@ -1,0 +1,161 @@
+{
+  "groupId": "bugfix-ui",
+  "testedAt": "2026-04-17T00:25:26Z",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "namespacePrefix": "fdn_bugfix_ui",
+    "accountEmail": "fdn_bugfix_ui_20260416_1800@example.com",
+    "organization": "fdn_bugfix_ui_org",
+    "scenarios": [
+      {
+        "name": "fdn_bugfix_ui_org",
+        "id": "69e17d2bbee9dfbd178c66d8"
+      },
+      {
+        "name": "fdn_bugfix_ui_org (Copy)",
+        "id": "69e17d34bee9dfbd178c66ef"
+      }
+    ]
+  },
+  "toolsUsed": ["agent-browser", "Read"],
+  "assertions": [
+    {
+      "id": "VAL-BUGFIX-003",
+      "title": "Diff works end-to-end in CompareView",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Navigate to /compare and select Scenario A = fdn_bugfix_ui_org and Scenario B = fdn_bugfix_ui_org (Copy)",
+          "expected": "Diff loads with summary counts and side-by-side results",
+          "observed": "Diff Summary displayed +4 added / -0 removed / 0 moved / 0 changed; Scenario B list showed four employees tagged added"
+        },
+        {
+          "action": "Check for visible error banners",
+          "expected": "No compare error banner",
+          "observed": "No error banner shown"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundations/bugfix-ui/VAL-BUGFIX-003-compare-diff-summary.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/69e17d2bbee9dfbd178c66d8/diff/69e17d34bee9dfbd178c66ef (xhr, observed)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BUGFIX-007",
+      "title": "Bulk create via CSV import works end-to-end",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Use Import CSV flow with valid CSV rows in current scenario (fdn_bugfix_ui_org (Copy))",
+          "expected": "bulkCreateEmployees succeeds and imported employees appear in view",
+          "observed": "Four CSV employees imported and rendered in Org Chart (Alice/Bob/Carol/Dave), headcount total updated to 4"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundations/bugfix-ui/VAL-BUGFIX-007-csv-import-employees-visible.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e17d34bee9dfbd178c66ef/employees/bulk followed by GET /api/scenarios/69e17d34bee9dfbd178c66ef/employees"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BUGFIX-008",
+      "title": "SpreadsheetView uses filteredEmployees from outlet context",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Code review of SpreadsheetView implementation",
+          "expected": "View reads filteredEmployees from useOutletContext and passes it to AgGrid rowData",
+          "observed": "Confirmed in packages/client/src/components/views/SpreadsheetView.tsx: useOutletContext at line ~67 and rowData={filteredEmployees} at line ~236"
+        },
+        {
+          "action": "Runtime check in /spreadsheet with active filters",
+          "expected": "Grid reflects filtered subset",
+          "observed": "With Planned-only state active, spreadsheet rendered only the Planned employee row"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundations/bugfix-ui/VAL-BUGFIX-008-spreadsheet-filteredEmployees-runtime.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No additional filter network calls observed; filtering behavior was client-side on loaded data"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BUGFIX-009",
+      "title": "Status filters and search affect SpreadsheetView rows",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Deselect Active status filter",
+          "expected": "Active employees disappear from SpreadsheetView",
+          "observed": "Active employee (fdn_bugfix_ui Alice) disappeared; remaining rows were Open Req/Planned/Backfill"
+        },
+        {
+          "action": "Enter search query 'Bob'",
+          "expected": "Only matching rows shown",
+          "observed": "Only fdn_bugfix_ui Bob row remained"
+        },
+        {
+          "action": "Clear search and restore filter state",
+          "expected": "All rows return",
+          "observed": "All four imported rows returned"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundations/bugfix-ui/VAL-BUGFIX-009-active-filter-off.png",
+          "foundations/bugfix-ui/VAL-BUGFIX-009-search-bob-only.png",
+          "foundations/bugfix-ui/VAL-BUGFIX-009-filters-cleared-all-rows.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No filter-specific network requests observed; status/search filtering updated grid client-side"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BUGFIX-010",
+      "title": "Combined status filter + search shows only matching rows",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Apply status filters to keep Planned only, then search for 'Bob'",
+          "expected": "Only rows matching both criteria are shown",
+          "observed": "Only fdn_bugfix_ui Bob (Planned) row shown"
+        },
+        {
+          "action": "Keep Planned-only filter and search for 'Alice'",
+          "expected": "No-match combination yields empty grid",
+          "observed": "Grid showed empty-state message: 'No employees match the current filters.'"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "foundations/bugfix-ui/VAL-BUGFIX-010-combined-filter-search-match.png",
+          "foundations/bugfix-ui/VAL-BUGFIX-010-combined-filter-search-no-match.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No combined-filter network requests observed; intersection behavior executed client-side"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Import CSV button creates an ephemeral file input and opens OS picker; headless automation cannot directly drive native picker.",
+      "resolved": true,
+      "resolution": "Hooked the created input in-page and dispatched a change event with a synthetic CSV File to execute the same import code path.",
+      "affectedAssertions": ["VAL-BUGFIX-007"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 5 assertions: 5 passed, 0 failed, 0 blocked. Compare diff path works, CSV bulk import succeeds, and Spreadsheet filters/search (including combined intersection and empty-state) behave correctly."
+}

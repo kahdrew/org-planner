@@ -1,0 +1,185 @@
+{
+  "groupId": "authz-core",
+  "testedAt": "2026-04-17T00:22:38.756089+00:00",
+  "isolation": {
+    "apiUrl": "http://localhost:3001/api",
+    "namespacePrefix": "fdn_authz_core",
+    "userAEmail": "fdn_authz_core_a_1776385356e2yp@example.com",
+    "userBEmail": "fdn_authz_core_b_1776385356e2yp@example.com",
+    "orgName": "fdn_authz_core_org_1776385356e2yp",
+    "scenarioNames": [
+      "fdn_authz_core_scenario_1_1776385356e2yp",
+      "fdn_authz_core_scenario_2_1776385356e2yp"
+    ],
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a"
+  },
+  "toolsUsed": [
+    "curl"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-AUTHZ-001",
+      "title": "GET /api/orgs returns only orgs where user is a member",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "User A creates namespaced org",
+          "expected": "Org created for User A",
+          "observed": "HTTP 201 (keys=__v,_id,createdAt,memberIds,name,ownerId)"
+        },
+        {
+          "action": "User B requests GET /api/orgs",
+          "expected": "Response excludes User A org",
+          "observed": "HTTP 200; orgAbsent=True; array_length=0"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "curl -sS -X POST http://localhost:3001/api/orgs -H Content-Type: application/json -H Authorization: Bearer <TOKEN_A> --data {\"name\": \"fdn_authz_core_org_1776385356e2yp\"}",
+          "curl -sS -X GET http://localhost:3001/api/orgs -H Content-Type: application/json -H Authorization: Bearer <TOKEN_B>"
+        ],
+        "statusCodes": [
+          201,
+          200
+        ],
+        "payloadDetails": [
+          "keys=__v,_id,createdAt,memberIds,name,ownerId",
+          "array_length=0"
+        ],
+        "files": [
+          "foundations/authz-core/bootstrap-create-org-a.json",
+          "foundations/authz-core/VAL-AUTHZ-001-get-orgs-user-b.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTHZ-002",
+      "title": "Org update restricted to owner only",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "User A PATCH /api/orgs/:id",
+          "expected": "HTTP 200",
+          "observed": "HTTP 200 (keys=__v,_id,createdAt,memberIds,name,ownerId)"
+        },
+        {
+          "action": "User B PATCH same org",
+          "expected": "HTTP 403 owner-only error",
+          "observed": "HTTP 403 (error=Only the owner can update the organization)"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "curl -sS -X PATCH http://localhost:3001/api/orgs/69e17d4dbee9dfbd178c6710 -H Content-Type: application/json -H Authorization: Bearer <TOKEN_A> --data {\"name\": \"fdn_authz_core_org_updated_1776385356e2yp\"}",
+          "curl -sS -X PATCH http://localhost:3001/api/orgs/69e17d4dbee9dfbd178c6710 -H Content-Type: application/json -H Authorization: Bearer <TOKEN_B> --data {\"name\": \"fdn_authz_core_org_updated_1776385356e2yp_by_b\"}"
+        ],
+        "statusCodes": [
+          200,
+          403
+        ],
+        "payloadDetails": [
+          "keys=__v,_id,createdAt,memberIds,name,ownerId",
+          "error=Only the owner can update the organization"
+        ],
+        "files": [
+          "foundations/authz-core/VAL-AUTHZ-002-patch-org-owner-a.json",
+          "foundations/authz-core/VAL-AUTHZ-002-patch-org-nonowner-b.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTHZ-003",
+      "title": "Non-member cannot access org resources",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "User B GET /api/orgs/:orgId/scenarios for User A org",
+          "expected": "HTTP 403 or 404",
+          "observed": "HTTP 403 (error=Forbidden)"
+        },
+        {
+          "action": "User B POST /api/orgs/:orgId/scenarios for User A org",
+          "expected": "HTTP 403 or 404",
+          "observed": "HTTP 403 (error=Forbidden)"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "curl -sS -X GET http://localhost:3001/api/orgs/69e17d4dbee9dfbd178c6710/scenarios -H Content-Type: application/json -H Authorization: Bearer <TOKEN_B>",
+          "curl -sS -X POST http://localhost:3001/api/orgs/69e17d4dbee9dfbd178c6710/scenarios -H Content-Type: application/json -H Authorization: Bearer <TOKEN_B> --data {\"name\": \"fdn_authz_core_unauthorized_create_1776385356e2yp\"}"
+        ],
+        "statusCodes": [
+          403,
+          403
+        ],
+        "payloadDetails": [
+          "error=Forbidden",
+          "error=Forbidden"
+        ],
+        "files": [
+          "foundations/authz-core/VAL-AUTHZ-003-get-scenarios-cross-org-b.json",
+          "foundations/authz-core/VAL-AUTHZ-003-create-scenario-cross-org-b.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTHZ-004",
+      "title": "Scenario endpoints enforce org membership",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "User B create/list scenarios in User A org",
+          "expected": "HTTP 403 for both",
+          "observed": "create=HTTP 403 (error=Forbidden), list=HTTP 403 (error=Forbidden)"
+        },
+        {
+          "action": "User B clone/delete User A scenario",
+          "expected": "HTTP 403 for both",
+          "observed": "clone=HTTP 403 (error=Forbidden), delete=HTTP 403 (error=Forbidden)"
+        },
+        {
+          "action": "User B GET /api/scenarios/:a/diff/:b for User A scenarios",
+          "expected": "HTTP 403",
+          "observed": "HTTP 403 (error=Forbidden)"
+        }
+      ],
+      "evidence": {
+        "commands": [
+          "curl -sS -X POST http://localhost:3001/api/orgs/69e17d4dbee9dfbd178c6710/scenarios -H Content-Type: application/json -H Authorization: Bearer <TOKEN_B> --data {\"name\": \"fdn_authz_core_unauthorized_create2_1776385356e2yp\"}",
+          "curl -sS -X GET http://localhost:3001/api/orgs/69e17d4dbee9dfbd178c6710/scenarios -H Content-Type: application/json -H Authorization: Bearer <TOKEN_B>",
+          "curl -sS -X POST http://localhost:3001/api/scenarios/69e17d4dbee9dfbd178c6713/clone -H Content-Type: application/json -H Authorization: Bearer <TOKEN_B>",
+          "curl -sS -X DELETE http://localhost:3001/api/scenarios/69e17d4dbee9dfbd178c6713 -H Content-Type: application/json -H Authorization: Bearer <TOKEN_B>",
+          "curl -sS -X GET http://localhost:3001/api/scenarios/69e17d4dbee9dfbd178c6713/diff/69e17d4dbee9dfbd178c6716 -H Content-Type: application/json -H Authorization: Bearer <TOKEN_B>"
+        ],
+        "statusCodes": [
+          403,
+          403,
+          403,
+          403,
+          403
+        ],
+        "payloadDetails": [
+          "error=Forbidden",
+          "error=Forbidden",
+          "error=Forbidden",
+          "error=Forbidden",
+          "error=Forbidden"
+        ],
+        "files": [
+          "foundations/authz-core/VAL-AUTHZ-004-create-scenario-cross-org-b.json",
+          "foundations/authz-core/VAL-AUTHZ-004-list-scenarios-cross-org-b.json",
+          "foundations/authz-core/VAL-AUTHZ-004-clone-scenario-cross-org-b.json",
+          "foundations/authz-core/VAL-AUTHZ-004-delete-scenario-cross-org-b.json",
+          "foundations/authz-core/VAL-AUTHZ-004-diff-scenarios-cross-org-b.json"
+        ]
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 4 assertions: 4 passed, 0 failed, 0 blocked, 0 skipped."
+}

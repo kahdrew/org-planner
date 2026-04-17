@@ -1,0 +1,286 @@
+{
+  "groupId": "auth-api",
+  "testedAt": "2026-04-17T00:23:17.849941Z",
+  "isolation": {
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001/api",
+    "namespacePrefix": "fdn_auth_api",
+    "namespaceRun": "fdn_auth_api_1776385331",
+    "createdEmails": {
+      "user": "fdn_auth_api_1776385331_user@example.com",
+      "dup": "fdn_auth_api_1776385331_dup@example.com",
+      "nonexistent": "fdn_auth_api_1776385331_nouser@example.com"
+    }
+  },
+  "toolsUsed": [
+    "curl"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-AUTH-001",
+      "title": "Successful registration with valid inputs",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "POST /api/auth/register with unique valid email/password/name in fdn_auth_api namespace",
+          "expected": "HTTP 201 with token and user object matching submitted fields",
+          "observed": "HTTP 201 with user.email=fdn_auth_api_1776385331_user@example.com and user.name=fdn_auth_api_1776385331 User"
+        },
+        {
+          "action": "Decode returned JWT token payload",
+          "expected": "Decodable JWT payload containing userId matching response user.id",
+          "observed": "Decoded payload: {'userId': '69e17d33bee9dfbd178c66e3', 'iat': 1776385331, 'exp': 1776990131}"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "foundations/auth-api/a001_register_valid.request.txt",
+          "foundations/auth-api/a001_register_valid.headers.txt",
+          "foundations/auth-api/a001_register_valid.body.json",
+          "foundations/auth-api/a001_register_valid.status.txt",
+          "foundations/auth-api/jwt-decode.json"
+        ],
+        "network": "POST /api/auth/register -> 201"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTH-002",
+      "title": "Registration rejects invalid inputs",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "POST /api/auth/register with missing email",
+          "expected": "HTTP 400 with error array referencing email",
+          "observed": "HTTP 400 with error paths including email=True"
+        },
+        {
+          "action": "POST /api/auth/register with invalid email format",
+          "expected": "HTTP 400 with error array referencing email",
+          "observed": "HTTP 400 with error paths including email=True"
+        },
+        {
+          "action": "POST /api/auth/register with password shorter than 6 chars",
+          "expected": "HTTP 400 with error array referencing password",
+          "observed": "HTTP 400 with error paths including password=True"
+        },
+        {
+          "action": "POST /api/auth/register with empty name",
+          "expected": "HTTP 400 with error array referencing name",
+          "observed": "HTTP 400 with error paths including name=True"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "foundations/auth-api/a002_missing_email.request.txt",
+          "foundations/auth-api/a002_missing_email.headers.txt",
+          "foundations/auth-api/a002_missing_email.body.json",
+          "foundations/auth-api/a002_missing_email.status.txt",
+          "foundations/auth-api/a002_invalid_email.request.txt",
+          "foundations/auth-api/a002_invalid_email.headers.txt",
+          "foundations/auth-api/a002_invalid_email.body.json",
+          "foundations/auth-api/a002_invalid_email.status.txt",
+          "foundations/auth-api/a002_short_password.request.txt",
+          "foundations/auth-api/a002_short_password.headers.txt",
+          "foundations/auth-api/a002_short_password.body.json",
+          "foundations/auth-api/a002_short_password.status.txt",
+          "foundations/auth-api/a002_empty_name.request.txt",
+          "foundations/auth-api/a002_empty_name.headers.txt",
+          "foundations/auth-api/a002_empty_name.body.json",
+          "foundations/auth-api/a002_empty_name.status.txt"
+        ],
+        "network": "POST /api/auth/register missing email -> 400; invalid email -> 400; short password -> 400; empty name -> 400"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTH-003",
+      "title": "Registration rejects duplicate email",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "POST /api/auth/register first time with duplicate-test email",
+          "expected": "HTTP 201",
+          "observed": "HTTP 201"
+        },
+        {
+          "action": "POST /api/auth/register second time with same email",
+          "expected": "HTTP 409 with {\"error\":\"Email already in use\"}",
+          "observed": "HTTP 409 with body.error=Email already in use"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "foundations/auth-api/a003_first_register.request.txt",
+          "foundations/auth-api/a003_first_register.headers.txt",
+          "foundations/auth-api/a003_first_register.body.json",
+          "foundations/auth-api/a003_first_register.status.txt",
+          "foundations/auth-api/a003_second_register.request.txt",
+          "foundations/auth-api/a003_second_register.headers.txt",
+          "foundations/auth-api/a003_second_register.body.json",
+          "foundations/auth-api/a003_second_register.status.txt"
+        ],
+        "network": "POST /api/auth/register first -> 201; second duplicate -> 409"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTH-005",
+      "title": "Successful login with correct credentials",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "POST /api/auth/login with valid registered credentials",
+          "expected": "HTTP 200 with token and matching user object",
+          "observed": "HTTP 200 with user.email=fdn_auth_api_1776385331_user@example.com and user.name=fdn_auth_api_1776385331 User"
+        },
+        {
+          "action": "Decode returned JWT token payload",
+          "expected": "Decodable JWT payload containing userId matching response user.id",
+          "observed": "Decoded payload: {'userId': '69e17d33bee9dfbd178c66e3', 'iat': 1776385332, 'exp': 1776990132}"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "foundations/auth-api/a005_login_valid.request.txt",
+          "foundations/auth-api/a005_login_valid.headers.txt",
+          "foundations/auth-api/a005_login_valid.body.json",
+          "foundations/auth-api/a005_login_valid.status.txt",
+          "foundations/auth-api/jwt-decode.json"
+        ],
+        "network": "POST /api/auth/login -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTH-006",
+      "title": "Login rejects invalid credentials",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "POST /api/auth/login with wrong password",
+          "expected": "HTTP 401 with {\"error\":\"Invalid credentials\"}",
+          "observed": "HTTP 401 with body.error=Invalid credentials"
+        },
+        {
+          "action": "POST /api/auth/login with non-existent email",
+          "expected": "HTTP 401 with {\"error\":\"Invalid credentials\"}",
+          "observed": "HTTP 401 with body.error=Invalid credentials"
+        },
+        {
+          "action": "POST /api/auth/login with empty fields {}",
+          "expected": "HTTP 400 with Zod errors referencing email and password",
+          "observed": "HTTP 400 with emailPath=True passwordPath=True"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "foundations/auth-api/a006_wrong_password.request.txt",
+          "foundations/auth-api/a006_wrong_password.headers.txt",
+          "foundations/auth-api/a006_wrong_password.body.json",
+          "foundations/auth-api/a006_wrong_password.status.txt",
+          "foundations/auth-api/a006_nonexistent.request.txt",
+          "foundations/auth-api/a006_nonexistent.headers.txt",
+          "foundations/auth-api/a006_nonexistent.body.json",
+          "foundations/auth-api/a006_nonexistent.status.txt",
+          "foundations/auth-api/a006_empty_fields.request.txt",
+          "foundations/auth-api/a006_empty_fields.headers.txt",
+          "foundations/auth-api/a006_empty_fields.body.json",
+          "foundations/auth-api/a006_empty_fields.status.txt"
+        ],
+        "network": "POST /api/auth/login wrong password -> 401; non-existent email -> 401; empty fields -> 400"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTH-008",
+      "title": "Protected routes reject missing, invalid, and expired tokens",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /api/orgs without Authorization header",
+          "expected": "HTTP 401 with {\"error\":\"No token provided\"}",
+          "observed": "HTTP 401 with body.error=No token provided"
+        },
+        {
+          "action": "GET /api/orgs with Bearer invalidtoken123",
+          "expected": "HTTP 401 with {\"error\":\"Invalid token\"}",
+          "observed": "HTTP 401 with body.error=Invalid token"
+        },
+        {
+          "action": "GET /api/orgs with generated expired JWT (expiresIn=0s)",
+          "expected": "HTTP 401 with {\"error\":\"Invalid token\"}",
+          "observed": "HTTP 401 with body.error=Invalid token"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "foundations/auth-api/a008_no_token.request.txt",
+          "foundations/auth-api/a008_no_token.headers.txt",
+          "foundations/auth-api/a008_no_token.body.json",
+          "foundations/auth-api/a008_no_token.status.txt",
+          "foundations/auth-api/a008_invalid_token.request.txt",
+          "foundations/auth-api/a008_invalid_token.headers.txt",
+          "foundations/auth-api/a008_invalid_token.body.json",
+          "foundations/auth-api/a008_invalid_token.status.txt",
+          "foundations/auth-api/a008_expired_token.generated.txt",
+          "foundations/auth-api/a008_expired_token.request.txt",
+          "foundations/auth-api/a008_expired_token.headers.txt",
+          "foundations/auth-api/a008_expired_token.body.json",
+          "foundations/auth-api/a008_expired_token.status.txt"
+        ],
+        "network": "GET /api/orgs no token -> 401; invalid token -> 401; expired token -> 401"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTH-010",
+      "title": "Valid token grants access to protected routes",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /api/orgs with valid JWT from successful login",
+          "expected": "HTTP 200 with JSON array response",
+          "observed": "HTTP 200 with response type=list"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "foundations/auth-api/a005_login_valid.body.json",
+          "foundations/auth-api/a010_valid_token_orgs.request.txt",
+          "foundations/auth-api/a010_valid_token_orgs.headers.txt",
+          "foundations/auth-api/a010_valid_token_orgs.body.json",
+          "foundations/auth-api/a010_valid_token_orgs.status.txt"
+        ],
+        "network": "GET /api/orgs with valid bearer token -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AUTH-011",
+      "title": "NoSQL injection in auth fields is rejected",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "POST /api/auth/login with JSON objects in email/password fields ({\"$gt\":\"\"})",
+          "expected": "HTTP 400 validation failure and no token returned",
+          "observed": "HTTP 400 with token_present=False"
+        }
+      ],
+      "evidence": {
+        "files": [
+          "foundations/auth-api/a011_nosql.request.txt",
+          "foundations/auth-api/a011_nosql.headers.txt",
+          "foundations/auth-api/a011_nosql.body.json",
+          "foundations/auth-api/a011_nosql.status.txt"
+        ],
+        "network": "POST /api/auth/login (NoSQL payload) -> 400"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 8 assertions with curl: 8 passed, 0 failed, 0 blocked, 0 skipped."
+}

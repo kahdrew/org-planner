@@ -1,0 +1,139 @@
+{
+  "groupId": "bugfix-api",
+  "testedAt": "2026-04-17T00:23:33.700359+00:00",
+  "isolation": {
+    "apiUrl": "http://localhost:3001/api",
+    "namespacePrefix": "fdn_bugfix_api",
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
+    "seededResources": {
+      "email": "fdn_bugfix_api_20260417T002330@example.com",
+      "orgId": "69e17d83bee9dfbd178c67a5",
+      "scenarioAId": "69e17d83bee9dfbd178c67a8",
+      "scenarioBId": "69e17d83bee9dfbd178c67ab"
+    }
+  },
+  "toolsUsed": [
+    "curl"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-BUGFIX-001",
+      "title": "Scenario diff client calls correct path-param endpoint (Bug #1)",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "GET /api/scenarios/69e17d83bee9dfbd178c67a8/diff/69e17d83bee9dfbd178c67ab",
+          "expected": "HTTP 200 with diff structure arrays",
+          "observed": "HTTP 200 with keys ['added', 'removed', 'moved', 'changed', 'unchanged']"
+        }
+      ],
+      "evidence": {
+        "network": [
+          "GET /api/scenarios/:a/diff/:b -> 200"
+        ],
+        "payloadShape": "Response includes added/removed/moved/changed/unchanged arrays",
+        "files": [
+          "foundations/bugfix-api/VAL-BUGFIX-001.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BUGFIX-002",
+      "title": "Diff API returns correct structure with accurate categorization",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Create distinct employee sets in scenario A and B, then call diff endpoint",
+          "expected": "Unique-to-B employee in added, unique-to-A in removed, shared employee in unchanged",
+          "observed": "added=['fdn_bugfix_api_CharlieAdded_20260417T002330'], removed=['fdn_bugfix_api_BobRemoved_20260417T002330'], unchanged=['fdn_bugfix_api_Alice_20260417T002330']"
+        }
+      ],
+      "evidence": {
+        "network": [
+          "GET /api/scenarios/:a/diff/:b -> 200"
+        ],
+        "payloadShape": "Diff categories populated by employee name",
+        "files": [
+          "foundations/bugfix-api/VAL-BUGFIX-002.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BUGFIX-004",
+      "title": "Diff with non-existent scenario IDs returns empty result",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "GET /api/scenarios/fc698da6545e400cd372d3d2/diff/b97ea00f2542454e9d70fe34",
+          "expected": "HTTP 200 with all arrays empty",
+          "observed": "HTTP 404 body={\"error\":\"Scenario not found\"}"
+        }
+      ],
+      "evidence": {
+        "network": [
+          "GET /api/scenarios/nonexistentA/diff/nonexistentB -> 404"
+        ],
+        "payloadShape": "Expected empty diff arrays",
+        "files": [
+          "foundations/bugfix-api/VAL-BUGFIX-004.json"
+        ]
+      },
+      "issues": "Endpoint did not return 200 empty diff for non-existent IDs"
+    },
+    {
+      "id": "VAL-BUGFIX-005",
+      "title": "Bulk create client sends raw array (Bug #2)",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "POST /api/scenarios/:scenarioId/employees/bulk with raw employee array",
+          "expected": "HTTP 201 created",
+          "observed": "HTTP 201"
+        },
+        {
+          "action": "POST same endpoint with wrapped object { employees: [...] }",
+          "expected": "HTTP 400 validation error",
+          "observed": "HTTP 400"
+        }
+      ],
+      "evidence": {
+        "network": [
+          "POST /api/scenarios/:scenarioId/employees/bulk (raw array) -> 201",
+          "POST /api/scenarios/:scenarioId/employees/bulk (wrapped object) -> 400"
+        ],
+        "payloadShape": "Raw array accepted; wrapped object rejected",
+        "files": [
+          "foundations/bugfix-api/VAL-BUGFIX-005.json"
+        ]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BUGFIX-006",
+      "title": "Bulk create validates each employee in the array",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "POST /api/scenarios/:scenarioId/employees/bulk with [{\"name\":\"\"}]",
+          "expected": "HTTP 400 with field-level validation errors",
+          "observed": "HTTP 400 paths=['0.name', '0.title', '0.department', '0.level', '0.location', '0.employmentType', '0.status']"
+        }
+      ],
+      "evidence": {
+        "network": [
+          "POST /api/scenarios/:scenarioId/employees/bulk (invalid item) -> 400"
+        ],
+        "payloadShape": "Zod error array with path-specific issues",
+        "files": [
+          "foundations/bugfix-api/VAL-BUGFIX-006.json"
+        ]
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 5 assertions: 4 passed, 1 failed, 0 blocked."
+}

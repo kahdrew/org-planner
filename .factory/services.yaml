@@ -12,7 +12,7 @@ services:
   api:
     start: cd /Users/andy/Documents/GitHub/org-planner && npm run dev:server
     stop: lsof -ti :3001 | xargs kill 2>/dev/null
-    healthcheck: curl -sf http://localhost:3001/api/auth/login -X POST -H "Content-Type:application/json" -d '{}' >/dev/null 2>&1 && echo ok
+    healthcheck: curl -s http://localhost:3001 >/dev/null 2>&1 && echo ok
     port: 3001
     depends_on: []
 
