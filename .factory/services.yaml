@@ -1,21 +1,28 @@
 commands:
-  install: cd /Users/andy/Documents/GitHub/org-planner && npm install
-  typecheck: cd /Users/andy/Documents/GitHub/org-planner && npm run typecheck
-  build: cd /Users/andy/Documents/GitHub/org-planner && npm run build
-  test: cd /Users/andy/Documents/GitHub/org-planner && npm run test
-  lint: cd /Users/andy/Documents/GitHub/org-planner && npm run lint
+  install: cd /Users/andy/Documents/GitHub/relay && npm install
+  typecheck: cd /Users/andy/Documents/GitHub/relay && npm run typecheck
+  build: cd /Users/andy/Documents/GitHub/relay && npm run build
+  test: cd /Users/andy/Documents/GitHub/relay && npm run test
+  lint: cd /Users/andy/Documents/GitHub/relay && npm run lint
 
 services:
+  mongodb:
+    start: cd /Users/andy/Documents/GitHub/relay && docker compose up -d mongodb
+    stop: cd /Users/andy/Documents/GitHub/relay && docker compose stop mongodb
+    healthcheck: docker exec relay-mongodb mongosh --eval "db.runCommand('ping')" --quiet
+    port: 27017
+    depends_on: []
+
   api:
-    start: cd /Users/andy/Documents/GitHub/org-planner && npm run dev:server &
-    stop: lsof -ti :3001 | xargs kill -9 2>/dev/null || true
-    healthcheck: test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3001/api/orgs)" = "401"
-    port: 3001
+    start: cd /Users/andy/Documents/GitHub/relay && PORT=3100 npx tsx packages/api/src/index.ts &
+    stop: lsof -ti :3100 | xargs kill -9 2>/dev/null || true
+    healthcheck: curl -sf http://localhost:3100/api/health
+    port: 3100
     depends_on: []
 
   web:
-    start: cd /Users/andy/Documents/GitHub/org-planner && npm run dev:client -- --port 5173 &
-    stop: lsof -ti :5173 | xargs kill -9 2>/dev/null || true
-    healthcheck: curl -sf http://localhost:5173 >/dev/null
-    port: 5173
+    start: cd /Users/andy/Documents/GitHub/relay && npx vite --port 3101 packages/web &
+    stop: lsof -ti :3101 | xargs kill -9 2>/dev/null || true
+    healthcheck: curl -sf http://localhost:3101
+    port: 3101
     depends_on: [api]
