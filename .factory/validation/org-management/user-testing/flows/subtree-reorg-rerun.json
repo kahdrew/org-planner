@@ -1,0 +1,110 @@
+{
+  "groupId": "subtree-reorg-rerun",
+  "testedAt": "2026-04-17T06:19:27Z",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001/api",
+    "testUserEmail": "testuser-subtree-reorg-rerun-20260416-1@orgplanner.test",
+    "orgName": "Org subtree-rerun-20260416",
+    "scenarioName": "Scenario subtree-rerun-20260416",
+    "notes": "Used validator-specific user/org/scenario and dedicated hierarchy created only for this flow run."
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertionResults": [
+    {
+      "id": "VAL-ORG-007",
+      "status": "pass",
+      "reason": "Dragging Director Alpha onto Director Beta opened subtree confirmation and, after confirming Move, the full subtree (Director Alpha -> Manager Alpha -> Engineer Alpha) moved under Director Beta.",
+      "evidence": {
+        "screenshots": [
+          "org-management/subtree-reorg-rerun/VAL-ORG-007-before-orgchart.png",
+          "org-management/subtree-reorg-rerun/VAL-ORG-007-after-drag-orgchart.png",
+          "org-management/subtree-reorg-rerun/VAL-ORG-007-after-confirm-orgchart.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e1d02b5a799536c8e08bfa/move observed when confirming move"
+      }
+    },
+    {
+      "id": "VAL-ORG-008",
+      "status": "pass",
+      "reason": "Cycle attempt (dragging Director Beta into its own descendant path) and self-reparent attempt were both ignored; hierarchy remained unchanged and no additional move API call was triggered.",
+      "evidence": {
+        "screenshots": [
+          "org-management/subtree-reorg-rerun/VAL-ORG-008-before-cycle-attempt.png",
+          "org-management/subtree-reorg-rerun/VAL-ORG-008-after-cycle-attempt.png",
+          "org-management/subtree-reorg-rerun/VAL-ORG-008-after-self-reparent-attempt.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH count for /api/employees/*/move remained 2 (no new move request from invalid drags)"
+      }
+    },
+    {
+      "id": "VAL-ORG-009",
+      "status": "pass",
+      "reason": "Three-level subtree move persisted with internal hierarchy intact: only Director Alpha managerId changed to Director Beta; Manager Alpha and Engineer Alpha manager chains stayed unchanged. State remained after refresh.",
+      "evidence": {
+        "screenshots": [
+          "org-management/subtree-reorg-rerun/VAL-ORG-009-hierarchy-after-move-before-refresh.png",
+          "org-management/subtree-reorg-rerun/VAL-ORG-009-hierarchy-after-refresh.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/69e1d02a5a799536c8e08bf2/employees -> 200 before and after refresh",
+        "managerMap": [
+          "Director Alpha managerId=69e1d02c5a799536c8e08c06",
+          "Manager Alpha managerId=69e1d02b5a799536c8e08bfa",
+          "Engineer Alpha managerId=69e1d02b5a799536c8e08bfe"
+        ]
+      }
+    },
+    {
+      "id": "VAL-CROSS-007",
+      "status": "pass",
+      "reason": "Drag-to-reparent in OrgChart moved Engineer Beta to a new manager, then Cmd+Z reverted it; Hierarchy view reflected the same reverted structure.",
+      "evidence": {
+        "screenshots": [
+          "org-management/subtree-reorg-rerun/VAL-CROSS-007-before-orgchart.png",
+          "org-management/subtree-reorg-rerun/VAL-CROSS-007-after-drag-orgchart.png",
+          "org-management/subtree-reorg-rerun/VAL-CROSS-007-after-confirm-orgchart.png",
+          "org-management/subtree-reorg-rerun/VAL-CROSS-007-after-undo-orgchart.png",
+          "org-management/subtree-reorg-rerun/VAL-CROSS-007-after-undo-hierarchy.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e1d02c5a799536c8e08c0a/move observed for drag and again on undo",
+        "managerCheck": "Engineer Beta managerId changed to 69e1d02b5a799536c8e08bfa after drag, then reverted to 69e1d02c5a799536c8e08c06 after Cmd+Z"
+      }
+    }
+  ],
+  "frictions": [
+    {
+      "description": "agent-browser drag/get box with @ref tokens failed in this environment.",
+      "resolved": true,
+      "resolution": "Used coordinate-based mouse drag with DOM-derived positions from agent-browser eval.",
+      "affectedAssertions": [
+        "VAL-ORG-007",
+        "VAL-ORG-008",
+        "VAL-CROSS-007"
+      ]
+    },
+    {
+      "description": "Native prompt-based org/scenario creation controls were not reliably automatable via direct button-click + prompt handling.",
+      "resolved": true,
+      "resolution": "Created isolated org/scenario/hierarchy through authenticated in-session API calls via agent-browser eval, then validated all assigned assertions through UI interactions.",
+      "affectedAssertions": [
+        "VAL-ORG-007",
+        "VAL-ORG-008",
+        "VAL-ORG-009",
+        "VAL-CROSS-007"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": {
+    "total": 4,
+    "pass": 4,
+    "fail": 0,
+    "blocked": 0
+  }
+}

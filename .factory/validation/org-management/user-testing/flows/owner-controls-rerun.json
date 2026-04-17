@@ -1,0 +1,73 @@
+{
+  "groupId": "owner-controls-rerun",
+  "testedAt": "2026-04-17T06:18:55Z",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001/api",
+    "ownerUser": "testuser-owner-controls-rerun-owner-20260416@example.com",
+    "viewerUser": "testuser-owner-controls-rerun-viewer-20260416@example.com",
+    "adminUser": "testuser-owner-controls-rerun-admin-20260416@example.com",
+    "ownerInviteUser": "testuser-owner-controls-rerun-owner2-20260416@example.com",
+    "organization": "Org Owner Controls Rerun 20260416"
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertionResults": [
+    {
+      "id": "VAL-ORG-001",
+      "status": "pass",
+      "reason": "In Members panel, owner invitation was sent with role=Owner and appeared in Pending Invitations with matching email and role label.",
+      "evidence": {
+        "screenshots": [
+          "org-management/owner-controls-rerun/VAL-ORG-001-pending-owner-invite.png"
+        ],
+        "observations": [
+          "Pending Invitations list showed testuser-owner-controls-rerun-owner2-20260416@example.com with Owner role badge and Pending status."
+        ],
+        "consoleErrors": "none observed during invite send flow"
+      }
+    },
+    {
+      "id": "VAL-ORG-005",
+      "status": "pass",
+      "reason": "Viewer had restricted controls and received 403 on scenario creation attempt; Admin could access editing controls but lacked owner-only member/org management settings; Owner had full org-management controls including invite role assignment, member role change/remove controls, and rename/delete org settings.",
+      "evidence": {
+        "screenshots": [
+          "org-management/owner-controls-rerun/VAL-ORG-005-viewer-disabled-controls.png",
+          "org-management/owner-controls-rerun/VAL-ORG-005-viewer-scenario-403.png",
+          "org-management/owner-controls-rerun/VAL-ORG-005-admin-controls.png",
+          "org-management/owner-controls-rerun/VAL-ORG-005-owner-controls.png"
+        ],
+        "observations": [
+          "Viewer: Add Employee and Import CSV were disabled; invitation accepted and org became selectable.",
+          "Admin: Members panel showed member list and pending invites, but no Invite Member form and no Rename/Delete Organization settings.",
+          "Owner: Members panel showed Invite Member form with Viewer/Admin/Owner role options, Change role/Remove member actions, and Rename/Delete Organization settings."
+        ],
+        "network": [
+          "Viewer action: POST /api/orgs/69e1cffd5a799536c8e08bc9/scenarios triggered Request failed with status code 403.",
+          "Admin authorization probe from browser session: DELETE /api/orgs/69e1cffd5a799536c8e08bc9 returned 403."
+        ],
+        "consoleErrors": "expected authorization error observed: Request failed with status code 403 when viewer attempted restricted scenario creation"
+      }
+    }
+  ],
+  "frictions": [
+    {
+      "description": "After clicking Send Invite, the button remained in 'Sending...' state briefly before pending list updated.",
+      "resolved": true,
+      "resolution": "Waited for async completion before capturing evidence.",
+      "affectedAssertions": [
+        "VAL-ORG-001",
+        "VAL-ORG-005"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": {
+    "total": 2,
+    "pass": 2,
+    "fail": 0,
+    "blocked": 0
+  }
+}

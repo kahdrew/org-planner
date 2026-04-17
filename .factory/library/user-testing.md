@@ -1,90 +1,51 @@
 # User Testing
 
-Testing surface, tools, and resource cost classification.
+Testing surface, required tools, isolation guidance, and resource limits for validation runs.
 
 ---
 
 ## Validation Surface
 
-| Surface | URL | Tool | Notes |
-|---------|-----|------|-------|
-| Browser (React SPA) | http://localhost:5173 | agent-browser | Primary validation surface |
-| API endpoints | http://localhost:3001/api/* | curl | Secondary, for auth/authorization checks |
+### Web Application (Primary)
+- **URL**: http://localhost:5173
+- **Tool**: agent-browser
+- **Setup**: Start API on port `3001` and web app on port `5173` (MongoDB Atlas via `packages/server/.env`)
+- **Auth bootstrap**: Register a fresh user via `/register`, create org/scenario as needed for each flow
 
-### Auth Bootstrap
-
-1. Register a test user: POST /api/auth/register with {email, password, name}
-2. Login: POST /api/auth/login with {email, password} → JWT token
-3. Browser: Navigate to http://localhost:5173, fill register form, submit
-4. Subsequent flows use the authenticated session
-
-### API Data Bootstrap (Post-Auth)
-
-Useful endpoints for quickly creating minimal test data after obtaining a JWT:
-
-1. Create org: `POST /api/orgs` with `{ "name": "Test Org" }`
-2. Create scenario: `POST /api/orgs/:orgId/scenarios` with `{ "name": "Baseline" }`
-3. Create employee: `POST /api/scenarios/:scenarioId/employees` with:
-   `{ "name":"Test Employee","title":"Engineer","department":"Engineering","level":"IC3","location":"Remote","employmentType":"FTE","status":"Active" }`
-
-### Setup Requirements
-
-- Start both services: `npm run dev` (runs API on 3001 + Vite on 5173 concurrently)
-- Ensure MongoDB Atlas is reachable (internet connection required)
-- For AI testing (Milestone 6): ANTHROPIC_API_KEY must be set in .env
+### API Endpoints (Secondary)
+- **Base URL**: http://localhost:3001/api
+- **Tool**: curl
+- **Setup**: API server running on port `3001`
+- **Auth**: `POST /api/auth/register` or `/api/auth/login`, then use `Authorization: Bearer <jwt>`
 
 ## Validation Concurrency
 
-**Machine specs:** 24 GB RAM, 10 CPU cores, ~6 GB baseline usage
-**Usable headroom:** 18 GB * 0.7 = ~12.6 GB
+### agent-browser
+- **Max concurrent**: 2
+- **Rationale**: Browser validation flows here are interactive and mutate shared org/scenario state. Two parallel validators are safe with isolated users/orgs while keeping run stability high.
 
-**agent-browser surface:**
-- Dev stack (API + Vite): ~200 MB total
-- Each agent-browser instance: ~300 MB
-- 4 concurrent instances: ~1.2 GB + 200 MB = ~1.4 GB (well within budget)
-- **Max concurrent: 4**
-
-**curl surface:**
-- API calls are lightweight and headless; bottleneck is shared database writes
-- Keep concurrent curl validators moderate to reduce cross-test race risk
-- **Max concurrent: 3**
-
-### Dry Run Results
-
-- Dev servers start successfully (API on 3001, frontend on 5173)
-- agent-browser can navigate, render pages, fill forms, submit
-- Resource usage is lightweight (~200 MB for dev stack)
-- Registration form submits but requires working API proxy (Vite proxies /api → localhost:3001)
-
-## Flow Validator Guidance: curl
-
-- Stay within assigned assertion IDs only.
-- Use unique test namespaces per validator (email/org/scenario prefixes) to avoid data collisions.
-- Never reuse another validator's token, orgId, scenarioId, or employee IDs.
-- Treat 403/404 equivalence exactly as contract specifies; do not over-interpret.
-- Save request/response evidence under the assigned evidence directory.
+### curl
+- **Max concurrent**: 5
+- **Rationale**: Low-resource API requests; can safely run in parallel when using isolated test data.
 
 ## Flow Validator Guidance: agent-browser
 
-- Use isolated credentials and org/scenario names assigned in the prompt.
-- Avoid mutating resources outside your assigned namespace.
-- Capture screenshot evidence for each assertion outcome (pass/fail/blocked).
-- If a flow depends on API seed data, seed only within your namespace before UI validation.
-- Keep browser interactions deterministic: explicit waits for route changes/network completion before assertions.
+- Use a unique test identity per validator (email suffix by group id/session id).
+- Create a separate org and scenario per validator; do not reuse existing seeded/demo orgs.
+- Do not rely on data created by other validators.
+- Keep all evidence under the assigned evidence directory only.
+- If a step depends on drag-and-drop, record both UI result and persisted result after refresh when assertion requires persistence.
+- If `@ref` drag targeting is unreliable, use coordinate-based mouse drag with DOM-derived element bounds.
+- If prompt-driven org/scenario bootstrap is flaky in automation, use authenticated in-session API bootstrap, then perform assertion checks via UI.
 
-## Automation Notes from Foundations Validation
+## Flow Validator Guidance: curl
 
-- `agent-browser` `network requests` capture can intermittently show no entries; when this happens, collect endpoint/status evidence with temporary in-page XHR logging.
-- Org/scenario creation uses native prompt dialogs; queue `dialog accept` before clicking creation actions for deterministic runs.
-- CSV import uses a native OS file picker; in headless runs, target the generated `<input type="file">` and dispatch a `change` event with a synthetic `File`.
-- In SpreadsheetView (AG Grid), selection checks may require DOM-targeted row interactions when accessibility snapshots do not expose row handles consistently.
-- For cross-session realtime/concurrency assertions, two simultaneous tabs can provide reliable isolation when only one credential set is assigned.
+- Use unique emails/org names/scenario names per validator run.
+- Validate both status code and response body fields required by the assertion.
+- Avoid destructive operations outside resources created by that validator.
 
-## Core-UX Rerun Notes (Round 2)
+## Test Data Strategy
 
-- Validation contract semantics for keyboard assertions:
-  - `VAL-KEY-001`: Cmd+K must focus the existing toolbar search input.
-  - `VAL-KEY-002`: search query must filter employees in the current view.
-  - `VAL-KEY-007`: verify Cmd+K focus + undo/delete shortcut behavior across views (not command-palette behavior).
-- For Backspace delete-shortcut checks, select the card/row container first; clicking inline text can enter edit mode and route Backspace to text editing.
-- For multi-user assertions requiring truly separate authenticated contexts, prefer separate `agent-browser` sessions (e.g., `__u1`/`__u2`) over two tabs in one session.
+- Every validator creates and uses isolated data.
+- Email pattern: `testuser-<group>-<timestamp>@orgplanner.test`.
+- Org/scenario names include the validator group id for traceability.
