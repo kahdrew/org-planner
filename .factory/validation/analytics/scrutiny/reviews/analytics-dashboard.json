@@ -1,0 +1,33 @@
+{
+  "featureId": "analytics-dashboard",
+  "reviewedAt": "2026-04-17T17:48:50Z",
+  "commitId": "c43108016496f81fdd3b2c85383f974a900c2688",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The /dashboard route, auth protection, sidebar entry, and widget set are implemented and well-tested, but there is a blocking data-accuracy gap in headcount trend computation for future-dated hires.",
+    "issues": [
+      {
+        "file": "packages/client/src/utils/dashboardMetrics.ts",
+        "line": 119,
+        "severity": "blocking",
+        "description": "computeHeadcountTrend counts an employee only when startDate < bucketEnd. Employees with future startDate values are excluded from the latest point, so the trend's latest headcount can be lower than HeadcountSummary total. This violates the feature requirement that dashboard numbers match HeadcountSummary/BudgetPanel in scenario data that includes future-dated hires. Fix by ensuring the latest point aligns with roster total (e.g., include future-dated employees in the latest bucket per product definition), and add a regression test for employees with startDate after the current month."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The implementation-worker skill requires tests-first (TDD), but this transcript created implementation files before test files while handoff.skillFeedback.followedProcedure was marked true.",
+      "evidence": "worker-transcripts.jsonl skeleton for session 865a49e2-815e-41a6-9edf-c90e06c24553 shows Create dashboardMetrics.ts and Create DashboardView.tsx before Create dashboardMetrics.test.ts and Create DashboardView.test.tsx."
+    },
+    {
+      "area": "conventions",
+      "observation": "Mission shared state is inconsistent about known failing tests.",
+      "evidence": "Mission AGENTS.md says 'Known Pre-Existing Issues: None yet' (lines 73-75), while .factory/skills/implementation-worker/SKILL.md states there are 4 known pre-existing failures in scheduledChanges.test.ts (line 57)."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed commit c431080 for analytics-dashboard and found one blocking correctness issue: headcount trend can undercount latest headcount when employees have future start dates. Feature otherwise implements the required route, auth gating, and five widgets with substantial test coverage."
+}

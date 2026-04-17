@@ -1,0 +1,40 @@
+{
+  "featureId": "timeline-slider",
+  "reviewedAt": "2026-04-17T17:49:46Z",
+  "commitId": "f4b86be",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The feature delivers the core timeline UI and API surface, but there are blocking correctness gaps around effective-date behavior and timeline fidelity. In particular, history reconstruction does not model scheduled changes at the requested scrub date, and scheduled-change auto-application does not emit audit events needed for a consistent timeline.",
+    "issues": [
+      {
+        "file": "packages/server/src/controllers/timelineController.ts",
+        "line": 82,
+        "severity": "blocking",
+        "description": "GET /history reconstructs state only from AuditLog entries and never incorporates ScheduledChange records for the requested target date. As implemented, scrubbing to a date beyond a pending change's effectiveDate will not show the projected change (violates timeline/effective-date integration behavior). Fix: include scheduled changes with effectiveDate <= targetDate in reconstruction (apply deterministically on top of base state), and cover this with an API test for 'slide past effective date'."
+      },
+      {
+        "file": "packages/server/src/controllers/scheduledChangeController.ts",
+        "line": 272,
+        "severity": "blocking",
+        "description": "applyDueChangesForScenario updates Employee documents and marks changes applied, but does not write AuditLog entries. Timeline events and history reconstruction (which depend on AuditLog) therefore miss these applied changes, causing silent timeline drift. Fix: emit audit entries when applying due scheduled changes (or route through audited employee mutation paths) so update/move/departure actions are captured."
+      },
+      {
+        "file": "packages/client/src/components/panels/TimelineSlider.tsx",
+        "line": 417,
+        "severity": "non_blocking",
+        "description": "Granularity controls do not change scrub snap behavior: the range input step is hard-coded to 1 day, so Week/Month only change label density. Fix: derive slider step from selected granularity and normalize scrub timestamps to the selected bucket boundary."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The implementation-worker skill requires agent-browser verification for UI-changing work, but this worker session shows no agent-browser invocation.",
+      "evidence": "worker-transcripts.jsonl entry for session 0ba7cb2e-c392-42b8-a6a3-bc669ccd277e has tool counts showing only two Skill invocations (mission-worker-base, implementation-worker) and no `\"skill\": \"agent-browser\"`; .factory/skills/implementation-worker/SKILL.md lines 18 and 59-69 require agent-browser for UI features."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed timeline-slider commit f4b86be, corresponding handoff, transcript skeleton, and skill expectations. Result is FAIL due to two blocking correctness issues: history endpoint does not project effective-dated changes at scrub time, and due scheduled changes are applied without audit logging (breaking timeline/history fidelity)."
+}

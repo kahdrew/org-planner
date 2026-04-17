@@ -1,0 +1,44 @@
+{
+  "featureId": "data-overlays-heatmaps",
+  "reviewedAt": "2026-04-17T17:48:52Z",
+  "commitId": "a6c5b014ed1d1c847911079b687b3df1786e1353",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Feature requirements are largely met: selector includes all requested modes plus Off, org-chart nodes are colorized per mode, legend renders, and click-to-open detail panel behavior is preserved. I found two non-blocking maintainability/UX gaps.",
+    "issues": [
+      {
+        "file": "packages/client/src/components/nodes/EmployeeCard.tsx",
+        "line": 89,
+        "severity": "non_blocking",
+        "description": "Performance hotspot: each card computes `buildOverlayContext(allEmployees)` inside `useMemo`, and `buildOverlayContext` scans all employees for salary/tenure ranges. On large org charts this creates O(n^2) work per overlay render. Actionable fix: compute overlay context once at org-chart level (or in a memoized selector/store) and pass it to cards."
+      },
+      {
+        "file": "packages/client/src/utils/overlayColors.ts",
+        "line": 334,
+        "severity": "non_blocking",
+        "description": "Categorical legends do not expose a neutral 'No data' entry when some nodes fall back to neutral (e.g., empty department), so not all rendered node colors are explained by the legend. Actionable fix: include a `hasMissing` signal in legend data and render a neutral swatch/label for categorical modes when missing values exist."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Mission AGENTS.md says 'Known Pre-Existing Issues: None yet', but worker validation/handoff repeatedly references pre-existing scheduled changes test failures and existing lint warnings. This mismatch can mislead workers during required validation steps.",
+      "evidence": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a/AGENTS.md (Known Pre-Existing Issues section) vs handoff 2026-04-17T17-14-41-024Z__data-overlays-heatmaps__97c603f1-f9c6-491e-894e-f6a36c115e93.json (`discoveredIssues`, `verification.commandsRun`)."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Shared architecture docs are now stale on client state inventory after this feature introduced `overlayStore`.",
+      "evidence": "New store added in commit a6c5b014ed1d1c847911079b687b3df1786e1353 at packages/client/src/stores/overlayStore.ts, but .factory/library/architecture.md state list does not mention overlayStore."
+    },
+    {
+      "area": "skills",
+      "observation": "Implementation skill procedure requires `npm run test` in the final validator block, but transcript execution for this UI feature relied on `npm run test:client` + `typecheck` + `lint` after implementation. Procedure likely needs clarification on when full-suite test is mandatory vs scoped validation given known server-test instability.",
+      "evidence": ".factory/skills/implementation-worker/SKILL.md (Run Validators section) compared with transcript skeleton for worker 97c603f1-f9c6-491e-894e-f6a36c115e93 (post-implementation Execute calls show `npm run test:client`, `npm run typecheck`, `npm run lint`)."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed transcript skeleton, handoff, skill, and commit a6c5b014 for data-overlays-heatmaps. Feature behavior matches scope with non-blocking performance and legend completeness gaps; no blocking correctness or security issues found."
+}

@@ -1,0 +1,33 @@
+{
+  "featureId": "span-of-control-analytics",
+  "reviewedAt": "2026-04-17T17:48:42Z",
+  "commitId": "ccf9dbf",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The feature implementation is largely complete and well tested for the main flow, but it has a correctness gap: org-chart warning badges are computed from the live employee set even when the chart is rendering timeline/historical employees, which can display incorrect overload/underutilization flags.",
+    "issues": [
+      {
+        "file": "packages/client/src/components/nodes/EmployeeCard.tsx",
+        "line": 75,
+        "severity": "blocking",
+        "description": "Span warning badges derive counts from `useOrgStore((s) => s.employees)` (live scenario data) and not from the same employee dataset currently rendered by the org chart. In timeline mode, AppShell renders `historicalEmployees ?? employees` into OrgChartView (`packages/client/src/components/layout/AppShell.tsx:154-156`), so badges can be wrong for the visible snapshot. Actionable fix: pass the active chart employee set (including historical snapshot when present) into badge computation (e.g., via node data/context/store selector tied to `employeesSource`) so badge flags/counts always match the displayed org chart state."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The implementation-worker skill mandates test-first TDD, but this run implemented production code before creating tests while still reporting `skillFeedback.followedProcedure: true`.",
+      "evidence": "Transcript skeleton for session `0076cfdb-2056-479a-9a73-41d1bd57e912` shows Create/Edit calls for `spanOfControl.ts`, `SpanOfControlPanel.tsx`, `Sidebar.tsx`, `AppShell.tsx`, and `EmployeeCard.tsx` before creating test files; handoff reports `skillFeedback.followedProcedure` as true."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Shared environment documentation is stale and points to a different project, which can mislead future workers.",
+      "evidence": "`.factory/library/environment.md` lists project path `/Users/andy/Documents/GitHub/relay`, default port `3100`, Docker-based local MongoDB, and Relay-specific env vars; this conflicts with org-planner mission conventions (ports 3001/5173 and MongoDB Atlas)."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed handoff, commit `ccf9dbf`, transcript skeleton, and skill usage for `span-of-control-analytics`. Found one blocking correctness issue: span warning badges can become inconsistent with the displayed org chart in timeline/historical mode because they are computed from live employees instead of the active rendered dataset."
+}

@@ -13,7 +13,7 @@ A full-stack org chart and headcount planning application. Users create organiza
 ### Frontend (packages/client)
 - **Framework**: React 18 + Vite + TypeScript
 - **Routing**: react-router-dom v6 with BrowserRouter
-- **State**: Zustand stores (authStore, orgStore, scenarioStore, undoRedoStore, selectionStore, invitationStore, scheduledChangeStore, timelineStore)
+- **State**: Zustand stores (authStore, orgStore, scenarioStore, undoRedoStore, selectionStore, invitationStore, scheduledChangeStore, timelineStore, overlayStore, exportStore)
 - **Visualization**: @xyflow/react (React Flow) for org chart canvas
 - **Data Grid**: AG Grid Community for spreadsheet view
 - **Drag-and-Drop**: @dnd-kit for hierarchy and kanban reordering
@@ -75,7 +75,7 @@ User (email, passwordHash, name)
 | `/spreadsheet` | Spreadsheet | SpreadsheetView | AG Grid editable table |
 | `/kanban` | Kanban | KanbanView | Kanban columns by department or status |
 | `/compare` | Compare | CompareView | Side-by-side scenario diff trees |
-| `/dashboard` | Dashboard | (Milestone 4) | Analytics widgets |
+| `/dashboard` | Dashboard | DashboardView | Analytics widgets |
 
 ## Layout Structure
 

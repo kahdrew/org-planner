@@ -19,6 +19,16 @@ const updateScheduledChangeSchema = z.object({
   changeData: z.record(z.unknown()).optional(),
 });
 
+function parseDateOnly(dateValue: string): Date | null {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  const parsed = new Date(year, month - 1, day);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 /**
  * POST /api/scenarios/:id/scheduled-changes
  * Create a new scheduled change for an employee within a scenario.
@@ -29,7 +39,11 @@ export const createScheduledChange = async (req: AuthRequest, res: Response): Pr
     const data = scheduledChangeSchema.parse(req.body);
 
     // Validate effective date is not in the past
-    const effectiveDate = new Date(data.effectiveDate);
+    const effectiveDate = parseDateOnly(data.effectiveDate);
+    if (!effectiveDate) {
+      res.status(400).json({ error: "Invalid effective date" });
+      return;
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (effectiveDate < today) {
@@ -136,7 +150,11 @@ export const updateScheduledChange = async (req: AuthRequest, res: Response): Pr
 
     // If updating effective date, validate it's not in the past
     if (updates.effectiveDate) {
-      const newDate = new Date(updates.effectiveDate);
+      const newDate = parseDateOnly(updates.effectiveDate);
+      if (!newDate) {
+        res.status(400).json({ error: "Invalid effective date" });
+        return;
+      }
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       if (newDate < today) {
