@@ -1,0 +1,54 @@
+{
+  "milestone": "planning",
+  "round": 2,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 12,
+    "passed": 6,
+    "failed": 6,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-BUDGET-003",
+    "VAL-BUDGET-004",
+    "VAL-APPROVAL-002",
+    "VAL-APPROVAL-005",
+    "VAL-APPROVAL-008",
+    "VAL-CROSS-019"
+  ],
+  "failedAssertions": [
+    {
+      "id": "VAL-BUDGET-007",
+      "reason": "Required per-department envelope/committed/planned/remaining/utilization column breakdown is still not visible in the dashboard UI."
+    },
+    {
+      "id": "VAL-APPROVAL-003",
+      "reason": "Submitter-side budget impact is present, but approver review surface still does not show equivalent budget impact summary metrics."
+    },
+    {
+      "id": "VAL-APPROVAL-009",
+      "reason": "Changes-requested flow still lacks submitter edit/resubmit UI to restart chain from step 1."
+    },
+    {
+      "id": "VAL-APPROVAL-010",
+      "reason": "Dedicated notification feed/bell event content is still not visible; only approval badges/counters are observed."
+    },
+    {
+      "id": "VAL-APPROVAL-012",
+      "reason": "Audit trail shows chronological approvals but still lacks completed-request edit-history entries required by contract."
+    },
+    {
+      "id": "VAL-APPROVAL-013",
+      "reason": "Expected disabled self-approve button with tooltip is not rendered; row remains view-only without specified affordance."
+    }
+  ],
+  "blockedAssertions": [],
+  "appliedUpdates": [
+    {
+      "target": "user-testing.md",
+      "description": "Added guidance for post-login selector reload behavior and using sidebar navigation when direct /approvals navigation is unstable.",
+      "source": "flow-report"
+    }
+  ],
+  "previousRound": ".factory/validation/planning/user-testing/synthesis.round1.json"
+}

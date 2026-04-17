@@ -1,27 +1,27 @@
 {
   "groupId": "planning-regression-b",
-  "testedAt": "2026-04-17T22:35:43.131336+00:00",
+  "testedAt": "2026-04-17T23:09:00Z",
   "isolation": {
     "surface": "agent-browser",
     "appUrl": "http://localhost:5173",
     "apiBase": "http://localhost:3001/api",
     "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
-    "groupTag": "planning-regression-b",
-    "dataTag": "planning-regression-b-1776464563",
-    "org": "Org planning-regression-b planning-regression-b-1776464563",
-    "scenario": "Scenario planning-regression-b planning-regression-b-1776464563",
+    "groupTag": "planning-r3-b",
+    "dataTag": "planning-r3-b-1776466930",
+    "org": "Org planning-r3-b planning-r3-b-1776466930",
+    "scenario": "Scenario planning-r3-b planning-r3-b-1776466930",
     "users": {
-      "owner": "owner-planning-regression-b-1776464563@orgplanner.test",
-      "manager": "manager-planning-regression-b-1776464563@orgplanner.test",
-      "vp": "vp-planning-regression-b-1776464563@orgplanner.test",
-      "finance": "finance-planning-regression-b-1776464563@orgplanner.test",
-      "chro": "chro-planning-regression-b-1776464563@orgplanner.test"
+      "owner": "owner-planning-r3-b-1776466930@orgplanner.test",
+      "manager": "manager-planning-r3-b-1776466930@orgplanner.test",
+      "vp": "vp-planning-r3-b-1776466930@orgplanner.test",
+      "finance": "finance-planning-r3-b-1776466930@orgplanner.test",
+      "chro": "chro-planning-r3-b-1776466930@orgplanner.test"
     },
     "requestIds": {
-      "reject": "69e2b2ba845e4f2f72c62462",
-      "changes": "69e2b2ba845e4f2f72c62468",
-      "full": "69e2b2bb845e4f2f72c6246e",
-      "self": "69e2b2bb845e4f2f72c62474"
+      "changes": "69e2bbf986cb481557031b45",
+      "notify": "69e2bbf986cb481557031b4b",
+      "self": "69e2bbfa86cb481557031b51",
+      "reject": "69e2bc4086cb481557031b96"
     }
   },
   "toolsUsed": [
@@ -30,52 +30,32 @@
   ],
   "assertions": [
     {
-      "id": "VAL-APPROVAL-008",
-      "title": "Reject action terminates chain with reason",
-      "status": "pass",
-      "steps": [
-        {
-          "action": "As VP approver, reject request 69e2b2ba845e4f2f72c62462 with reason 'Budget constraints.'",
-          "expected": "Status becomes Rejected, chain terminates, submitter is notified.",
-          "observed": "Request moved to Rejected tab immediately and remained terminal; submitter saw Rejected count/item in Approvals."
-        }
-      ],
-      "evidence": {
-        "screenshots": [
-          "planning/planning-regression-b/VAL-APPROVAL-008-vp-rejected-tab.png",
-          "planning/planning-regression-b/VAL-APPROVAL-008-manager-rejected-status.png"
-        ],
-        "consoleErrors": "none",
-        "network": "POST /api/headcount-requests/69e2b2ba845e4f2f72c62462/reject -> 200; GET /api/headcount-requests/69e2b2ba845e4f2f72c62462 -> status=rejected, audit includes reject."
-      },
-      "issues": null
-    },
-    {
       "id": "VAL-APPROVAL-009",
       "title": "Request changes returns to submitter",
       "status": "fail",
       "steps": [
         {
-          "action": "As VP approver, request changes on 69e2b2ba845e4f2f72c62468 with comment 'Please adjust salary.'",
+          "action": "As VP approver, open request 69e2bbf986cb481557031b45 and click Request Changes with comment.",
           "expected": "Status changes to Changes Requested.",
-          "observed": "Status changed to Changes Requested."
+          "observed": "Status changed to Changes Requested and request moved to Changes Requested tab."
         },
         {
-          "action": "As submitter, edit and resubmit from the Changes Requested state.",
-          "expected": "Editable resubmit controls are available and resubmission restarts chain at step 1.",
-          "observed": "Only View actions were rendered for the submitter; no Edit & Resubmit control/dialog was available in list or detail."
+          "action": "Login as submitter (manager) and attempt to edit/resubmit the changes-requested request.",
+          "expected": "Submitter can edit and resubmit; chain restarts at step 1.",
+          "observed": "Submitter only had View action; detail modal showed no Edit/Resubmit controls, so resubmission could not be performed from UI."
         }
       ],
       "evidence": {
         "screenshots": [
+          "planning/planning-regression-b/VAL-APPROVAL-009-vp-request-changes-modal.png",
           "planning/planning-regression-b/VAL-APPROVAL-009-vp-changes-requested-tab.png",
-          "planning/planning-regression-b/VAL-APPROVAL-009-manager-changes-requested-before-resubmit.png",
+          "planning/planning-regression-b/VAL-APPROVAL-009-manager-changes-requested-view.png",
           "planning/planning-regression-b/VAL-APPROVAL-009-manager-detail-no-resubmit.png"
         ],
         "consoleErrors": "none",
-        "network": "POST /api/headcount-requests/69e2b2ba845e4f2f72c62468/request-changes -> 200; GET /api/headcount-requests/69e2b2ba845e4f2f72c62468 -> status=changes_requested; no UI path surfaced for POST /resubmit."
+        "network": "POST /api/headcount-requests/69e2bbf986cb481557031b45/request-changes -> 200; GET /api/headcount-requests/69e2bbf986cb481557031b45 -> status=changes_requested, audit includes request_changes; no UI path triggered POST /resubmit."
       },
-      "issues": "Submitter resubmit/edit UX is not exposed in the real UI for this flow."
+      "issues": "Submitter edit/resubmit UX is not exposed in the tested UI path."
     },
     {
       "id": "VAL-APPROVAL-010",
@@ -83,43 +63,30 @@
       "status": "fail",
       "steps": [
         {
-          "action": "Advance request 69e2b2bb845e4f2f72c6246e through VP -> Finance -> CHRO.",
-          "expected": "Next approver gets notification; submitter gets event notifications (approval/rejection/changes) with real-time badge updates.",
-          "observed": "Next approver notifications worked via pulsing Approvals nav badge/count (Finance and CHRO saw count=1). Submitter saw status counters (Approved/Rejected/Changes Requested) but no dedicated bell/feed notification content UI."
-        }
-      ],
-      "evidence": {
-        "screenshots": [
-          "planning/planning-regression-b/VAL-APPROVAL-010-vp-approved-full-request.png",
-          "planning/planning-regression-b/VAL-APPROVAL-010-finance-sidebar-badge.png",
-          "planning/planning-regression-b/VAL-APPROVAL-010-chro-sidebar-badge.png",
-          "planning/planning-regression-b/VAL-APPROVAL-010-manager-status-counters.png"
-        ],
-        "consoleErrors": "none",
-        "network": "POST /api/headcount-requests/69e2b2bb845e4f2f72c6246e/approve -> 200 at VP, Finance, CHRO; GET /api/headcount-requests/69e2b2bb845e4f2f72c6246e -> status=approved."
-      },
-      "issues": "Contract-specified notification bell/content surface was not present; only Approvals badge/status counters were available."
-    },
-    {
-      "id": "VAL-APPROVAL-012",
-      "title": "Full audit trail on completed request",
-      "status": "fail",
-      "steps": [
+          "action": "Advance request 69e2bbf986cb481557031b4b VP -> Finance -> CHRO.",
+          "expected": "Next approver receives notification and badge updates in real time.",
+          "observed": "Next approver visibility worked through Approvals sidebar/queue badges (Finance then CHRO showed Approvals 1 / My queue 1)."
+        },
         {
-          "action": "Open completed request 69e2b2bb845e4f2f72c6246e detail audit trail.",
-          "expected": "Chronological submission, each approval step with actor/time/action/comments, status changes, and edit history.",
-          "observed": "Chronological entries with actor names, timestamps, and approval comments were present (submit + VP + Finance + CHRO), but no edit-history events were present in the completed trail."
+          "action": "Trigger rejection on 69e2bc4086cb481557031b96 and use existing changes-requested event on 69e2bbf986cb481557031b45; then check submitter notifications.",
+          "expected": "Submitter receives explicit notifications for final approval, rejection, and changes requested with notification badge updates.",
+          "observed": "Submitter saw status counters updated (Approved 1, Rejected 1, Changes Requested 1), but no bell feed content or bell badge count was surfaced when opening Notifications."
         }
       ],
       "evidence": {
         "screenshots": [
-          "planning/planning-regression-b/VAL-APPROVAL-012-chro-after-final-approval.png",
-          "planning/planning-regression-b/VAL-APPROVAL-012-manager-audit-trail-completed.png"
+          "planning/planning-regression-b/VAL-APPROVAL-010-vp-queue-before-advance.png",
+          "planning/planning-regression-b/VAL-APPROVAL-010-finance-sidebar-badge-after-vp-approval.png",
+          "planning/planning-regression-b/VAL-APPROVAL-010-finance-queue-notification.png",
+          "planning/planning-regression-b/VAL-APPROVAL-010-chro-sidebar-badge-after-finance-approval.png",
+          "planning/planning-regression-b/VAL-APPROVAL-010-chro-after-final-approval.png",
+          "planning/planning-regression-b/VAL-APPROVAL-010-manager-status-counters.png",
+          "planning/planning-regression-b/VAL-APPROVAL-010-manager-notifications-surface.png"
         ],
         "consoleErrors": "none",
-        "network": "GET /api/headcount-requests/69e2b2bb845e4f2f72c6246e -> 200 with audit actions ['submit','approve','approve','approve'] and actor IDs resolved in UI."
+        "network": "POST /api/headcount-requests/69e2bbf986cb481557031b4b/approve -> 200 (VP), -> 200 (Finance), -> 200 (CHRO) with final status=approved; POST /api/headcount-requests/69e2bc4086cb481557031b96/reject -> 200 with status=rejected; GET requests confirmed approved/rejected/changes_requested outcomes."
       },
-      "issues": "Completed request audit lacked edit-history entries required by the contract wording."
+      "issues": "Contract-specified notification bell content/badge updates were not present; only approvals queue/status counters reflected events."
     },
     {
       "id": "VAL-APPROVAL-013",
@@ -127,58 +94,28 @@
       "status": "fail",
       "steps": [
         {
-          "action": "Inspect submitter-owned pending request 69e2b2bb845e4f2f72c62474 in Pending list.",
-          "expected": "Approve button is disabled with tooltip 'You cannot approve your own request.'",
-          "observed": "Row rendered as View-only action; expected disabled own-request approve control/tooltip was not rendered."
-        }
-      ],
-      "evidence": {
-        "screenshots": [
-          "planning/planning-regression-b/VAL-APPROVAL-013-manager-own-request-view-only.png"
-        ],
-        "consoleErrors": "none",
-        "network": "GET /api/headcount-requests/69e2b2bb845e4f2f72c62474 -> status=pending at step 0; UI did not surface expected self-approval disabled control."
-      },
-      "issues": "Required disabled approve button with tooltip is not present on submitter-owned pending request."
-    },
-    {
-      "id": "VAL-CROSS-019",
-      "title": "Employee deletion cascades manager references",
-      "status": "pass",
-      "steps": [
+          "action": "Login as VP submitter and inspect own pending request 69e2bbfa86cb481557031b51 in Approvals.",
+          "expected": "Approve button is disabled with tooltip \"You cannot approve your own request.\"",
+          "observed": "Own request appeared as View-only row (disabled selection + View action); no disabled Approve button and no tooltip text were rendered."
+        },
         {
-          "action": "Delete manager with 3 direct reports from Org Chart detail panel (Delete -> Confirm).",
-          "expected": "Manager is removed; reports are reassigned/top-level; manager dropdown excludes deleted manager; Spreadsheet manager references update.",
-          "observed": "Deleted manager disappeared from hierarchy, three reports remained and became top-level (managerId null), report manager dropdown no longer listed deleted manager, and Spreadsheet reflected post-delete roster."
+          "action": "Attempt self-approve via API as the submitter.",
+          "expected": "Self-approval is prevented.",
+          "observed": "API returned 403 with error \"You cannot act on your own request.\""
         }
       ],
       "evidence": {
         "screenshots": [
-          "planning/planning-regression-b/VAL-CROSS-019-hierarchy-before-delete.png",
-          "planning/planning-regression-b/VAL-CROSS-019-hierarchy-after-delete.png",
-          "planning/planning-regression-b/VAL-CROSS-019-manager-dropdown-after-delete.png",
-          "planning/planning-regression-b/VAL-CROSS-019-spreadsheet-manager-column-after-delete.png"
+          "planning/planning-regression-b/VAL-APPROVAL-013-vp-own-request-row.png",
+          "planning/planning-regression-b/VAL-APPROVAL-013-vp-own-request-detail.png"
         ],
         "consoleErrors": "none",
-        "network": "DELETE /api/employees/69e2b2bc845e4f2f72c6247e (via UI) -> success; GET /api/scenarios/69e2b2b5845e4f2f72c62422/employees -> manager removed, each former report managerId=null."
+        "network": "GET /api/headcount-requests/69e2bbfa86cb481557031b51 -> status=pending at step 0; POST /api/headcount-requests/69e2bbfa86cb481557031b51/approve as submitter -> 403 (You cannot act on your own request)."
       },
-      "issues": null
+      "issues": "UI did not present the required disabled Approve control with tooltip copy from the assertion."
     }
   ],
-  "frictions": [
-    {
-      "description": "Direct open to /approvals intermittently landed on /; navigation was stabilized by entering through the sidebar Approvals link after each login.",
-      "resolved": true,
-      "resolution": "Used sidebar navigation to reach Approvals consistently before interacting.",
-      "affectedAssertions": [
-        "VAL-APPROVAL-008",
-        "VAL-APPROVAL-009",
-        "VAL-APPROVAL-010",
-        "VAL-APPROVAL-012",
-        "VAL-APPROVAL-013"
-      ]
-    }
-  ],
+  "frictions": [],
   "blockers": [],
-  "summary": "Tested 6 assertions: 2 passed (VAL-APPROVAL-008, VAL-CROSS-019) and 4 failed (VAL-APPROVAL-009, VAL-APPROVAL-010, VAL-APPROVAL-012, VAL-APPROVAL-013)."
+  "summary": "Tested 3 assigned assertions: 0 passed, 3 failed (VAL-APPROVAL-009, VAL-APPROVAL-010, VAL-APPROVAL-013)."
 }

@@ -1,207 +1,136 @@
 {
   "groupId": "planning-regression-a",
-  "testedAt": "2026-04-17T22:29:58Z",
+  "testedAt": "2026-04-17T23:07:45Z",
   "isolation": {
-    "surface": "agent-browser",
+    "milestone": "planning",
     "appUrl": "http://localhost:5173",
-    "apiBase": "http://localhost:3001/api",
+    "apiUrl": "http://localhost:3001/api",
     "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
-    "groupTag": "planning-regression-a",
-    "ownerEmail": "planning-regression-a-1776464487@orgplanner.test",
-    "managerEmail": "planning-regression-a-manager-1776464487@orgplanner.test",
-    "vpEmail": "planning-regression-a-vp-1776464487@orgplanner.test",
-    "financeEmail": "planning-regression-a-finance-1776464487@orgplanner.test",
-    "orgName": "planning-regression-a-org-1776464487",
-    "scenarioName": "planning-regression-a-scenario-1776464487",
-    "orgId": "69e2b303845e4f2f72c6249f",
-    "scenarioId": "69e2b303845e4f2f72c624a2"
+    "prefix": "planning-r3-a",
+    "submitterUser": "planning-r3-a-1776466877@orgplanner.test",
+    "approverUser": "planning-r3-a-approver-1776466877@orgplanner.test",
+    "orgId": "69e2bc4486cb481557031b9f",
+    "scenarioId": "69e2bc4586cb481557031bb2",
+    "requestId": "69e2bc6b86cb481557031bfc"
   },
   "toolsUsed": [
     "agent-browser",
-    "python3 HTTP calls (isolation bootstrap + state checks)"
+    "curl"
   ],
   "assertions": [
     {
-      "id": "VAL-BUDGET-003",
-      "title": "Manager submits hire request with budget impact preview",
-      "status": "pass",
-      "steps": [
-        {
-          "action": "As isolated manager user, open Request Hire (New Hire), fill Engineering request and salary/equity fields.",
-          "expected": "Form shows projected budget impact metrics (current spend, projected spend, utilization %).",
-          "observed": "Budget Impact block displayed: Current Spend $130,000 of $300,000 (43.3%), Projected $180,000 (60.0%), Remaining After $120,000, plus headcount impact."
-        },
-        {
-          "action": "Submit the within-budget request.",
-          "expected": "Request submits successfully and appears in queue.",
-          "observed": "Submission completed; approvals totals incremented (All count increased)."
-        }
-      ],
-      "evidence": {
-        "screenshots": [
-          "planning/planning-regression-a/VAL-BUDGET-003-budget-impact-preview.png",
-          "planning/planning-regression-a/VAL-BUDGET-003-request-submitted.png"
-        ],
-        "consoleErrors": "none",
-        "network": "Browser log captured POST /api/scenarios/69e2b303845e4f2f72c624a2/headcount-requests and follow-up GET /api/orgs/69e2b303845e4f2f72c6249f/headcount-requests + /pending."
-      },
-      "issues": null
-    },
-    {
-      "id": "VAL-BUDGET-004",
-      "title": "Over-budget and over-headcount hire requests are flagged",
-      "status": "pass",
-      "steps": [
-        {
-          "action": "Open Request Hire and create Sales request with salary $30,000 where Sales envelope is already near/at cap.",
-          "expected": "UI warns for over-budget and over-headcount while still allowing submit.",
-          "observed": "Budget Impact showed Remaining After -$20,000, warning text 'over budget by $20,000', and headcount '1 over cap'."
-        },
-        {
-          "action": "Submit flagged request.",
-          "expected": "Request still submits and remains flagged.",
-          "observed": "Submit succeeded; approvals total increased to All(2) at that point."
-        }
-      ],
-      "evidence": {
-        "screenshots": [
-          "planning/planning-regression-a/VAL-BUDGET-004-over-budget-over-headcount-warning.png",
-          "planning/planning-regression-a/VAL-BUDGET-004-flagged-request-submitted.png"
-        ],
-        "consoleErrors": "none",
-        "network": "Browser log captured POST /api/scenarios/69e2b303845e4f2f72c624a2/headcount-requests during flagged submission flow."
-      },
-      "issues": null
-    },
-    {
       "id": "VAL-BUDGET-007",
       "title": "Budget vs actual dashboard with utilization",
-      "status": "fail",
-      "steps": [
-        {
-          "action": "Open Dashboard and inspect 'Budget vs. Actual by Department' section.",
-          "expected": "Per-department envelope, committed spend, planned spend, remaining budget, and utilization percentage columns are visible.",
-          "observed": "Dashboard rendered chart/summary labels (e.g., 'Budget vs. Actual by Department', '2 envelopes', chart legend) but not explicit per-department committed/planned/remaining/utilization column breakdown required by contract."
-        }
-      ],
-      "evidence": {
-        "screenshots": [
-          "planning/planning-regression-a/VAL-BUDGET-007-dashboard-budget-vs-actual.png"
-        ],
-        "consoleErrors": "none",
-        "network": "Browser log captured repeated GET /api/scenarios/69e2b303845e4f2f72c624a2/budgets while rendering dashboard budget widgets."
-      },
-      "issues": "Required contract fields are not explicitly present as per-department dashboard columns in observed UI."
-    },
-    {
-      "id": "VAL-APPROVAL-002",
-      "title": "Submit compensation change request",
       "status": "pass",
       "steps": [
         {
-          "action": "As manager user, open Request Hire -> Comp Change, select planning-regression-a-comp-target, change salary 130000 -> 155000, add justification.",
-          "expected": "Request shows delta (+$25K) and can be submitted to queue.",
-          "observed": "Comp change preview showed Current $130,000, Proposed $155,000, Delta +$25,000; submit succeeded and queue totals increased (All(3))."
+          "action": "Login as isolated approver user and navigate to /dashboard",
+          "expected": "Dashboard renders budget breakdown for departments",
+          "observed": "Dashboard rendered successfully with Department Budget Breakdown widget."
+        },
+        {
+          "action": "Inspect Department Budget Breakdown table",
+          "expected": "Per-department columns: envelope, committed spend, planned spend, remaining budget, utilization %",
+          "observed": "Engineering row displayed Envelope $500,000, Committed $110,000, Planned $140,000, Remaining $250,000, Utilization 50.0%."
+        },
+        {
+          "action": "Confirm table is populated from isolated org/scenario data",
+          "expected": "Values align with seeded envelope + existing employee + pending request",
+          "observed": "Values matched expected seeded envelope and request impact in the same isolated scenario."
         }
       ],
       "evidence": {
         "screenshots": [
-          "planning/planning-regression-a/VAL-APPROVAL-002-comp-change-delta.png",
-          "planning/planning-regression-a/VAL-APPROVAL-002-queue-count-after-submit.png"
+          "planning/planning-regression-a/VAL-BUDGET-007-dashboard-breakdown.png"
         ],
         "consoleErrors": "none",
-        "network": "Browser log captured POST /api/scenarios/69e2b303845e4f2f72c624a2/headcount-requests and queue refresh GET calls under /api/orgs/69e2b303845e4f2f72c6249f/headcount-requests."
+        "network": "GET /api/scenarios/69e2bc4586cb481557031bb2/budgets -> 200; GET /api/orgs/69e2bc4486cb481557031b9f/headcount-requests -> 200"
       },
       "issues": null
     },
     {
       "id": "VAL-APPROVAL-003",
       "title": "Request includes budget impact summary",
-      "status": "fail",
-      "steps": [
-        {
-          "action": "Verify budget-impact section on submitter form for request creation.",
-          "expected": "Submitter sees current spend, projected spend, remaining budget, utilization %.",
-          "observed": "Submitter form showed full budget impact metrics (pass on submitter side)."
-        },
-        {
-          "action": "As approver (owner/VP), review pending requests in Approvals and action modals.",
-          "expected": "Same budget impact metrics are visible to approver while reviewing.",
-          "observed": "Approver queue showed candidate/type/department/level/cost/step and action modals, but no current/projected/remaining/utilization budget-impact block."
-        }
-      ],
-      "evidence": {
-        "screenshots": [
-          "planning/planning-regression-a/VAL-APPROVAL-003-submitter-budget-impact.png",
-          "planning/planning-regression-a/VAL-APPROVAL-003-approver-view.png"
-        ],
-        "consoleErrors": "none",
-        "network": "Approver session repeatedly fetched GET /api/orgs/69e2b303845e4f2f72c6249f/headcount-requests and /pending; no separate budget-impact detail payload surfaced in UI review path."
-      },
-      "issues": "Approver review surface does not expose the full budget impact summary required by contract."
-    },
-    {
-      "id": "VAL-APPROVAL-005",
-      "title": "Approver sees only their pending items",
       "status": "pass",
       "steps": [
         {
-          "action": "Stage mixed workflow states in isolated org: one request left at manager step, one moved to VP step, one moved to finance step.",
-          "expected": "VP queue excludes manager-pending and finance-pending requests.",
-          "observed": "With VP login, Approvals showed My queue (1) while All(3), and only VP-pending request (planning-regression-a-comp-target, step 2/3) appeared in My queue."
+          "action": "As submitter, open Request Hire and fill new-hire form in Engineering",
+          "expected": "Submitter form shows budget impact metrics (current spend, projected spend, remaining budget, utilization)",
+          "observed": "Budget Impact section showed Current Spend $110,000, Projected $270,000, Remaining $230,000, utilization percentages, and headcount impact."
+        },
+        {
+          "action": "Submit request and switch to approver user",
+          "expected": "Request appears in approver queue",
+          "observed": "Request planning-r3-a-hire1 appeared in Approvals pending queue."
+        },
+        {
+          "action": "Open request details as approver",
+          "expected": "Approver review surface shows same budget impact summary",
+          "observed": "Approver Request Details displayed Department Budget Impact with current/projection/remaining/utilization metrics."
         }
       ],
       "evidence": {
         "screenshots": [
-          "planning/planning-regression-a/VAL-APPROVAL-005-vp-my-queue-filtered.png"
+          "planning/planning-regression-a/VAL-APPROVAL-003-submitter-dialog-initial.png",
+          "planning/planning-regression-a/VAL-APPROVAL-003-submitter-budget-impact.png",
+          "planning/planning-regression-a/VAL-APPROVAL-003-submitter-after-submit.png",
+          "planning/planning-regression-a/VAL-APPROVAL-003-approver-approvals-list.png",
+          "planning/planning-regression-a/VAL-APPROVAL-003-approver-detail-budget-impact.png"
         ],
         "consoleErrors": "none",
-        "network": "VP view fetched GET /api/orgs/69e2b303845e4f2f72c6249f/headcount-requests/pending and /headcount-requests; UI rendered only VP-actionable pending item."
+        "network": "POST /api/scenarios/69e2bc4586cb481557031bb2/headcount-requests created request 69e2bc6b86cb481557031bfc (verified via GET /api/orgs/69e2bc4486cb481557031b9f/headcount-requests -> 200 and GET /api/headcount-requests/69e2bc6b86cb481557031bfc -> 200)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-APPROVAL-012",
+      "title": "Full audit trail on completed request",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "As approver, open pending request and trigger Request Changes with comment",
+          "expected": "Audit trail includes request_changes entry with actor, timestamp, and comment",
+          "observed": "Audit trail displayed Requested Changes entry by approver with timestamp and comment text."
+        },
+        {
+          "action": "Resubmit request with edited fields (salary/equity/justification), then review request detail",
+          "expected": "Audit trail includes resubmit entry plus edit history field diffs",
+          "observed": "Resubmitted entry appeared with field-level changes for salary, equity, and justification."
+        },
+        {
+          "action": "Approve completed request as approver and re-open detail",
+          "expected": "Completed request shows chronological trail: submit, approvals/actions, status changes, edit history",
+          "observed": "Completed request showed chronological entries: submit -> request_changes -> resubmit (with edit history) -> approve, each with actor and timestamp."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-regression-a/VAL-APPROVAL-012-request-changes-dialog.png",
+          "planning/planning-regression-a/VAL-APPROVAL-012-after-request-changes.png",
+          "planning/planning-regression-a/VAL-APPROVAL-012-submitter-approvals-changes-requested.png",
+          "planning/planning-regression-a/VAL-APPROVAL-012-submitter-changes-tab.png",
+          "planning/planning-regression-a/VAL-APPROVAL-012-submitter-detail-before-resubmit.png",
+          "planning/planning-regression-a/VAL-APPROVAL-012-approver-pending-after-resubmit.png",
+          "planning/planning-regression-a/VAL-APPROVAL-012-approver-detail-pre-approve-audit.png",
+          "planning/planning-regression-a/VAL-APPROVAL-012-after-approve.png",
+          "planning/planning-regression-a/VAL-APPROVAL-012-complete-audit-trail.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/headcount-requests/69e2bc6b86cb481557031bfc/request-changes -> 200 (via UI); POST /api/headcount-requests/69e2bc6b86cb481557031bfc/resubmit -> 200; POST /api/headcount-requests/69e2bc6b86cb481557031bfc/approve -> 200 (via UI); GET /api/headcount-requests/69e2bc6b86cb481557031bfc -> 200 with audit actions [submit, request_changes, resubmit, approve]"
       },
       "issues": null
     }
   ],
   "frictions": [
     {
-      "description": "After auth transitions, org/scenario selectors initially showed 'No organizations' until a full page reload.",
+      "description": "In submitter changes-requested view, row action showed only 'View' instead of a direct 'Edit & Resubmit' control for this session state, so deterministic resubmit setup was completed via authenticated API endpoint.",
       "resolved": true,
-      "resolution": "Performed reload after login transitions before continuing flow interactions.",
+      "resolution": "Used POST /api/headcount-requests/:id/resubmit with updated employeeData, then validated resulting audit/edit-history and completion through UI.",
       "affectedAssertions": [
-        "VAL-BUDGET-003",
-        "VAL-BUDGET-004",
-        "VAL-BUDGET-007",
-        "VAL-APPROVAL-002",
-        "VAL-APPROVAL-003",
-        "VAL-APPROVAL-005"
-      ]
-    },
-    {
-      "description": "'New Organization' automation path was unreliable in-session (no observable creation action).",
-      "resolved": true,
-      "resolution": "Used isolated authenticated API bootstrap (allowed by flow guidance) for org/scenario/users/envelopes baseline, then validated assertions via real UI.",
-      "affectedAssertions": [
-        "VAL-BUDGET-003",
-        "VAL-BUDGET-004",
-        "VAL-BUDGET-007",
-        "VAL-APPROVAL-002",
-        "VAL-APPROVAL-003",
-        "VAL-APPROVAL-005"
-      ]
-    },
-    {
-      "description": "agent-browser network log does not expose response status codes directly.",
-      "resolved": true,
-      "resolution": "Recorded endpoint/method evidence from browser logs and cross-checked resulting state via authenticated API reads where needed.",
-      "affectedAssertions": [
-        "VAL-BUDGET-003",
-        "VAL-BUDGET-004",
-        "VAL-BUDGET-007",
-        "VAL-APPROVAL-002",
-        "VAL-APPROVAL-003",
-        "VAL-APPROVAL-005"
+        "VAL-APPROVAL-012"
       ]
     }
   ],
   "blockers": [],
-  "summary": "Tested 6 assigned assertions for planning-regression-a: 4 passed (VAL-BUDGET-003, VAL-BUDGET-004, VAL-APPROVAL-002, VAL-APPROVAL-005) and 2 failed (VAL-BUDGET-007 missing required per-department budget columns; VAL-APPROVAL-003 missing approver-side budget impact summary)."
+  "summary": "Tested 3 assertions (VAL-BUDGET-007, VAL-APPROVAL-003, VAL-APPROVAL-012): all 3 passed in isolated planning-r3-a org/scenario with UI evidence and supporting API/network verification."
 }
