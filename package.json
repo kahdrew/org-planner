@@ -13,6 +13,7 @@
     "test": "npm run test:server && npm run test:client",
     "test:server": "npm -w packages/server run test",
     "test:client": "npm -w packages/client run test",
+    "typecheck": "npx tsc --noEmit -p packages/server/tsconfig.json && npx tsc --noEmit -p packages/client/tsconfig.json",
     "lint": "eslint packages/server/src packages/client/src",
     "lint:fix": "eslint packages/server/src packages/client/src --fix"
   },

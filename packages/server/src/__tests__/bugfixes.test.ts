@@ -162,7 +162,7 @@ describe("Bug #1: Scenario diff uses path params GET /scenarios/:a/diff/:b", () 
     expect(unchangedNames).toContain("Alice A");
   });
 
-  it("returns 200 with empty arrays for non-existent scenario IDs", async () => {
+  it("returns 404 for non-existent scenario IDs", async () => {
     const fakeId1 = new mongoose.Types.ObjectId().toString();
     const fakeId2 = new mongoose.Types.ObjectId().toString();
 
@@ -170,12 +170,29 @@ describe("Bug #1: Scenario diff uses path params GET /scenarios/:a/diff/:b", () 
       .get(`/api/scenarios/${fakeId1}/diff/${fakeId2}`)
       .set("Authorization", `Bearer ${token}`);
 
-    expect(res.status).toBe(200);
-    expect(res.body.added).toHaveLength(0);
-    expect(res.body.removed).toHaveLength(0);
-    expect(res.body.moved).toHaveLength(0);
-    expect(res.body.changed).toHaveLength(0);
-    expect(res.body.unchanged).toHaveLength(0);
+    expect(res.status).toBe(404);
+    expect(res.body).toHaveProperty("error");
+    expect(res.body.error).toBe("Scenario not found");
+  });
+
+  it("returns 404 when only one scenario ID is non-existent", async () => {
+    const fakeId = new mongoose.Types.ObjectId().toString();
+
+    // First scenario exists, second doesn't
+    const res1 = await request(app)
+      .get(`/api/scenarios/${scenarioAId}/diff/${fakeId}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res1.status).toBe(404);
+    expect(res1.body.error).toBe("Scenario not found");
+
+    // First doesn't exist, second does
+    const res2 = await request(app)
+      .get(`/api/scenarios/${fakeId}/diff/${scenarioBId}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res2.status).toBe(404);
+    expect(res2.body.error).toBe("Scenario not found");
   });
 });
 

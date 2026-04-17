@@ -126,22 +126,28 @@ export const diffScenarios = async (req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
+    // Check that both scenarios exist
+    const [scenarioA, scenarioB] = await Promise.all([
+      Scenario.findById(req.params.a),
+      Scenario.findById(req.params.b),
+    ]);
+
+    if (!scenarioA || !scenarioB) {
+      res.status(404).json({ error: "Scenario not found" });
+      return;
+    }
+
     // Check authorization for both scenarios
     const [accessA, accessB] = await Promise.all([
       checkScenarioAccess(req.params.a, userId),
       checkScenarioAccess(req.params.b, userId),
     ]);
 
-    // If a scenario doesn't exist, return empty diff (existing behavior)
-    // But if it exists and user has no access, return 403
-    const scenarioA = await Scenario.findById(req.params.a);
-    const scenarioB = await Scenario.findById(req.params.b);
-
-    if (scenarioA && !accessA.hasAccess) {
+    if (!accessA.hasAccess) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
-    if (scenarioB && !accessB.hasAccess) {
+    if (!accessB.hasAccess) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
