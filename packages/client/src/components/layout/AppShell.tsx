@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Toolbar from './Toolbar';
@@ -8,12 +8,14 @@ import BudgetPanel from '@/components/panels/BudgetPanel';
 import MembersPanel from '@/components/panels/MembersPanel';
 import BulkOperationsToolbar from '@/components/bulk/BulkOperationsToolbar';
 import KeyboardShortcutsHelp from '@/components/help/KeyboardShortcutsHelp';
+import ExportDialog from '@/components/panels/ExportDialog';
 import DeleteConfirmDialog from '@/components/bulk/DeleteConfirmDialog';
 import { useOrgStore } from '@/stores/orgStore';
 import { useUndoRedoStore } from '@/stores/undoRedoStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useInvitationStore } from '@/stores/invitationStore';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { exportOrgChart, type ExportOptions } from '@/utils/exportOrgChart';
 
 export default function AppShell() {
   const { currentOrg, currentScenario, employees, selectedEmployee, selectEmployee, removeEmployee, bulkDeleteEmployees, fetchOrgs, fetchScenarios, fetchEmployees } = useOrgStore();
@@ -34,6 +36,8 @@ export default function AppShell() {
   const [membersOpen, setMembersOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -61,6 +65,25 @@ export default function AppShell() {
     selectEmployee(null);
     setBudgetOpen(false);
   }, [selectEmployee]);
+
+  // --- Export chart handler ---
+  const handleExportChart = useCallback(async (options: ExportOptions) => {
+    setIsExporting(true);
+    try {
+      await exportOrgChart(currentScenario?.name ?? 'export', options);
+    } catch (err) {
+      console.error('Export failed:', err);
+    } finally {
+      setIsExporting(false);
+      setExportDialogOpen(false);
+    }
+  }, [currentScenario]);
+
+  // Compute unique departments from employees
+  const departments = useMemo(() => {
+    const deptSet = new Set(employees.map((e) => e.department).filter(Boolean));
+    return Array.from(deptSet).sort();
+  }, [employees]);
 
   // --- Keyboard shortcuts ---
   useKeyboardShortcuts({
@@ -139,6 +162,7 @@ export default function AppShell() {
           onSearchChange={setSearchQuery}
           onAddEmployee={() => { setShowNewEmployee(true); selectEmployee(null); }}
           searchInputRef={searchInputRef}
+          onExportChart={() => setExportDialogOpen(true)}
           onOpenShortcutsHelp={() => setShortcutsHelpOpen(true)}
           isViewer={currentRole === 'viewer'}
         />
@@ -177,6 +201,14 @@ export default function AppShell() {
           onCancel={() => setDeleteConfirmOpen(false)}
         />
       )}
+
+      <ExportDialog
+        open={exportDialogOpen}
+        onClose={() => setExportDialogOpen(false)}
+        onExport={handleExportChart}
+        departments={departments}
+        isExporting={isExporting}
+      />
     </div>
   );
 }

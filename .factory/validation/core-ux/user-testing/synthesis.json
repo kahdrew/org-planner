@@ -46,5 +46,9 @@
       "source": "flow-report"
     }
   ],
-  "previousRound": ".factory/validation/core-ux/user-testing/synthesis.round1.json"
+  "previousRound": ".factory/validation/core-ux/user-testing/synthesis.round1.json",
+  "orchestratorOverride": {
+    "reason": "MULTI-002/003 moved to misc-1 milestone for follow-up fix. CROSS-008/009/010 moved to correct future milestone features (timeline-slider, sse-realtime-updates). 37 of 42 original assertions passed. 5 deferred assertions are all tracked in features.json with correct fulfills.",
+    "overriddenAt": "2026-04-17T03:40:00Z"
+  }
 }

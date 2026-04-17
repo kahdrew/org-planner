@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom';
-import { Plus, Upload, Download, Search, Undo2, Redo2, Users, Keyboard } from 'lucide-react';
+import { Plus, Upload, Download, Search, Undo2, Redo2, Users, Keyboard, FileDown } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { exportToCSV, parseCSV } from '@/utils/csv';
@@ -27,6 +27,8 @@ interface ToolbarProps {
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
   /** Callback to open the keyboard shortcuts help dialog */
   onOpenShortcutsHelp?: () => void;
+  /** Callback to open the org chart export dialog */
+  onExportChart?: () => void;
   /** When true, write controls (Add Employee, Import) are disabled */
   isViewer?: boolean;
 }
@@ -38,6 +40,7 @@ export default function Toolbar({
   searchQuery,
   onSearchChange,
   searchInputRef,
+  onExportChart,
   onOpenShortcutsHelp,
   isViewer = false,
 }: ToolbarProps) {
@@ -195,6 +198,17 @@ export default function Toolbar({
         <Download size={16} />
         Export CSV
       </button>
+
+      {onExportChart && (
+        <button
+          onClick={onExportChart}
+          className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          data-testid="export-chart-button"
+        >
+          <FileDown size={16} />
+          Export Chart
+        </button>
+      )}
 
       {onOpenShortcutsHelp && (
         <button
