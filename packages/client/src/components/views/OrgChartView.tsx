@@ -171,16 +171,15 @@ function OrgChartViewInner() {
   // Drag-to-reparent: detect when a node is dropped onto another node
   const handleNodeDragStop = useCallback(
     (_event: React.MouseEvent, draggedNode: Node) => {
-      setDraggingNodeId(null);
+      // Use React Flow's getIntersectingNodes for reliable drop target detection.
+      // This properly handles coordinate systems and bounding boxes, unlike manual
+      // position comparison which can miss targets due to stale state or threshold issues.
+      const intersecting = reactFlowInstance.getIntersectingNodes(draggedNode);
+      const dropTarget = intersecting.find((n) => n.id !== draggedNode.id);
 
-      // Find intersecting nodes by checking position overlap
-      const THRESHOLD = 60;
-      const dropTarget = nodes.find((n) => {
-        if (n.id === draggedNode.id) return false;
-        const dx = Math.abs(n.position.x - draggedNode.position.x);
-        const dy = Math.abs(n.position.y - draggedNode.position.y);
-        return dx < THRESHOLD * 2 && dy < THRESHOLD;
-      });
+      // Clear dragging state after detection (order matters — clearing before
+      // detection would trigger a re-render that resets node positions)
+      setDraggingNodeId(null);
 
       if (dropTarget) {
         const draggedEmp = draggedNode.data as unknown as Employee;
@@ -214,7 +213,7 @@ function OrgChartViewInner() {
         setNodes(nodesWithSelection);
       }
     },
-    [nodes, employees, nodesWithSelection, setNodes],
+    [reactFlowInstance, employees, nodesWithSelection, setNodes],
   );
 
   // Handle subtree move confirmation
