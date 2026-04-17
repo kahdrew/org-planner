@@ -1,7 +1,7 @@
 {
   "milestone": "core-ux",
-  "round": 1,
-  "status": "fail",
+  "round": 2,
+  "status": "pass",
   "validatorsRun": {
     "test": {
       "passed": true,
@@ -21,61 +21,25 @@
   },
   "reviewsSummary": {
     "total": 4,
-    "passed": 0,
-    "failed": 4,
-    "failedFeatures": [
-      "inline-editing",
-      "undo-redo-system",
-      "multi-select-bulk-ops",
-      "keyboard-shortcuts"
-    ]
+    "passed": 4,
+    "failed": 0,
+    "failedFeatures": []
   },
-  "blockingIssues": [
-    {
-      "featureId": "inline-editing",
-      "severity": "blocking",
-      "description": "Tab progression is not implemented: Tab is prevented in InlineEditableField but parent onTab handlers are no-ops, so focus does not move to the next editable field."
-    },
-    {
-      "featureId": "inline-editing",
-      "severity": "blocking",
-      "description": "OrgChart employee cards do not support inline editing for level; level is rendered as static text/badge."
-    },
-    {
-      "featureId": "undo-redo-system",
-      "severity": "blocking",
-      "description": "Undo/redo per-scenario isolation can break when async mutations resolve after scenario switches; commands are pushed against active scenario at push time, potentially mixing stacks."
-    },
-    {
-      "featureId": "multi-select-bulk-ops",
-      "severity": "blocking",
-      "description": "Bulk Change Manager records individual move commands, so a single undo does not revert the full bulk operation as one unit."
-    },
-    {
-      "featureId": "multi-select-bulk-ops",
-      "severity": "blocking",
-      "description": "Bulk manager update can assign self/cyclic manager relationships (selected employees not excluded; move endpoint lacks cycle validation), violating hierarchy invariants."
-    },
-    {
-      "featureId": "keyboard-shortcuts",
-      "severity": "blocking",
-      "description": "Cmd+K handler runs before input-focus guards, so it can fire while typing in input/form fields."
-    },
-    {
-      "featureId": "keyboard-shortcuts",
-      "severity": "blocking",
-      "description": "Escape handling returns early in selectedEmployee states and can skip full close/deselect behavior (clear selection and close panel), violating expected semantics."
-    }
-  ],
+  "blockingIssues": [],
   "appliedUpdates": [],
   "suggestedGuidanceUpdates": [
     {
       "target": ".factory/skills/implementation-worker/SKILL.md",
-      "suggestion": "Strengthen the implementation-worker skill to require explicit transcript evidence for test-first work before allowing `followedProcedure: true`, or require workers to mark deviations when TDD is not followed.",
-      "evidence": "Review `undo-redo-system` reported implementation committed before tests were authored in transcript skeleton while handoff still reported `followedProcedure: true`.",
-      "isSystemic": false
+      "suggestion": "Require explicit deviation reporting (or an explicit exception path) when UI behavior changes are validated without agent-browser, and gate `followedProcedure: true` on satisfying required-tool validation steps.",
+      "evidence": "Both fix-inline-editing-scrutiny and fix-keyboard-shortcuts-scrutiny reviews reported no agent-browser invocation and no interactiveChecks while handoffs still marked followedProcedure=true, despite the implementation-worker skill requiring agent-browser for UI behavior changes.",
+      "isSystemic": true
     }
   ],
-  "rejectedObservations": [],
-  "previousRound": null
+  "rejectedObservations": [
+    {
+      "observation": "Document JSDOM keyboard modifier-key nuance (empty navigator.platform causing Ctrl-vs-Cmd key handling differences) in shared user-testing guidance.",
+      "reason": "ambiguous: observation appears test-runner/environment specific and is not yet broad enough to codify as shared cross-worker guidance."
+    }
+  ],
+  "previousRound": ".factory/validation/core-ux/scrutiny/synthesis.round1.json"
 }

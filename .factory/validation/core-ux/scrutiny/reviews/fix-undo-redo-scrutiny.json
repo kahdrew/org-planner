@@ -1,0 +1,15 @@
+{
+  "featureId": "fix-undo-redo-scrutiny",
+  "reviewedAt": "2026-04-17T02:17:21Z",
+  "commitId": "3620217cb3a4af30858325964d577d87b370cdb9",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The fix directly addresses the prior blocking race by capturing scenario context before async mutations and routing command pushes to that captured scenario. `undoRedoStore.pushCommand` now accepts an explicit target scenario, and all async mutation paths in `orgStore` updated by this feature (add/update/remove/move/bulk update/bulk delete) pass the captured scenario ID, preventing commands from being recorded against a newly active scenario after mid-flight switches.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": ".factory/validation/core-ux/scrutiny/reviews/undo-redo-system.json",
+  "summary": "Reviewed feature metadata, handoff, fix transcript skeleton, prior failed review, and both commit diffs (2321401015ddcac3a2a665407704f6b6efd454ac and 3620217cb3a4af30858325964d577d87b370cdb9). The fix adequately resolves the original cross-scenario undo-stack corruption failure and is approved."
+}

@@ -1,0 +1,21 @@
+{
+  "featureId": "fix-inline-editing-scrutiny",
+  "reviewedAt": "2026-04-17T02:17:18Z",
+  "commitId": "600cf9df859e6a458dcc0039d7dad3b1ed6b4b74",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Reviewed both relevant diffs: original inline-editing (2403e04fc060bcddface6c9196fa9c418feff47a) and fix-inline-editing-scrutiny (600cf9df859e6a458dcc0039d7dad3b1ed6b4b74). The fix directly addresses the two prior blocking findings: Tab traversal handlers are now deterministic in both EmployeeCard and HierarchyView TreeRow via ordered field refs + imperative startEditing, and OrgChart EmployeeCard level is now rendered with InlineEditableField instead of static text. Added tests cover ref activation and forward/reverse Tab traversal behavior.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The implementation-worker skill says agent-browser MUST be invoked for UI behavior changes, but this UI-focused fix appears to have been validated only through automated tests while still marked as followedProcedure=true.",
+      "evidence": ".factory/skills/implementation-worker/SKILL.md requires agent-browser for UI changes (Required Skills + Step 5). In the fix session transcript skeleton (workerSessionId cc038aee-5fbf-4775-a636-995175168e7b), tool calls show Skill(mission-worker-base) and Skill(implementation-worker) but no Skill(agent-browser), and the handoff verification for this feature contains commandsRun only (no interactiveChecks) while skillFeedback.followedProcedure is true."
+    }
+  ],
+  "addressesFailureFrom": ".factory/validation/core-ux/scrutiny/reviews/inline-editing.json",
+  "summary": "Pass. The fix adequately resolves the prior scrutiny failure by implementing actual Tab-based field progression in both views and making OrgChart level inline-editable, with supporting traversal-focused tests. One shared-state observation is noted about skill-procedure adherence reporting versus required UI manual verification."
+}

@@ -1,0 +1,26 @@
+{
+  "featureId": "fix-keyboard-shortcuts-scrutiny",
+  "reviewedAt": "2026-04-17T02:16:40Z",
+  "commitId": "7af1e4cd66361a42ef61a2142fdff2428f53c7ce",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The fix commit directly addresses both prior blocking findings from keyboard-shortcuts: input guarding now executes before Cmd+K (with Escape explicitly exempted), and Escape no longer early-returns before clearing mixed UI state. Added hook-level integration tests cover the previously failing paths.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The implementation-worker skill requires agent-browser for UI behavior changes, but this fix session appears to have completed without agent-browser/manual interaction evidence.",
+      "evidence": ".factory/skills/implementation-worker/SKILL.md ('Required Skills' says agent-browser MUST be invoked for UI changes); handoff 2026-04-17T02-13-39-497Z__fix-keyboard-shortcuts-scrutiny__bf4aee69-9cee-472f-92cb-391cab9be886.json includes only commandsRun and no interactiveChecks; transcript skeleton for workerSessionId bf4aee69-9cee-472f-92cb-391cab9be886 shows no agent-browser invocation."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Worker spent debugging time on JSDOM platform behavior for modifier keys (Cmd vs Ctrl) in keyboard shortcut tests; this environment-specific testing quirk is not documented in shared library guidance.",
+      "evidence": "Transcript skeleton for workerSessionId bf4aee69-9cee-472f-92cb-391cab9be886 logs 'navigator.platform' as empty and adjusts tests from metaKey to ctrlKey; .factory/library/user-testing.md has no note about this keyboard-testing nuance."
+    }
+  ],
+  "addressesFailureFrom": ".factory/validation/core-ux/scrutiny/reviews/keyboard-shortcuts.json",
+  "summary": "Pass. I reviewed the prior failed keyboard-shortcuts commit and this fix commit; the two previously reported blocking issues in useKeyboardShortcuts.ts are resolved and covered by targeted integration tests."
+}
