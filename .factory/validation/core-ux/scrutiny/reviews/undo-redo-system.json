@@ -1,0 +1,34 @@
+{
+  "featureId": "undo-redo-system",
+  "reviewedAt": "2026-04-17T01:38:49Z",
+  "commitId": "2321401015ddcac3a2a665407704f6b6efd454ac",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "Core undo/redo behavior is implemented, but there is a blocking scenario-isolation race: commands are recorded using the current active scenario at command-push time after async API calls, so switching scenarios during a pending mutation can place commands on the wrong scenario stack.",
+    "issues": [
+      {
+        "file": "packages/client/src/stores/orgStore.ts",
+        "line": 127,
+        "severity": "blocking",
+        "description": "Per-scenario undo history can mix across scenarios. In add/update/remove/move, command recording happens after awaited API calls (e.g., update at lines 127->135, move at 175->182). But undoRedoStore.pushCommand keys history by the current active scenario (`packages/client/src/stores/undoRedoStore.ts:103-105`) instead of an operation-scoped scenario id. If the user switches scenarios while a request is in flight, the command can be recorded in the wrong stack, violating the feature requirement that undo/redo history is per-scenario."
+      },
+      {
+        "file": "packages/client/src/hooks/useUndoRedo.ts",
+        "line": 24,
+        "severity": "non_blocking",
+        "description": "History state can diverge on API failure. `undo()`/`redo()` mutate stacks before executing side effects (`executeUndo`/`executeRedo`), and failures are not handled or rolled back. A failed API call can consume history entries without applying data changes, leaving toolbar state and history inconsistent."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The implementation-worker procedure requires TDD (tests before implementation), but this run implemented first and added tests later while still reporting `followedProcedure: true`.",
+      "evidence": "worker-transcripts.jsonl skeleton for session 13838936-1b93-4fc4-a978-b613abc00943 shows \"Now let me implement the undo/redo system\" at line 203 and creation of undoRedoStore.ts at line 207, then \"Typecheck passes. Now let me write the tests\" at line 330 and creation of undoRedoStore.test.ts at line 373; same skeleton includes `\"followedProcedure\": true` at line 1303."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed handoff, transcript skeleton, skill instructions, and commit 2321401015ddcac3a2a665407704f6b6efd454ac. The feature mostly matches requirements, but a blocking race can break scenario-scoped history and mix undo/redo stacks when scenario switches occur during async mutations."
+}

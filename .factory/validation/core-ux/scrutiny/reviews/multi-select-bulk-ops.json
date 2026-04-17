@@ -1,0 +1,34 @@
+{
+  "featureId": "multi-select-bulk-ops",
+  "reviewedAt": "2026-04-17T01:39:10Z",
+  "commitId": "861332d1f987092f295813050d0f8946c406ca31",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "Core multi-select and bulk flows are largely implemented, but two correctness gaps remain: bulk Change Manager is not undoable as a single unit, and the manager picker allows creating invalid self/cyclic reporting relationships.",
+    "issues": [
+      {
+        "file": "packages/client/src/components/bulk/BulkOperationsToolbar.tsx",
+        "line": 25,
+        "severity": "blocking",
+        "description": "The Change Manager path performs per-employee `moveEmployee` calls (lines 25-33) instead of a batch command. `moveEmployee` records individual `type: 'move'` undo entries (`packages/client/src/stores/orgStore.ts:177-195`), so one Cmd/Ctrl+Z only reverts the last employee instead of the whole bulk operation, violating the feature requirement that bulk operations undo/redo as a single unit."
+      },
+      {
+        "file": "packages/client/src/components/bulk/BulkUpdateDialog.tsx",
+        "line": 35,
+        "severity": "blocking",
+        "description": "Manager options are built from all active/planned employees and do not exclude selected employees. Combined with applying manager changes to every selected ID (`packages/client/src/components/bulk/BulkOperationsToolbar.tsx:29-33`), users can assign an employee as their own manager. The server move endpoint directly persists `managerId` without cycle validation (`packages/server/src/controllers/employeeController.ts:150-154`), which can violate the tree invariant (no cycles) documented in `.factory/library/architecture.md:58`."
+      },
+      {
+        "file": "packages/client/src/stores/selectionStore.ts",
+        "line": 45,
+        "severity": "non_blocking",
+        "description": "`rangeSelect` falls back to selecting only the target when `lastClickedId` is missing. In list views, plain row clicks clear selection without setting an anchor (`packages/client/src/components/views/HierarchyView.tsx:417-419`, `packages/client/src/components/views/SpreadsheetView.tsx:223-227`), so Shift+Click after a normal click does not form a range. This is a UX mismatch with expected Shift+Click range behavior."
+      }
+    ]
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "Review failed due to two blocking issues: Change Manager bulk operations are not grouped into single-step undo/redo, and manager bulk updates can create invalid self/cyclic hierarchy links. Also noted a non-blocking Shift+Click anchor UX gap in list views."
+}

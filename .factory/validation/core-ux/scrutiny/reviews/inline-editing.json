@@ -1,0 +1,28 @@
+{
+  "featureId": "inline-editing",
+  "reviewedAt": "2026-04-17T01:37:52Z",
+  "commitId": "2403e04fc060bcddface6c9196fa9c418feff47a",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "Inline editing works for core click/edit/save/cancel flows, validation, drag isolation, and cross-view store updates, but two explicit requirements are not met: Tab does not advance to the next editable field, and level is not editable on OrgChart employee cards.",
+    "issues": [
+      {
+        "file": "packages/client/src/components/inline/InlineEditableField.tsx",
+        "line": 105,
+        "severity": "blocking",
+        "description": "Tab handling calls `e.preventDefault()` and relies on `onTab`, but parent handlers are no-ops, so focus does not advance to the next editable field. This violates the required behavior \"Tab moves to next editable field\"."
+      },
+      {
+        "file": "packages/client/src/components/nodes/EmployeeCard.tsx",
+        "line": 167,
+        "severity": "blocking",
+        "description": "The OrgChart employee card renders `level` as static text/badge instead of an inline-editable control, so one required field (name/title/department/level) is not directly editable in OrgChartView."
+      }
+    ]
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "Feature review result: fail. The implementation is substantial and well-tested at component level, but it does not satisfy two required behaviors: Tab-based progression between editable fields and level inline editing on OrgChart cards."
+}

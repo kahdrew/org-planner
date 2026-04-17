@@ -1,0 +1,28 @@
+{
+  "featureId": "keyboard-shortcuts",
+  "reviewedAt": "2026-04-17T01:38:08Z",
+  "commitId": "86692afdd6e5f11e71fd934d44b2ec725ede6e3c",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The feature implements most requested shortcuts and UI affordances, but two requirement-level correctness gaps remain in global shortcut handling.",
+    "issues": [
+      {
+        "file": "packages/client/src/hooks/useKeyboardShortcuts.ts",
+        "line": 65,
+        "severity": "blocking",
+        "description": "Cmd+K is handled before input-focus guarding, so it still fires while typing in input fields. This violates the requirement that shortcuts must not fire in input/form fields."
+      },
+      {
+        "file": "packages/client/src/hooks/useKeyboardShortcuts.ts",
+        "line": 79,
+        "severity": "blocking",
+        "description": "Escape returns early when selectedEmployee is set, which skips clearSelection() and onClosePanel(). In states where a selected employee coexists with multi-selection or another open panel, Escape does not fully \"close panels and deselect\" as required."
+      }
+    ]
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "Review failed for keyboard-shortcuts due to two blocking behavior gaps in useKeyboardShortcuts.ts: input-safety is bypassed for Cmd+K, and Escape does not consistently perform full close/deselect behavior."
+}
