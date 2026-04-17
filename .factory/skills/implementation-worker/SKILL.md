@@ -1,156 +1,98 @@
 ---
 name: implementation-worker
-description: Fullstack worker for Relay platform features spanning React frontend, Express backend, and shared packages
+description: Fullstack worker for org-planner features spanning React frontend and Express backend
 ---
 
 # Implementation Worker
 
 NOTE: Startup and cleanup are handled by `worker-base`. This skill defines the WORK PROCEDURE.
 
-**CRITICAL: All code lives at `/Users/andy/Documents/GitHub/relay`. You MUST cd into this directory for all operations.**
+**CRITICAL: All code lives at `/Users/andy/Documents/GitHub/org-planner`. You MUST cd into this directory for all operations.**
 
 ## When to Use This Skill
 
-All implementation features for the Relay platform: project scaffolding, API endpoints, React pages/components, database models, business logic, AI integration, integration adapters, and features spanning frontend + backend.
+All implementation features for the org-planner app: bug fixes, new API endpoints, new React components/views, state management changes, database model updates, and features that span frontend + backend.
 
 ## Required Skills
 
-- **agent-browser**: MUST be invoked for any feature that changes UI behavior. Used to verify user-facing flows at http://localhost:3101. Invoke after implementation is complete.
+- **agent-browser**: MUST be invoked for any feature that changes UI behavior. Used to manually verify user-facing flows in the browser at http://localhost:5173. Invoke after implementation is complete to verify the feature works end-to-end.
 
 ## Work Procedure
 
 ### 1. Understand the Feature
 
-- Read the feature's `description`, `expectedBehavior`, `preconditions`, and `verificationSteps` carefully.
+- Read the feature's `description`, `expectedBehavior`, and `verificationSteps` carefully.
 - Read `AGENTS.md` for mission boundaries and conventions.
-- Read `.factory/library/architecture.md` to understand Relay's structure.
-- Read `.factory/library/environment.md` for env vars and project location.
-- Check `.factory/research/` for relevant tech documentation (e.g., `express-mongo-patterns.md`, `auth-patterns.md`, `llm-integration.md`, `react-vite-tailwind.md`).
-- Read relevant existing source files in `/Users/andy/Documents/GitHub/relay/` to understand current patterns.
-- Identify which layers need changes: models, services, controllers, routes, API client, stores, components, pages.
+- Read `.factory/library/architecture.md` to understand how the system works.
+- Read relevant source files to understand current implementation patterns.
+- Identify which layers need changes: models, controllers, routes, API client, stores, components, views.
 
 ### 2. Write Tests First (TDD)
 
-- **API tests**: For backend changes, write Vitest tests in `packages/api/src/__tests__/` BEFORE implementing. Use supertest for HTTP-level tests. Tests should initially FAIL (red).
-- **Frontend tests**: For component changes, write Vitest + @testing-library/react tests in `packages/web/src/__tests__/` BEFORE implementing. Tests should initially FAIL (red).
-- **Shared tests**: For shared schema/utility changes, write tests in `packages/shared/src/__tests__/`.
-- Run the specific test file to confirm tests fail: `cd /Users/andy/Documents/GitHub/relay && npx vitest run <test-file> --reporter=verbose`
+- **Server tests**: For any API/backend change, write Vitest tests in `packages/server/src/__tests__/` BEFORE implementing. Use supertest for HTTP-level tests. Tests should initially FAIL (red).
+- **Client tests**: For any component/view change, write Vitest + Testing Library tests in `packages/client/src/__tests__/` BEFORE implementing. Tests should initially FAIL (red).
+- Run the specific test file to confirm tests fail: `npx vitest run <test-file> --reporter=verbose`
 - Then implement to make tests pass (green).
 
 ### 3. Implement
 
-Follow existing patterns. Match surrounding code style exactly.
-
-**Backend pattern (packages/api):**
-1. Model: Mongoose schema in `src/models/` with TypeScript types
-2. Service: Business logic in `src/services/` (all DB queries, processing here)
-3. Controller: Thin handlers in `src/controllers/` that call services, handle HTTP concerns
-4. Route: Express Router in `src/routes/` with Zod validation middleware + auth middleware
-5. Register route in `src/app.ts`
-
-**Frontend pattern (packages/web):**
-1. API client function in `src/api/` using the shared axios instance
-2. Zustand store action in `src/stores/` for state management
-3. Page component in `src/pages/` for route-level views
-4. Reusable components in `src/components/`
-
-**Shared package (packages/shared):**
-- Zod schemas shared between API and web go here
-- Type definitions inferred from Zod schemas
-- Constants (enums, status values, etc.)
-
-**Key conventions:**
-- Zod validation on all API request bodies via validation middleware
-- Async error wrapper on all route handlers
-- Global error handler returns `{ error: { code, message, details? } }`
-- All list endpoints use pagination: `{ data, pagination: { page, limit, total } }`
-- JWT auth middleware sets `req.user` with user ID and email
-- Tailwind CSS v4 for styling (use `@tailwindcss/vite` plugin)
-- Path alias `@/` → `src/` in web package
+- Follow existing code patterns. Match the style of surrounding code exactly.
+- **Backend pattern**: Model (Mongoose schema in packages/server/src/models/) → Controller (business logic + Zod validation in packages/server/src/controllers/) → Route (Express router, auth middleware in packages/server/src/routes/) → Register in packages/server/src/app.ts.
+- **Frontend pattern**: API client function (packages/client/src/api/) → Zustand store action (packages/client/src/stores/) → Component/View UI (packages/client/src/components/).
+- **Validation**: Use Zod schemas on the server for all request bodies. Match existing Zod usage patterns.
+- **Types**: Update `packages/client/src/types/index.ts` when adding new data structures.
+- **Authorization**: Use requireOrgMembership, requireScenarioAccess, or requireOrgRole middleware for protected routes. Check packages/server/src/middleware/authorization.ts for available helpers.
+- Keep changes minimal and focused on the feature scope.
 
 ### 4. Run Validators
 
-After implementation, run from `/Users/andy/Documents/GitHub/relay`:
+After implementation:
 ```bash
-cd /Users/andy/Documents/GitHub/relay && npm run test
-cd /Users/andy/Documents/GitHub/relay && npm run typecheck
-cd /Users/andy/Documents/GitHub/relay && npm run lint
+cd /Users/andy/Documents/GitHub/org-planner
+npm run test          # All tests pass
+npm run typecheck     # No type errors
+npm run lint          # No lint errors
 ```
 
-Fix any failures before proceeding.
+Fix any failures before proceeding. Note: there are 4 pre-existing failures in scheduledChanges.test.ts 'Auto-apply middleware' — these are known and unrelated to new work.
 
 ### 5. Manual Verification with agent-browser
 
 For ANY feature that changes user-visible behavior:
 
-1. Ensure services are running: MongoDB on 27017, API on 3100, Web on 3101.
-2. Start services if needed using `.factory/services.yaml` commands.
-3. Invoke the `agent-browser` skill.
-4. Navigate to http://localhost:3101.
-5. If auth needed: register a test user or log in.
-6. Exercise EVERY expected behavior from the feature spec.
-7. Verify adjacent features still work (e.g., if you changed contacts, verify relationships still render).
-8. Record each check as an `interactiveChecks` entry.
+1. Start the dev servers if not already running (check ports 3001 and 5173 first).
+2. Invoke the `agent-browser` skill.
+3. Navigate to http://localhost:5173.
+4. If auth is needed: register a new test user or log in with existing credentials.
+5. Exercise the specific feature you implemented — every expected behavior from the feature spec.
+6. Verify adjacent features still work (e.g., if you changed employee editing, verify the org chart still renders correctly).
+7. Record each check as an `interactiveChecks` entry with the action taken and what you observed.
 
 ### 6. Clean Up
 
-- Stop any dev servers or processes you started (check ports 3100 and 3101).
+- Stop any dev servers or processes you started (check ports 3001 and 5173).
 - Ensure no orphaned processes remain.
-- Commit all changes with a descriptive message from `/Users/andy/Documents/GitHub/relay`.
+- Commit all changes with a descriptive message.
 
 ## Example Handoff
 
 ```json
 {
-  "salientSummary": "Implemented Contact CRUD API with 5 endpoints (GET list, GET detail, POST create, PUT update, DELETE) and React contact list page with pagination, search, and create modal. Added 8 Vitest tests covering all endpoints including validation errors. Verified in browser: created 3 contacts, searched by name, edited one, deleted one, pagination works with 25+ contacts.",
-  "whatWasImplemented": "Mongoose Contact model with name/email/title/company/tags fields. ContactService with CRUD + search + pagination. ContactController + routes with Zod validation. React ContactListPage with AG Grid table, search bar, create/edit modal. Zustand contactStore. API client functions in web/src/api/contacts.ts.",
+  "salientSummary": "Implemented analytics dashboard with 5 widgets (headcount trends, cost breakdown, employment distribution, open positions, hiring velocity). Added /dashboard route, auth protection, scenario-aware data. Created 12 tests for dashboard components and API. Verified in browser: all widgets render with correct data matching HeadcountSummary.",
+  "whatWasImplemented": "New /dashboard route with DashboardView component. Five chart widgets using recharts. API endpoint GET /api/scenarios/:id/analytics returning aggregated data. Dashboard nav link in sidebar. Auth-protected route in App.tsx.",
   "whatWasLeftUndone": "",
   "verification": {
     "commandsRun": [
-      {
-        "command": "cd /Users/andy/Documents/GitHub/relay && npx vitest run packages/api/src/__tests__/contacts.test.ts --reporter=verbose",
-        "exitCode": 0,
-        "observation": "8 tests passed: list, detail, create, create-validation, update, update-404, delete, delete-404"
-      },
-      {
-        "command": "cd /Users/andy/Documents/GitHub/relay && npm run typecheck",
-        "exitCode": 0,
-        "observation": "No type errors across all packages"
-      },
-      {
-        "command": "cd /Users/andy/Documents/GitHub/relay && npm run lint",
-        "exitCode": 0,
-        "observation": "No lint errors"
-      }
+      {"command": "npm run test", "exitCode": 0, "observation": "All tests pass including 12 new dashboard tests"},
+      {"command": "npm run typecheck", "exitCode": 0, "observation": "No type errors"},
+      {"command": "npm run lint", "exitCode": 0, "observation": "No new lint errors"}
     ],
     "interactiveChecks": [
-      {
-        "action": "Navigated to http://localhost:3101/contacts, clicked 'Add Contact', filled in name='Jane Smith' email='jane@acme.com' title='VP Sales', submitted",
-        "observed": "Contact created, appeared in table with correct fields. Toast notification shown."
-      },
-      {
-        "action": "Typed 'Jane' in search bar",
-        "observed": "Table filtered to show only Jane Smith. Search is debounced, results appear after ~300ms."
-      },
-      {
-        "action": "Clicked Jane Smith row, clicked Edit, changed title to 'SVP Sales', saved",
-        "observed": "Title updated in detail panel and table row. Toast shown."
-      }
+      {"action": "Navigated to /dashboard, verified all 5 widgets render", "observed": "Headcount trends chart shows line graph, cost breakdown shows bar chart by department, all data matches HeadcountSummary"}
     ]
   },
   "tests": {
-    "added": [
-      {
-        "file": "packages/api/src/__tests__/contacts.test.ts",
-        "cases": [
-          {"name": "GET /api/contacts returns paginated list", "verifies": "List endpoint with pagination"},
-          {"name": "POST /api/contacts creates contact", "verifies": "Create with valid data"},
-          {"name": "POST /api/contacts validates required fields", "verifies": "Zod validation rejects missing name"},
-          {"name": "PUT /api/contacts/:id updates contact", "verifies": "Update existing contact"},
-          {"name": "DELETE /api/contacts/:id removes contact", "verifies": "Soft or hard delete"}
-        ]
-      }
-    ]
+    "added": [{"file": "packages/client/src/__tests__/Dashboard.test.tsx", "cases": [{"name": "renders all widgets", "verifies": "Dashboard component renders 5 chart widgets"}]}]
   },
   "discoveredIssues": []
 }
@@ -158,9 +100,8 @@ For ANY feature that changes user-visible behavior:
 
 ## When to Return to Orchestrator
 
-- Feature depends on API endpoints, models, or infrastructure not yet created
+- Feature depends on an API endpoint, data model, or infrastructure that doesn't exist yet
 - Requirements are ambiguous or contradictory
 - Existing bugs in unrelated code block this feature
-- Cannot start services (Docker not running, MongoDB connection failure, port conflicts)
+- Cannot start dev servers (port conflict, MongoDB connection failure, missing env vars)
 - Feature scope is significantly larger than described
-- Missing npm packages that aren't in package.json and unclear if they should be added

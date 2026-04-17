@@ -1,127 +1,88 @@
-# Relay Architecture
+# Architecture
 
-## Overview
+How the org-planner system works — components, relationships, data flows, invariants.
 
-Relay is a sales introduction request, prospecting, and relationship mapping platform. It consists of four packages in an npm workspaces monorepo at `/Users/andy/Documents/GitHub/relay`.
+---
 
-## Project Structure
+## System Overview
 
-```
-relay/
-├── packages/
-│   ├── api/              # Express TypeScript REST API
-│   ├── web/              # React + Vite frontend
-│   ├── shared/           # Shared types, Zod schemas, constants
-│   └── chrome-extension/ # Manifest V3 Chrome extension
-├── docker-compose.yml    # MongoDB container
-├── package.json          # Monorepo root with npm workspaces
-├── tsconfig.base.json    # Base TypeScript config
-└── .env.example          # Environment variable template
-```
+A full-stack org chart and headcount planning application. Users create organizations, build org chart hierarchies within scenarios, and use multiple views to visualize, edit, and plan organizational changes.
 
-## Package Details
+## Components
 
-### packages/api (Express Backend)
+### Frontend (packages/client)
+- **Framework**: React 18 + Vite + TypeScript
+- **Routing**: react-router-dom v6 with BrowserRouter
+- **State**: Zustand stores (authStore, orgStore, scenarioStore, undoRedoStore, selectionStore, invitationStore, scheduledChangeStore, timelineStore)
+- **Visualization**: @xyflow/react (React Flow) for org chart canvas
+- **Data Grid**: AG Grid Community for spreadsheet view
+- **Drag-and-Drop**: @dnd-kit for hierarchy and kanban reordering
+- **Styling**: Tailwind CSS v4 + clsx + tailwind-merge
+- **HTTP**: Axios with JWT interceptor (auto-attaches token, redirects on 401)
 
-```
-api/src/
-├── index.ts              # Server entry: connect MongoDB, start Express
-├── app.ts                # Express app: middleware, routes, error handler
-├── config/               # Environment config, database connection
-├── middleware/            # Auth (JWT verify), validation (Zod), error handler
-├── models/               # Mongoose models
-├── routes/               # Express Router files per domain
-├── controllers/          # Request handlers (thin - delegate to services)
-├── services/             # Business logic layer
-├── integrations/         # Adapter interfaces and mock implementations
-├── ai/                   # LLM provider setup (Vercel AI SDK)
-└── utils/                # Shared utilities
-```
+### Backend (packages/server)
+- **Framework**: Express 4 on Node.js
+- **Database**: MongoDB Atlas via Mongoose 8
+- **Auth**: bcryptjs for password hashing, jsonwebtoken for JWT (7-day expiry)
+- **Validation**: Zod schemas on request bodies
+- **Architecture**: Controllers → Routes → Models pattern
+- **Authorization**: Role-based (owner/admin/viewer) with org membership middleware
 
-**Patterns:**
-- Controller → Service → Model (controllers thin, services hold logic)
-- Zod validation middleware on routes
-- Async error wrapper on all route handlers
-- Global error handler: `{ error: { code, message, details? } }`
-- JWT auth middleware sets `req.user` with user ID and email
-- All lists use pagination: `{ data, pagination: { page, limit, total } }`
+### Deployment
+- **Platform**: Vercel (serverless function for API, static for SPA)
+- **Entry**: api/index.ts wraps Express app for Vercel
+- **Dev**: concurrently runs server (tsx watch, port 3001) + client (Vite, port 5173)
+- **Proxy**: Vite proxies /api/* to localhost:3001 in dev mode
 
-**Auth flow:**
-- POST /api/auth/register → hash password → save User → return JWT pair
-- POST /api/auth/login → verify password → return JWT pair
-- POST /api/auth/refresh → verify refresh token → return new JWT pair
-- GET /api/auth/google → Passport Google OAuth → callback → JWT pair
-- GET /api/auth/microsoft → Passport Microsoft OAuth → callback → JWT pair
-
-### packages/web (React Frontend)
+## Data Model
 
 ```
-web/src/
-├── main.tsx              # Entry: BrowserRouter
-├── App.tsx               # Route definitions
-├── api/                  # Axios client with auth interceptor
-├── components/           # Reusable UI (layout/, common/, [feature]/)
-├── pages/                # Route page components
-├── stores/               # Zustand stores (one per domain)
-├── hooks/                # Custom React hooks
-├── utils/                # Client utilities
-└── types/                # Frontend types
+User (email, passwordHash, name)
+  └── owns → Organization (name, ownerId, memberIds[], memberRoles[])
+                ├── has → Invitation (email, role, invitedBy, status, token)
+                └── has → Scenario (orgId, name, description, baseScenarioId, createdBy)
+                            ├── has → Employee (scenarioId, name, title, department, level,
+                            │                    location, salary, equity, employmentType,
+                            │                    status, managerId, order, startDate,
+                            │                    costCenter, hiringManager, recruiter,
+                            │                    requisitionId, avatarUrl, metadata)
+                            ├── has → ScheduledChange (employeeId, effectiveDate, changeType,
+                            │                          changeData, createdBy, status)
+                            ├── has → AuditLog (employeeId, action, snapshot, changes, timestamp)
+                            └── has → BudgetEnvelope (department, totalBudget, headcountCap)
 ```
 
-**Patterns:**
-- Zustand stores for client state
-- Axios instance: baseURL `/api`, auto Bearer token, 401 → redirect to login
-- Path alias `@/` → `src/`
-- Tailwind CSS v4 via `@tailwindcss/vite`
-- React Flow for relationship graph
-- AG Grid for data tables
-- React Router v6 with protected route wrapper
+### Key Relationships
+- Employee.managerId → Employee._id (self-referential tree within a scenario)
+- Employee.managerId = null → root-level employee (CEO/top of hierarchy)
+- Scenario.baseScenarioId → Scenario._id (tracks clone origin)
+- Organization.memberRoles[] tracks role (owner/admin/viewer) per member
 
-### packages/shared
+### Invariants
+- An employee always belongs to exactly one scenario
+- A scenario always belongs to exactly one organization
+- The employee hierarchy is a tree (no cycles) within a scenario
+- Scenario clone deep-copies all employees and remaps managerId references
+- Viewer role cannot modify any data
+- Only owners can manage org membership and invite new members
 
-- Zod schemas used by both API and web
-- TypeScript types inferred from Zod
-- Constants (connection types, intro statuses, etc.)
-- Utility functions
+## Views
 
-### packages/chrome-extension
+| Route | View | Component | Primary Interaction |
+|-------|------|-----------|-------------------|
+| `/` | Org Chart | OrgChartView | React Flow canvas, drag to reparent, click for details |
+| `/hierarchy` | Hierarchy | HierarchyView | Collapsible tree, dnd-kit reorder/reparent |
+| `/spreadsheet` | Spreadsheet | SpreadsheetView | AG Grid editable table |
+| `/kanban` | Kanban | KanbanView | Kanban columns by department or status |
+| `/compare` | Compare | CompareView | Side-by-side scenario diff trees |
+| `/dashboard` | Dashboard | (Milestone 4) | Analytics widgets |
 
-```
-chrome-extension/
-├── manifest.json         # Manifest V3
-├── src/
-│   ├── background/       # Service worker
-│   ├── content/          # Content scripts for LinkedIn
-│   ├── sidepanel/        # Side panel React app
-│   ├── popup/            # Popup React app
-│   └── shared/           # Shared utilities
-```
+## Layout Structure
 
-**Communication:** Content script ↔ Background ↔ API via chrome.runtime.sendMessage and fetch with JWT from chrome.storage.local.
-
-## Data Model (MongoDB Collections)
-
-- **users** - Auth accounts
-- **contacts** - People (name, email, title, company ref, tags, source)
-- **companies** - Organizations
-- **relationships** - Edges between contacts (from, to, type, strength)
-- **introRequests** - Intro workflow state machine
-- **introTemplates** - Reusable templates
-- **savedSearches** - Persisted filters with alerts
-- **prospectLists** - Named contact lists
-- **campaigns** - LinkedIn outreach campaigns
-- **activityLogs** - All system activity
-- **integrationConfigs** - Per-user integration settings (encrypted keys)
-- **webhooks** - Webhook endpoints and subscriptions
-- **scoringRules** - Lead scoring rules
-- **icpProfiles** - Ideal Customer Profiles
-
-## Key Invariants
-
-1. All API endpoints require JWT auth except auth routes and /api/health
-2. Intro requests follow state machine: draft → pending → approved/declined → forwarded → accepted/declined/expired
-3. Relationship graph is bidirectional (A→B implies B→A visibility)
-4. Integration adapters implement a common interface; mock ↔ real swapped via adapter
-5. Contact deletion cascades to relationships, intro requests, prospect lists
-6. All timestamps UTC ISO strings
-7. Chrome extension communicates only through the API (never direct DB)
+AppShell wraps all views:
+- **Sidebar** (left): Org selector, scenario selector, view nav links, new/clone scenario, budget button, scheduled changes, members
+- **Toolbar** (top): Add employee, status filter pills, search, CSV import/export, undo/redo, multi-select bulk ops, export chart
+- **Main** (center): Active view via Outlet (passes filteredEmployees in context)
+- **TimelineSlider** (below main): Timeline with scrub, granularity, markers
+- **HeadcountSummary** (bottom): Metric pills (total, FTE, contractors, open reqs, planned, salary)
+- **Panels** (overlay): EmployeeDetailPanel, BudgetPanel, MembersPanel, PendingChangesPanel, KeyboardShortcutsHelp
