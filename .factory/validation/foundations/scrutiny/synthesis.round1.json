@@ -1,0 +1,94 @@
+{
+  "milestone": "foundations",
+  "round": 1,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "npm run test",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "npx tsc --noEmit -p packages/server/tsconfig.json && npx tsc --noEmit -p packages/client/tsconfig.json",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "npm run lint",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 8,
+    "passed": 6,
+    "failed": 2,
+    "failedFeatures": [
+      "add-authorization",
+      "add-readme"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "add-authorization",
+      "severity": "blocking",
+      "description": "packages/server/src/controllers/scenarioController.ts (`diffScenarios`) can return HTTP 200 for valid-but-nonexistent scenario IDs, which the reviewer flagged as conflicting with VAL-AUTHZ-007 expectations for 403/404 on non-existent IDs."
+    },
+    {
+      "featureId": "add-readme",
+      "severity": "blocking",
+      "description": "README.md documents `npm run typecheck`, but root package.json does not define a `typecheck` script, so documented verification steps fail."
+    }
+  ],
+  "appliedUpdates": [
+    {
+      "target": "library",
+      "description": "Updated `.factory/library/architecture.md` to reflect that `Organization.memberIds[]` is now used by authorization middleware, and updated Sidebar description to include the New Organization action.",
+      "sourceFeature": "add-authorization"
+    },
+    {
+      "target": "library",
+      "description": "Updated `.factory/library/user-testing.md` with concrete post-auth API bootstrap endpoints/payloads for creating orgs, scenarios, and employees.",
+      "sourceFeature": "fix-spreadsheet-filters"
+    }
+  ],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Align typecheck guidance with `.factory/services.yaml` by recommending per-package `tsc -p` commands (or define and enforce a root `npm run typecheck` script consistently).",
+      "evidence": "Multiple reviews (setup-testing-infra, setup-linting) reported churn from AGENTS.md recommending root `npx tsc --noEmit` while services.yaml uses per-package commands.",
+      "isSystemic": true
+    },
+    {
+      "target": "implementation-worker skill",
+      "suggestion": "Add explicit exception paths for config-only/docs-only features so TDD red-first and browser validation steps are conditionally required only when meaningful.",
+      "evidence": "Reviews for setup-testing-infra, setup-linting, add-readme, and add-authorization all reported procedure mismatch with current skill defaults.",
+      "isSystemic": true
+    },
+    {
+      "target": "implementation-worker skill",
+      "suggestion": "Require explicit evidence when `followedProcedure=true` for user-visible changes (e.g., agent-browser invocation and interactiveChecks), or require a documented deviation.",
+      "evidence": "Reviews for fix-api-bugs and fix-hierarchyview-filters found user-visible/UI-related changes without recorded agent-browser verification despite skill requirements.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "Repeated reports that skill TDD/browser requirements are too rigid for non-UI bootstrap work.",
+      "reason": "duplicate"
+    },
+    {
+      "observation": "Repeated reports about AGENTS.md vs services.yaml typecheck command mismatch.",
+      "reason": "duplicate"
+    },
+    {
+      "observation": "Repeated reports of stale architecture notes about Sidebar capabilities.",
+      "reason": "already-documented"
+    },
+    {
+      "observation": "Single-run ordering complaint about not executing an explicit red test phase before implementation in fix-spreadsheet-filters.",
+      "reason": "ambiguous"
+    }
+  ],
+  "previousRound": null
+}
