@@ -1,90 +1,127 @@
-# Architecture
+# Relay Architecture
 
-How the org-planner system works — components, relationships, data flows, invariants.
+## Overview
 
----
+Relay is a sales introduction request, prospecting, and relationship mapping platform. It consists of four packages in an npm workspaces monorepo at `/Users/andy/Documents/GitHub/relay`.
 
-## System Overview
-
-A full-stack org chart and headcount planning application. Users create organizations, build org chart hierarchies within scenarios, and use multiple views to visualize, edit, and plan organizational changes.
-
-## Components
-
-### Frontend (packages/client)
-- **Framework**: React 18 + Vite + TypeScript
-- **Routing**: react-router-dom v6 with BrowserRouter
-- **State**: Zustand stores (authStore, orgStore, scenarioStore)
-- **Visualization**: @xyflow/react (React Flow) for org chart canvas
-- **Data Grid**: AG Grid Community for spreadsheet view
-- **Drag-and-Drop**: @dnd-kit for hierarchy and kanban reordering
-- **Styling**: Tailwind CSS v4 + clsx + tailwind-merge
-- **HTTP**: Axios with JWT interceptor (auto-attaches token, redirects on 401)
-
-### Backend (packages/server)
-- **Framework**: Express 4 on Node.js
-- **Database**: MongoDB via Mongoose 8
-- **Auth**: bcryptjs for password hashing, jsonwebtoken for JWT (7-day expiry)
-- **Validation**: Zod schemas on request bodies
-- **Architecture**: Controllers → Routes → Models pattern
-
-### Deployment
-- **Platform**: Vercel (serverless function for API, static for SPA)
-- **Entry**: api/index.ts wraps Express app for Vercel
-- **Dev**: concurrently runs server (tsx watch, port 3001) + client (Vite, port 5173)
-- **Proxy**: Vite proxies /api/* to localhost:3001 in dev mode
-
-## Data Model
+## Project Structure
 
 ```
-User (email, passwordHash, name)
-  └── owns → Organization (name, ownerId, memberIds[])
-                └── has → Scenario (orgId, name, description, baseScenarioId, createdBy)
-                            └── has → Employee (scenarioId, name, title, department, level,
-                                                  location, salary, equity, employmentType,
-                                                  status, managerId, order, startDate,
-                                                  costCenter, hiringManager, recruiter,
-                                                  requisitionId, avatarUrl, metadata)
+relay/
+├── packages/
+│   ├── api/              # Express TypeScript REST API
+│   ├── web/              # React + Vite frontend
+│   ├── shared/           # Shared types, Zod schemas, constants
+│   └── chrome-extension/ # Manifest V3 Chrome extension
+├── docker-compose.yml    # MongoDB container
+├── package.json          # Monorepo root with npm workspaces
+├── tsconfig.base.json    # Base TypeScript config
+└── .env.example          # Environment variable template
 ```
 
-### Key Relationships
-- Employee.managerId → Employee._id (self-referential tree within a scenario)
-- Employee.managerId = null → root-level employee (CEO/top of hierarchy)
-- Scenario.baseScenarioId → Scenario._id (tracks clone origin)
-- Organization.memberIds[] → User._id (org membership used by authorization middleware for org/scenario/employee access control)
+## Package Details
 
-### Invariants
-- An employee always belongs to exactly one scenario
-- A scenario always belongs to exactly one organization
-- The employee hierarchy is a tree (no cycles) within a scenario
-- Scenario clone deep-copies all employees and remaps managerId references
+### packages/api (Express Backend)
 
-## Data Flows
+```
+api/src/
+├── index.ts              # Server entry: connect MongoDB, start Express
+├── app.ts                # Express app: middleware, routes, error handler
+├── config/               # Environment config, database connection
+├── middleware/            # Auth (JWT verify), validation (Zod), error handler
+├── models/               # Mongoose models
+├── routes/               # Express Router files per domain
+├── controllers/          # Request handlers (thin - delegate to services)
+├── services/             # Business logic layer
+├── integrations/         # Adapter interfaces and mock implementations
+├── ai/                   # LLM provider setup (Vercel AI SDK)
+└── utils/                # Shared utilities
+```
 
-### Auth Flow
-Browser → POST /api/auth/login → bcrypt verify → JWT signed → stored in localStorage → Axios interceptor attaches to all requests
+**Patterns:**
+- Controller → Service → Model (controllers thin, services hold logic)
+- Zod validation middleware on routes
+- Async error wrapper on all route handlers
+- Global error handler: `{ error: { code, message, details? } }`
+- JWT auth middleware sets `req.user` with user ID and email
+- All lists use pagination: `{ data, pagination: { page, limit, total } }`
 
-### CRUD Flow
-Component → Zustand action → Axios API call → Express route → Controller → Mongoose model → MongoDB Atlas
-Response → Zustand state update → React re-render
+**Auth flow:**
+- POST /api/auth/register → hash password → save User → return JWT pair
+- POST /api/auth/login → verify password → return JWT pair
+- POST /api/auth/refresh → verify refresh token → return new JWT pair
+- GET /api/auth/google → Passport Google OAuth → callback → JWT pair
+- GET /api/auth/microsoft → Passport Microsoft OAuth → callback → JWT pair
 
-### Scenario Diff Flow
-Select two scenarios → GET /api/scenarios/:a/diff/:b → Server fetches both employee sets → Compares by name (no stable cross-scenario ID) → Returns {added, removed, moved, changed, unchanged}
+### packages/web (React Frontend)
 
-## Views
+```
+web/src/
+├── main.tsx              # Entry: BrowserRouter
+├── App.tsx               # Route definitions
+├── api/                  # Axios client with auth interceptor
+├── components/           # Reusable UI (layout/, common/, [feature]/)
+├── pages/                # Route page components
+├── stores/               # Zustand stores (one per domain)
+├── hooks/                # Custom React hooks
+├── utils/                # Client utilities
+└── types/                # Frontend types
+```
 
-| Route | View | Component | Primary Interaction |
-|-------|------|-----------|-------------------|
-| `/` | Org Chart | OrgChartView | React Flow canvas, drag to reparent, click for details |
-| `/hierarchy` | Hierarchy | HierarchyView | Collapsible tree, dnd-kit reorder/reparent |
-| `/spreadsheet` | Spreadsheet | SpreadsheetView | AG Grid editable table |
-| `/kanban` | Kanban | KanbanView | Kanban columns by department or status |
-| `/compare` | Compare | CompareView | Side-by-side scenario diff trees |
+**Patterns:**
+- Zustand stores for client state
+- Axios instance: baseURL `/api`, auto Bearer token, 401 → redirect to login
+- Path alias `@/` → `src/`
+- Tailwind CSS v4 via `@tailwindcss/vite`
+- React Flow for relationship graph
+- AG Grid for data tables
+- React Router v6 with protected route wrapper
 
-## Layout Structure
+### packages/shared
 
-AppShell wraps all views:
-- **Sidebar** (left): Org selector, scenario selector, view nav links, New Organization action, new/clone scenario, budget button
-- **Toolbar** (top): Add employee, status filter pills, search, CSV import/export
-- **Main** (center): Active view via Outlet (passes filteredEmployees in context)
-- **HeadcountSummary** (bottom): Metric pills (total, FTE, contractors, open reqs, planned, salary)
-- **Panels** (overlay): EmployeeDetailPanel (slide-out form), BudgetPanel (slide-out budget breakdown)
+- Zod schemas used by both API and web
+- TypeScript types inferred from Zod
+- Constants (connection types, intro statuses, etc.)
+- Utility functions
+
+### packages/chrome-extension
+
+```
+chrome-extension/
+├── manifest.json         # Manifest V3
+├── src/
+│   ├── background/       # Service worker
+│   ├── content/          # Content scripts for LinkedIn
+│   ├── sidepanel/        # Side panel React app
+│   ├── popup/            # Popup React app
+│   └── shared/           # Shared utilities
+```
+
+**Communication:** Content script ↔ Background ↔ API via chrome.runtime.sendMessage and fetch with JWT from chrome.storage.local.
+
+## Data Model (MongoDB Collections)
+
+- **users** - Auth accounts
+- **contacts** - People (name, email, title, company ref, tags, source)
+- **companies** - Organizations
+- **relationships** - Edges between contacts (from, to, type, strength)
+- **introRequests** - Intro workflow state machine
+- **introTemplates** - Reusable templates
+- **savedSearches** - Persisted filters with alerts
+- **prospectLists** - Named contact lists
+- **campaigns** - LinkedIn outreach campaigns
+- **activityLogs** - All system activity
+- **integrationConfigs** - Per-user integration settings (encrypted keys)
+- **webhooks** - Webhook endpoints and subscriptions
+- **scoringRules** - Lead scoring rules
+- **icpProfiles** - Ideal Customer Profiles
+
+## Key Invariants
+
+1. All API endpoints require JWT auth except auth routes and /api/health
+2. Intro requests follow state machine: draft → pending → approved/declined → forwarded → accepted/declined/expired
+3. Relationship graph is bidirectional (A→B implies B→A visibility)
+4. Integration adapters implement a common interface; mock ↔ real swapped via adapter
+5. Contact deletion cascades to relationships, intro requests, prospect lists
+6. All timestamps UTC ISO strings
+7. Chrome extension communicates only through the API (never direct DB)
