@@ -28,6 +28,7 @@ interface OutletContext {
   filteredEmployees: Employee[];
   statusFilters: string[];
   searchQuery: string;
+  isViewer: boolean;
 }
 
 const nodeTypes: NodeTypes = {
@@ -36,7 +37,7 @@ const nodeTypes: NodeTypes = {
 };
 
 export default function OrgChartView() {
-  const { filteredEmployees } = useOutletContext<OutletContext>();
+  const { filteredEmployees, isViewer } = useOutletContext<OutletContext>();
   const employees = useOrgStore((s) => s.employees);
   const moveEmployee = useOrgStore((s) => s.moveEmployee);
   const { selectedIds, toggleSelect, clearSelection, selectAll } = useSelectionStore();
@@ -217,10 +218,11 @@ export default function OrgChartView() {
         onEdgesChange={onEdgesChange}
         onNodeClick={handleNodeClick}
         onPaneClick={handlePaneClick}
-        onNodeDragStart={handleNodeDragStart}
-        onNodeDragStop={handleNodeDragStop}
+        onNodeDragStart={isViewer ? undefined : handleNodeDragStart}
+        onNodeDragStop={isViewer ? undefined : handleNodeDragStop}
         onSelectionChange={handleSelectionChange}
         nodeTypes={nodeTypes}
+        nodesDraggable={!isViewer}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.1}

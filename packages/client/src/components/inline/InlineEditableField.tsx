@@ -24,6 +24,8 @@ export interface InlineEditableFieldProps {
   onEditEnd?: () => void;
   /** Called when Tab is pressed, return true to handle externally */
   onTab?: (shiftKey: boolean) => void;
+  /** When true, the field is read-only and cannot be clicked to edit */
+  disabled?: boolean;
 }
 
 const InlineEditableField = forwardRef<InlineEditableFieldHandle, InlineEditableFieldProps>(function InlineEditableField({
@@ -39,6 +41,7 @@ const InlineEditableField = forwardRef<InlineEditableFieldHandle, InlineEditable
   onEditStart,
   onEditEnd,
   onTab,
+  disabled = false,
 }, ref) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -54,12 +57,13 @@ const InlineEditableField = forwardRef<InlineEditableFieldHandle, InlineEditable
   // Expose startEditing for programmatic Tab traversal
   useImperativeHandle(ref, () => ({
     startEditing: () => {
+      if (disabled) return;
       setIsEditing(true);
       setEditValue(value);
       setError(null);
       onEditStart?.();
     },
-  }), [value, onEditStart]);
+  }), [value, onEditStart, disabled]);
 
   // Focus input when entering edit mode
   useEffect(() => {
@@ -75,6 +79,9 @@ const InlineEditableField = forwardRef<InlineEditableFieldHandle, InlineEditable
       if (e.metaKey || e.ctrlKey || e.shiftKey) {
         return;
       }
+      if (disabled) {
+        return;
+      }
       if (stopPropagation) {
         e.stopPropagation();
       }
@@ -84,7 +91,7 @@ const InlineEditableField = forwardRef<InlineEditableFieldHandle, InlineEditable
       setError(null);
       onEditStart?.();
     },
-    [value, stopPropagation, onEditStart],
+    [value, stopPropagation, onEditStart, disabled],
   );
 
   const save = useCallback(() => {
@@ -183,17 +190,19 @@ const InlineEditableField = forwardRef<InlineEditableFieldHandle, InlineEditable
 
   return (
     <span
-      onClick={startEditing}
-      onMouseDown={handleMouseDown}
+      onClick={disabled ? undefined : startEditing}
+      onMouseDown={disabled ? undefined : handleMouseDown}
       className={cn(
-        'cursor-pointer rounded px-0.5 transition-colors hover:bg-blue-50',
+        disabled
+          ? 'rounded px-0.5'
+          : 'cursor-pointer rounded px-0.5 transition-colors hover:bg-blue-50',
         displayClassName,
       )}
       data-testid={`${testIdPrefix}-display-${fieldName}`}
-      title={`Click to edit ${fieldName}`}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
+      title={disabled ? undefined : `Click to edit ${fieldName}`}
+      role={disabled ? undefined : 'button'}
+      tabIndex={disabled ? undefined : 0}
+      onKeyDown={disabled ? undefined : (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           setIsEditing(true);

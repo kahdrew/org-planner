@@ -18,6 +18,7 @@ type GroupBy = 'department' | 'status';
 
 interface OutletContext {
   filteredEmployees: Employee[];
+  isViewer: boolean;
 }
 
 const ALL_STATUSES: Employee['status'][] = ['Active', 'Planned', 'Open Req', 'Backfill'];
@@ -89,13 +90,16 @@ function DroppableColumn({
 function DraggableCard({
   employee,
   onClick,
+  disabled,
 }: {
   employee: Employee;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: employee._id,
     data: { employee },
+    disabled,
   });
 
   const style = transform
@@ -113,7 +117,8 @@ function DraggableCard({
         onClick();
       }}
       className={cn(
-        'cursor-grab rounded-md border border-gray-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing',
+        'rounded-md border border-gray-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md',
+        !disabled && 'cursor-grab active:cursor-grabbing',
         isDragging && 'z-50 opacity-50 shadow-lg',
       )}
     >
@@ -149,7 +154,7 @@ function DraggableCard({
 /*  KanbanView                                                        */
 /* ------------------------------------------------------------------ */
 export default function KanbanView() {
-  const { filteredEmployees } = useOutletContext<OutletContext>();
+  const { filteredEmployees, isViewer } = useOutletContext<OutletContext>();
   const updateEmployee = useOrgStore((s) => s.updateEmployee);
   const [groupBy, setGroupBy] = useState<GroupBy>('department');
 
@@ -256,6 +261,7 @@ export default function KanbanView() {
                     key={emp._id}
                     employee={emp}
                     onClick={() => handleSelectEmployee(emp)}
+                    disabled={isViewer}
                   />
                 ))
               )}

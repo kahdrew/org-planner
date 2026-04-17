@@ -20,6 +20,7 @@ interface OutletContext {
   filteredEmployees: Employee[];
   statusFilters: string[];
   searchQuery: string;
+  isViewer: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -66,7 +67,7 @@ function numberParser(params: ValueParserParams): number | null {
 /* ------------------------------------------------------------------ */
 
 export default function SpreadsheetView() {
-  const { filteredEmployees } = useOutletContext<OutletContext>();
+  const { filteredEmployees, isViewer } = useOutletContext<OutletContext>();
   const { employees, updateEmployee } = useOrgStore();
   const { selectedIds, toggleSelect, rangeSelect } = useSelectionStore();
   const gridRef = useRef<AgGridReact<Employee>>(null);
@@ -87,7 +88,7 @@ export default function SpreadsheetView() {
       {
         field: 'name',
         headerName: 'Name',
-        editable: true,
+        editable: !isViewer,
         filter: 'agTextColumnFilter',
         sort: 'asc',
         sortIndex: 1,
@@ -97,14 +98,14 @@ export default function SpreadsheetView() {
       {
         field: 'title',
         headerName: 'Title',
-        editable: true,
+        editable: !isViewer,
         filter: 'agTextColumnFilter',
         minWidth: 180,
       },
       {
         field: 'department',
         headerName: 'Department',
-        editable: true,
+        editable: !isViewer,
         filter: 'agTextColumnFilter',
         sort: 'asc',
         sortIndex: 0,
@@ -113,28 +114,28 @@ export default function SpreadsheetView() {
       {
         field: 'level',
         headerName: 'Level',
-        editable: true,
+        editable: !isViewer,
         filter: 'agTextColumnFilter',
         minWidth: 100,
       },
       {
         field: 'location',
         headerName: 'Location',
-        editable: true,
+        editable: !isViewer,
         filter: 'agTextColumnFilter',
         minWidth: 130,
       },
       {
         field: 'employmentType',
         headerName: 'Employment Type',
-        editable: true,
+        editable: !isViewer,
         filter: 'agTextColumnFilter',
         minWidth: 140,
       },
       {
         field: 'status',
         headerName: 'Status',
-        editable: true,
+        editable: !isViewer,
         filter: 'agTextColumnFilter',
         cellRenderer: StatusCellRenderer,
         minWidth: 120,
@@ -142,7 +143,7 @@ export default function SpreadsheetView() {
       {
         field: 'salary',
         headerName: 'Salary',
-        editable: true,
+        editable: !isViewer,
         filter: 'agNumberColumnFilter',
         valueFormatter: currencyFormatter,
         valueParser: numberParser,
@@ -151,7 +152,7 @@ export default function SpreadsheetView() {
       {
         field: 'equity',
         headerName: 'Equity',
-        editable: true,
+        editable: !isViewer,
         filter: 'agNumberColumnFilter',
         valueFormatter: currencyFormatter,
         valueParser: numberParser,
@@ -160,7 +161,7 @@ export default function SpreadsheetView() {
       {
         field: 'costCenter',
         headerName: 'Cost Center',
-        editable: true,
+        editable: !isViewer,
         filter: 'agTextColumnFilter',
         minWidth: 120,
       },
@@ -183,19 +184,19 @@ export default function SpreadsheetView() {
       {
         field: 'startDate',
         headerName: 'Start Date',
-        editable: true,
+        editable: !isViewer,
         filter: 'agTextColumnFilter',
         minWidth: 120,
       },
       {
         field: 'requisitionId',
         headerName: 'Requisition ID',
-        editable: true,
+        editable: !isViewer,
         filter: 'agTextColumnFilter',
         minWidth: 140,
       },
     ],
-    [managerMap],
+    [managerMap, isViewer],
   );
 
   const defaultColDef = useMemo<ColDef>(

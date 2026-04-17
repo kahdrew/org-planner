@@ -7,6 +7,7 @@ import { cn } from '@/utils/cn';
 import { useOrgStore } from '@/stores/orgStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { useScheduledChangeStore } from '@/stores/scheduledChangeStore';
+import { useInvitationStore } from '@/stores/invitationStore';
 import InlineEditableField from '@/components/inline/InlineEditableField';
 import type { InlineEditableFieldHandle } from '@/components/inline/InlineEditableField';
 
@@ -71,6 +72,7 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
   const isMultiSelected = useSelectionStore((s) => s.isSelected(employee._id));
   const toggleSelect = useSelectionStore((s) => s.toggleSelect);
   const hasPendingChanges = useScheduledChangeStore((s) => s.hasPendingChanges(employee._id));
+  const isViewer = useInvitationStore((s) => s.currentRole) === 'viewer';
   const [isInlineEditing, setIsInlineEditing] = useState(false);
 
   // Refs for each editable field to enable Tab traversal
@@ -165,6 +167,7 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
               onEditStart={handleEditStart}
               onEditEnd={handleEditEnd}
               onTab={(shiftKey) => handleTab('name', shiftKey)}
+              disabled={isViewer}
             />
             <InlineEditableField
               ref={(el) => { fieldRefs.current.title = el; }}
@@ -177,6 +180,7 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
               onEditStart={handleEditStart}
               onEditEnd={handleEditEnd}
               onTab={(shiftKey) => handleTab('title', shiftKey)}
+              disabled={isViewer}
             />
           </div>
         </div>
@@ -193,6 +197,7 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
             onEditStart={handleEditStart}
             onEditEnd={handleEditEnd}
             onTab={(shiftKey) => handleTab('department', shiftKey)}
+            disabled={isViewer}
           />
         </div>
 
@@ -230,6 +235,7 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
               onEditStart={handleEditStart}
               onEditEnd={handleEditEnd}
               onTab={(shiftKey) => handleTab('level', shiftKey)}
+              disabled={isViewer}
             />
           )}
         </div>

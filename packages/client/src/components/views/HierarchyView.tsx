@@ -31,6 +31,7 @@ interface OutletContext {
   filteredEmployees: Employee[];
   statusFilters: string[];
   searchQuery: string;
+  isViewer: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -130,6 +131,8 @@ interface TreeRowProps {
   orderedIds: string[];
   /** IDs of nodes that belong to the subtree currently being dragged */
   draggingDescendantIds: Set<string>;
+  /** When true, disable drag and inline editing (viewer role) */
+  isViewer: boolean;
 }
 
 function TreeRow({
@@ -145,6 +148,7 @@ function TreeRow({
   multiSelectedIds,
   orderedIds,
   draggingDescendantIds,
+  isViewer,
 }: TreeRowProps) {
   const { employee } = node;
   const hasChildren = node.children.length > 0;
@@ -174,7 +178,7 @@ function TreeRow({
   } = useSortable({
     id: employee._id,
     data: { employee },
-    disabled: isInlineEditing,
+    disabled: isViewer || isInlineEditing,
   });
 
   const isOver = over?.id === employee._id && activeId !== employee._id;
@@ -241,18 +245,20 @@ function TreeRow({
         }}
       >
         {/* Drag handle */}
-        <button
-          ref={setActivatorNodeRef}
-          {...attributes}
-          {...listeners}
-          className={cn(
-            'shrink-0 cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing',
-            isInlineEditing && 'pointer-events-none opacity-30',
-          )}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <GripVertical size={16} />
-        </button>
+        {!isViewer && (
+          <button
+            ref={setActivatorNodeRef}
+            {...attributes}
+            {...listeners}
+            className={cn(
+              'shrink-0 cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing',
+              isInlineEditing && 'pointer-events-none opacity-30',
+            )}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical size={16} />
+          </button>
+        )}
 
         {/* Expand / collapse chevron */}
         <button
@@ -296,6 +302,7 @@ function TreeRow({
               onEditStart={handleEditStart}
               onEditEnd={handleEditEnd}
               onTab={(shiftKey) => handleTab('name', shiftKey)}
+              disabled={isViewer}
             />
             {hasChildren && (
               <span className="text-xs text-gray-400">
@@ -314,6 +321,7 @@ function TreeRow({
             onEditStart={handleEditStart}
             onEditEnd={handleEditEnd}
             onTab={(shiftKey) => handleTab('title', shiftKey)}
+            disabled={isViewer}
           />
         </div>
 
@@ -330,6 +338,7 @@ function TreeRow({
             onEditStart={handleEditStart}
             onEditEnd={handleEditEnd}
             onTab={(shiftKey) => handleTab('department', shiftKey)}
+            disabled={isViewer}
           />
         </div>
 
@@ -346,6 +355,7 @@ function TreeRow({
             onEditStart={handleEditStart}
             onEditEnd={handleEditEnd}
             onTab={(shiftKey) => handleTab('level', shiftKey)}
+            disabled={isViewer}
           />
         </div>
 
@@ -394,6 +404,7 @@ function TreeRow({
                 multiSelectedIds={multiSelectedIds}
                 orderedIds={orderedIds}
                 draggingDescendantIds={draggingDescendantIds}
+                isViewer={isViewer}
               />
             ))}
           </div>
@@ -432,7 +443,7 @@ function DragOverlayContent({ employee, subtreeSize }: { employee: Employee; sub
 /* ------------------------------------------------------------------ */
 
 export default function HierarchyView() {
-  const { filteredEmployees } = useOutletContext<OutletContext>();
+  const { filteredEmployees, isViewer } = useOutletContext<OutletContext>();
   const { employees, selectedEmployee, moveEmployee, updateEmployee } = useOrgStore();
   const { selectedIds, toggleSelect, rangeSelect, clearSelection } = useSelectionStore();
 
@@ -713,6 +724,7 @@ export default function HierarchyView() {
               multiSelectedIds={selectedIds}
               orderedIds={sortableIds}
               draggingDescendantIds={draggingDescendantIds}
+              isViewer={isViewer}
             />
           ))}
           {filteredEmployees.length === 0 && (

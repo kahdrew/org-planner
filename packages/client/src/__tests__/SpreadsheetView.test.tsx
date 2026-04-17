@@ -53,7 +53,7 @@ vi.mock("@/stores/orgStore", () => ({
 }));
 
 // Mock useOutletContext — returns filteredEmployees as provided per test
-let outletContext: { filteredEmployees: Employee[]; statusFilters: string[]; searchQuery: string };
+let outletContext: { filteredEmployees: Employee[]; statusFilters: string[]; searchQuery: string; isViewer: boolean };
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
@@ -110,6 +110,7 @@ describe("SpreadsheetView filtering (Bug #4 fix)", () => {
       filteredEmployees: filtered,
       statusFilters: ["Active"],
       searchQuery: "",
+      isViewer: false,
     };
 
     render(<SpreadsheetView />);
@@ -128,6 +129,7 @@ describe("SpreadsheetView filtering (Bug #4 fix)", () => {
       filteredEmployees: employees,
       statusFilters: ["Active", "Planned", "Open Req", "Backfill"],
       searchQuery: "",
+      isViewer: false,
     };
 
     render(<SpreadsheetView />);
@@ -148,6 +150,7 @@ describe("SpreadsheetView filtering (Bug #4 fix)", () => {
       filteredEmployees: filtered,
       statusFilters: ["Active", "Planned", "Open Req", "Backfill"],
       searchQuery: "alice",
+      isViewer: false,
     };
 
     render(<SpreadsheetView />);
@@ -169,6 +172,7 @@ describe("SpreadsheetView filtering (Bug #4 fix)", () => {
       filteredEmployees: filtered,
       statusFilters: ["Active"],
       searchQuery: "engineer",
+      isViewer: false,
     };
 
     render(<SpreadsheetView />);
@@ -187,6 +191,7 @@ describe("SpreadsheetView filtering (Bug #4 fix)", () => {
       filteredEmployees: [],
       statusFilters: [],
       searchQuery: "",
+      isViewer: false,
     };
 
     render(<SpreadsheetView />);
@@ -205,6 +210,7 @@ describe("SpreadsheetView filtering (Bug #4 fix)", () => {
       filteredEmployees: filtered,
       statusFilters: ["Planned", "Backfill"],
       searchQuery: "",
+      isViewer: false,
     };
 
     render(<SpreadsheetView />);
@@ -223,6 +229,7 @@ describe("SpreadsheetView filtering (Bug #4 fix)", () => {
       filteredEmployees: filtered,
       statusFilters: ["Active"],
       searchQuery: "",
+      isViewer: false,
     };
 
     const { unmount } = render(<SpreadsheetView />);
@@ -234,6 +241,7 @@ describe("SpreadsheetView filtering (Bug #4 fix)", () => {
       filteredEmployees: employees,
       statusFilters: ["Active", "Planned", "Open Req", "Backfill"],
       searchQuery: "",
+      isViewer: false,
     };
 
     render(<SpreadsheetView />);
