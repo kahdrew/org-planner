@@ -1,0 +1,26 @@
+{
+  "featureId": "fix-viewer-guards",
+  "reviewedAt": "2026-04-17T05:33:38Z",
+  "commitId": "8829b26",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The fix commit addresses all four blocking findings from the prior member-invitations review: Spreadsheet cells are viewer-read-only, Hierarchy drag + inline edit are disabled for viewers, Kanban card drag is disabled for viewers, and OrgChart drag-to-reparent is disabled for viewers while card inline edit is disabled via InlineEditableField.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "Architecture docs are stale for Outlet context shape after viewer-guard work; docs still say only filteredEmployees is passed, but views now depend on isViewer as well.",
+      "evidence": ".factory/library/architecture.md:88 says Outlet passes only filteredEmployees; implementation uses Outlet context with isViewer in SpreadsheetView, HierarchyView, KanbanView, and OrgChartView."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Architecture docs are still stale for org membership model introduced by member-invitations.",
+      "evidence": ".factory/library/architecture.md:40,53 still describe Organization.memberIds-only relationships and do not document role metadata/invitation model now used by authorization and UI role guards."
+    }
+  ],
+  "addressesFailureFrom": ".factory/validation/org-management/scrutiny/reviews/member-invitations.json",
+  "summary": "Pass. Reviewed the fix-viewer-guards transcript skeleton and both relevant diffs (member-invitations and fix-viewer-guards). The fix adequately resolves the prior blocking viewer-guard failures across Spreadsheet, Hierarchy, Kanban, and OrgChart interactions. No blocking or non-blocking code defects found in this fix."
+}

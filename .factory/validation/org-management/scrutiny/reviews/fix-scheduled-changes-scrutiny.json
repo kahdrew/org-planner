@@ -1,0 +1,21 @@
+{
+  "featureId": "fix-scheduled-changes-scrutiny",
+  "reviewedAt": "2026-04-17T05:31:52Z",
+  "commitId": "9f6d200",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The fix commit adequately addresses the original failure: apply-due now enforces scenario role authorization, due-change application is scenario-scoped, and due changes are auto-applied via lazy middleware on scenario read routes. Reviewing both the original and fix diffs confirms the prior blocking security and behavior gaps were closed.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "Shared architecture documentation is still missing ScheduledChange data model and auto-apply flow, which are now core org-management behavior and review-critical for authorization/scoping reasoning.",
+      "evidence": ".factory/library/architecture.md data model and flow sections list User→Organization→Scenario→Employee and omit ScheduledChange/auto-apply; implementation exists in packages/server/src/models/ScheduledChange.ts, controllers/scheduledChangeController.ts, and middleware/autoApplyScheduledChanges.ts."
+    }
+  ],
+  "addressesFailureFrom": ".factory/validation/org-management/scrutiny/reviews/effective-date-scheduling.json",
+  "summary": "Pass: the fix resolves the prior scrutiny failures for apply-due authorization, scenario scoping, and automatic due-change application."
+}

@@ -1,0 +1,91 @@
+{
+  "milestone": "org-management",
+  "round": 1,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "npm run test",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "npx tsc --noEmit -p packages/server/tsconfig.json && npx tsc --noEmit -p packages/client/tsconfig.json",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "npm run lint",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 4,
+    "passed": 1,
+    "failed": 3,
+    "failedFeatures": [
+      "member-invitations",
+      "pdf-png-export",
+      "effective-date-scheduling"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "member-invitations",
+      "severity": "blocking",
+      "description": "Viewer-role edit controls are not disabled across all views: Spreadsheet remains editable, Hierarchy retains drag/inline edit, Kanban drop triggers mutations, and OrgChart drag-to-reparent can still invoke move actions."
+    },
+    {
+      "featureId": "pdf-png-export",
+      "severity": "blocking",
+      "description": "Department filter option is not applied in export logic; `ExportOptions.department` is collected in UI but never used to filter exported output."
+    },
+    {
+      "featureId": "pdf-png-export",
+      "severity": "blocking",
+      "description": "Salary include/exclude toggle is non-functional because export hides only `[data-export-salary]` nodes and chart elements do not expose that marker."
+    },
+    {
+      "featureId": "pdf-png-export",
+      "severity": "blocking",
+      "description": "Export captures the current React Flow viewport directly, so large/off-screen chart content can be clipped instead of exporting the full chart."
+    },
+    {
+      "featureId": "effective-date-scheduling",
+      "severity": "blocking",
+      "description": "POST `/api/scheduled-changes/apply-due` is only auth-protected and lacks org/scenario role authorization checks."
+    },
+    {
+      "featureId": "effective-date-scheduling",
+      "severity": "blocking",
+      "description": "`applyDueChanges` applies all pending changes globally without org/scenario scoping, enabling cross-org mutation risk."
+    },
+    {
+      "featureId": "effective-date-scheduling",
+      "severity": "blocking",
+      "description": "Automatic application behavior is not implemented; due changes apply only via manual endpoint and do not auto-run when effective date arrives."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Explicitly require role-scoped authorization middleware for all mutating org/scenario endpoints (not auth-only), with examples for route review checklists.",
+      "evidence": "Feature `effective-date-scheduling` introduced a mutating apply-due route mounted with auth only, and controller logic applied global pending changes without org/scenario scope checks.",
+      "isSystemic": true
+    },
+    {
+      "target": "implementation-worker skill",
+      "suggestion": "For option-driven user-facing features, require at least one behavior-level test per option path and one end-to-end semantic assertion (not only dialog wiring or filename/type checks).",
+      "evidence": "Feature `pdf-png-export` passed with tests that covered dialog callbacks and output type naming but missed core behavioral requirements (department filtering, salary exclusion, full-canvas capture).",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "Update `.factory/library/architecture.md` to include invitation/member-role and scheduled-change modeling.",
+      "reason": "deferred for orchestrator-level documentation pass; not applied in this scrutiny run to keep scope on validation gating and defect synthesis."
+    }
+  ],
+  "previousRound": null
+}

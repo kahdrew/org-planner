@@ -1,0 +1,21 @@
+{
+  "featureId": "fix-export-scrutiny",
+  "reviewedAt": "2026-04-17T05:32:27Z",
+  "commitId": "6379503",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The fix directly addresses the three prior blocking findings from pdf-png-export. Department filtering is now applied before capture, salary elements are now targetable (and hide/show works during export), and viewport fitting/restoration is added so capture includes off-screen nodes after fitView.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "Implementation-worker procedure emphasizes test-first and behavior verification, but the fix still added only type/interface-oriented unit checks for ExportContext and no assertions for the three corrected export behaviors (department-filtered output, salary-included/excluded output, and fitView-based full-canvas capture).",
+      "evidence": "packages/client/src/__tests__/exportOrgChart.test.ts adds ExportContext shape tests only; no DOM/capture behavior assertions were added for exportOrgChart.ts changes."
+    }
+  ],
+  "addressesFailureFrom": ".factory/validation/org-management/scrutiny/reviews/pdf-png-export.json",
+  "summary": "Pass. I reviewed the fix transcript skeleton plus both diffs (original pdf-png-export and fix-export-scrutiny). The prior blocking issues are resolved in code, with no new blocking defects identified."
+}
