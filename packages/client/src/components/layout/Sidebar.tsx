@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { GitBranch, List, Table, Columns, GitCompare, Plus, Copy, DollarSign, Users, Clock } from 'lucide-react';
+import { GitBranch, List, Table, Columns, GitCompare, Plus, Copy, DollarSign, Users, Clock, BarChart3 } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { useScheduledChangeStore } from '@/stores/scheduledChangeStore';
 import { cn } from '@/utils/cn';
@@ -18,9 +18,10 @@ interface SidebarProps {
   onToggleBudget?: () => void;
   onToggleMembers?: () => void;
   onTogglePendingChanges?: () => void;
+  onToggleSpanOfControl?: () => void;
 }
 
-export default function Sidebar({ onToggleBudget, onToggleMembers, onTogglePendingChanges }: SidebarProps) {
+export default function Sidebar({ onToggleBudget, onToggleMembers, onTogglePendingChanges, onToggleSpanOfControl }: SidebarProps) {
   const {
     orgs, currentOrg, setCurrentOrg, createOrg,
     scenarios, currentScenario, setCurrentScenario,
@@ -181,6 +182,16 @@ export default function Sidebar({ onToggleBudget, onToggleMembers, onTogglePendi
                 {pendingCount}
               </span>
             )}
+          </button>
+        )}
+        {onToggleSpanOfControl && (
+          <button
+            onClick={onToggleSpanOfControl}
+            className="flex w-full items-center justify-center gap-2 rounded-md border border-slate-600 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700"
+            data-testid="span-of-control-sidebar-btn"
+          >
+            <BarChart3 size={16} />
+            Span of Control
           </button>
         )}
       </div>

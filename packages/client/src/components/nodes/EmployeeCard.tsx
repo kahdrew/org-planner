@@ -1,7 +1,7 @@
 import { memo, useState, useCallback, useRef, useMemo } from 'react';
 import type { NodeProps } from '@xyflow/react';
 import { Handle, Position } from '@xyflow/react';
-import { Clock } from 'lucide-react';
+import { Clock, AlertTriangle, AlertCircle } from 'lucide-react';
 import type { Employee } from '@/types';
 import { cn } from '@/utils/cn';
 import { useOrgStore } from '@/stores/orgStore';
@@ -10,6 +10,7 @@ import { useScheduledChangeStore } from '@/stores/scheduledChangeStore';
 import { useInvitationStore } from '@/stores/invitationStore';
 import { useOverlayStore } from '@/stores/overlayStore';
 import { buildOverlayContext, getOverlayColor } from '@/utils/overlayColors';
+import { getEmployeeSpanFlag, OVERLOAD_THRESHOLD, UNDERUTILIZATION_THRESHOLD } from '@/utils/spanOfControl';
 import InlineEditableField from '@/components/inline/InlineEditableField';
 import type { InlineEditableFieldHandle } from '@/components/inline/InlineEditableField';
 
@@ -89,6 +90,20 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
     if (overlayMode === 'none') return null;
     return getOverlayColor(employee, overlayMode, buildOverlayContext(allEmployees));
   }, [employee, overlayMode, allEmployees]);
+
+  /**
+   * Compute the span-of-control flag for this employee (manager). Returns
+   * null for individual contributors (no reports), which keeps ICs free of
+   * warning badges — only managers are analyzed.
+   */
+  const spanFlag = useMemo(
+    () => getEmployeeSpanFlag(employee._id, allEmployees),
+    [employee._id, allEmployees],
+  );
+  const directReportCount = useMemo(
+    () => allEmployees.reduce((acc, e) => (e.managerId === employee._id ? acc + 1 : acc), 0),
+    [employee._id, allEmployees],
+  );
 
   // Refs for each editable field to enable Tab traversal
   const fieldRefs = useRef<Record<CardField, InlineEditableFieldHandle | null>>({
@@ -257,6 +272,28 @@ function EmployeeCard({ data, selected }: NodeProps & { data: EmployeeNodeData }
             >
               <Clock size={10} className="mr-0.5" />
               Pending
+            </span>
+          )}
+          {spanFlag === 'overloaded' && (
+            <span
+              className="inline-flex items-center rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700"
+              title={`Overloaded: ${directReportCount} direct reports (threshold > ${OVERLOAD_THRESHOLD})`}
+              data-testid="span-warning-overloaded"
+              data-span-flag="overloaded"
+            >
+              <AlertTriangle size={10} className="mr-0.5" />
+              {directReportCount} reports
+            </span>
+          )}
+          {spanFlag === 'underutilized' && (
+            <span
+              className="inline-flex items-center rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+              title={`Underutilized: ${directReportCount} direct report${directReportCount === 1 ? '' : 's'} (threshold < ${UNDERUTILIZATION_THRESHOLD})`}
+              data-testid="span-warning-underutilized"
+              data-span-flag="underutilized"
+            >
+              <AlertCircle size={10} className="mr-0.5" />
+              {directReportCount} report
             </span>
           )}
           <span

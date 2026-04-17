@@ -11,6 +11,7 @@ import KeyboardShortcutsHelp from '@/components/help/KeyboardShortcutsHelp';
 import ExportDialog from '@/components/panels/ExportDialog';
 import DeleteConfirmDialog from '@/components/bulk/DeleteConfirmDialog';
 import PendingChangesPanel from '@/components/panels/PendingChangesPanel';
+import SpanOfControlPanel from '@/components/panels/SpanOfControlPanel';
 import TimelineSlider from '@/components/panels/TimelineSlider';
 import { useOrgStore } from '@/stores/orgStore';
 import { useUndoRedoStore } from '@/stores/undoRedoStore';
@@ -52,6 +53,7 @@ export default function AppShell() {
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [pendingChangesOpen, setPendingChangesOpen] = useState(false);
+  const [spanOfControlOpen, setSpanOfControlOpen] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -181,6 +183,7 @@ export default function AppShell() {
         onToggleBudget={() => setBudgetOpen(!budgetOpen)}
         onToggleMembers={() => setMembersOpen(!membersOpen)}
         onTogglePendingChanges={() => setPendingChangesOpen(!pendingChangesOpen)}
+        onToggleSpanOfControl={() => setSpanOfControlOpen((prev) => !prev)}
       />
 
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -220,6 +223,8 @@ export default function AppShell() {
       <MembersPanel open={membersOpen} onClose={() => setMembersOpen(false)} />
 
       <PendingChangesPanel open={pendingChangesOpen} onClose={() => setPendingChangesOpen(false)} />
+
+      <SpanOfControlPanel open={spanOfControlOpen} onClose={() => setSpanOfControlOpen(false)} />
 
       <KeyboardShortcutsHelp
         open={shortcutsHelpOpen}
