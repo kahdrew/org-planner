@@ -1,0 +1,122 @@
+{
+  "groupId": "analytics-rerun-g1",
+  "testedAt": "2026-04-17T19:13:46.858029Z",
+  "isolation": {
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001/api",
+    "testUserEmail": "testuser-analytics-rerun-g1-20260417190950@orgplanner.test",
+    "org": {
+      "id": "69e2857f43b9898471bc72dc",
+      "name": "analytics-rerun-g1-org-20260417190950"
+    },
+    "scenarios": {
+      "timeline": {
+        "id": "69e2857f43b9898471bc72df",
+        "name": "analytics-rerun-g1-timeline-20260417190950"
+      },
+      "compareA": {
+        "id": "69e2858443b9898471bc7305",
+        "name": "analytics-rerun-g1-compare-a-20260417190950"
+      },
+      "compareB": {
+        "id": "69e2858543b9898471bc731c",
+        "name": "analytics-rerun-g1-compare-a-20260417190950 (Copy)"
+      }
+    }
+  },
+  "toolsUsed": [
+    "agent-browser",
+    "curl"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-AV-003",
+      "title": "Timeline tracks headcount, departures, and reorgs",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open Org Chart with isolated timeline scenario selected at current state",
+          "expected": "Current headcount summary matches current visible employees",
+          "observed": "Current state showed Alice TL + Carol TL and headcount pill Total=2"
+        },
+        {
+          "action": "Scrub to move-event marker",
+          "expected": "Reorg reflected and headcount updates to historical snapshot",
+          "observed": "Bob TL appears under Carol TL (reorg), and Total pill updates to 3"
+        },
+        {
+          "action": "Scrub to delete-event marker",
+          "expected": "Departure reflected with employee disappearance and updated count",
+          "observed": "Bob TL disappears at delete state and Total pill shows 2"
+        },
+        {
+          "action": "Jump back to current",
+          "expected": "Current count matches HeadcountSummary total",
+          "observed": "Showing: Current restored with Total=2 matching current chart"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/analytics-rerun-g1/VAL-AV-003-current-state.png",
+          "analytics/analytics-rerun-g1/VAL-AV-003-move-event-state.png",
+          "analytics/analytics-rerun-g1/VAL-AV-003-delete-event-state.png",
+          "analytics/analytics-rerun-g1/VAL-AV-003-return-current-state.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/69e2857f43b9898471bc72df/history?date=2026-04-17T19:09:54.259445Z -> xhr observed; GET /api/scenarios/69e2857f43b9898471bc72df/history?date=2026-04-17T19:09:55.940388Z -> xhr observed; both endpoints returned HTTP 200 in direct API verification"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-015",
+      "title": "Scenario diff shows structural and field-level changes",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open Compare view and select prepared Scenario A and Scenario B (clone+edits)",
+          "expected": "Diff loads for selected pair",
+          "observed": "CompareView loaded diff for analytics-rerun-g1-compare-a-* vs its (Copy) scenario"
+        },
+        {
+          "action": "Inspect diff summary counts",
+          "expected": "added=2, changed=1, moved=1",
+          "observed": "Diff Summary shows +2 added, 1 moved, 1 changed (removed=0)"
+        },
+        {
+          "action": "Inspect tree panels for change types",
+          "expected": "Trees show added, moved, and changed entries",
+          "observed": "Scenario B tree marks Dave/Eve as added, Bob as moved, and Carol as changed; Scenario A tree shows corresponding moved/changed tags"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "analytics/analytics-rerun-g1/VAL-CROSS-015-compare-diff-loaded.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/69e2858443b9898471bc7305/diff/69e2858543b9898471bc731c -> xhr observed in agent-browser (HTTP 200 via direct API verification)"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Direct @ref click on timeline move-event marker was intermittently blocked by overlapping timeline elements.",
+      "resolved": true,
+      "resolution": "Used in-session DOM click on the marker button (per guidance for flaky timeline marker targeting) and re-verified resulting UI states.",
+      "affectedAssertions": [
+        "VAL-AV-003"
+      ]
+    },
+    {
+      "description": "CompareView briefly remained in 'Loading comparison\u2026' after scenario selection.",
+      "resolved": true,
+      "resolution": "Waited for async diff completion before capturing final summary/tree evidence.",
+      "affectedAssertions": [
+        "VAL-CROSS-015"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Retested 2 previously failed assertions: 2 passed, 0 failed, 0 blocked. VAL-AV-003 now updates headcount correctly during timeline scrubbing; VAL-CROSS-015 now reports expected diff counts for the prepared A\u2192B pair."
+}
