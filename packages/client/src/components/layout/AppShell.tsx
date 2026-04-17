@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Toolbar from './Toolbar';
@@ -6,43 +6,62 @@ import HeadcountSummary from '@/components/panels/HeadcountSummary';
 import EmployeeDetailPanel from '@/components/panels/EmployeeDetailPanel';
 import BudgetPanel from '@/components/panels/BudgetPanel';
 import BulkOperationsToolbar from '@/components/bulk/BulkOperationsToolbar';
+import KeyboardShortcutsHelp from '@/components/help/KeyboardShortcutsHelp';
+import DeleteConfirmDialog from '@/components/bulk/DeleteConfirmDialog';
 import { useOrgStore } from '@/stores/orgStore';
 import { useUndoRedoStore } from '@/stores/undoRedoStore';
 import { useSelectionStore } from '@/stores/selectionStore';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 
 export default function AppShell() {
-  const { currentOrg, currentScenario, employees, selectedEmployee, selectEmployee, fetchOrgs, fetchScenarios, fetchEmployees } = useOrgStore();
+  const { currentOrg, currentScenario, employees, selectedEmployee, selectEmployee, removeEmployee, bulkDeleteEmployees, fetchOrgs, fetchScenarios, fetchEmployees } = useOrgStore();
 
   const setActiveScenario = useUndoRedoStore((s) => s.setActiveScenario);
 
   const clearSelection = useSelectionStore((s) => s.clearSelection);
+  const selectedIds = useSelectionStore((s) => s.selectedIds);
 
   const [statusFilters, setStatusFilters] = useState<string[]>(['Active', 'Planned', 'Open Req', 'Backfill']);
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewEmployee, setShowNewEmployee] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
-  // Escape key to deselect all
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        const target = e.target as HTMLElement;
-        // Don't intercept if typing in inputs (let them handle their own Escape)
-        if (
-          target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable ||
-          target.getAttribute('data-inline-edit') === 'true'
-        ) {
-          return;
-        }
-        clearSelection();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [clearSelection]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // --- Delete selected employee(s) via keyboard ---
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedIds.size > 0 || selectedEmployee) {
+      setDeleteConfirmOpen(true);
+    }
+  }, [selectedIds, selectedEmployee]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (selectedIds.size > 0) {
+      const ids = Array.from(selectedIds);
+      await bulkDeleteEmployees(ids);
+      clearSelection();
+    } else if (selectedEmployee) {
+      await removeEmployee(selectedEmployee._id);
+    }
+    setDeleteConfirmOpen(false);
+  }, [selectedIds, selectedEmployee, bulkDeleteEmployees, removeEmployee, clearSelection]);
+
+  // --- Close panels ---
+  const handleClosePanel = useCallback(() => {
+    setShowNewEmployee(false);
+    selectEmployee(null);
+    setBudgetOpen(false);
+  }, [selectEmployee]);
+
+  // --- Keyboard shortcuts ---
+  useKeyboardShortcuts({
+    searchInputRef,
+    onOpenShortcutsHelp: () => setShortcutsHelpOpen((prev) => !prev),
+    onDeleteSelected: handleDeleteSelected,
+    onClosePanel: handleClosePanel,
+  });
 
   useEffect(() => {
     fetchOrgs();
@@ -80,12 +99,20 @@ export default function AppShell() {
     return true;
   });
 
-  const handleClosePanel = () => {
-    setShowNewEmployee(false);
-    selectEmployee(null);
-  };
-
   const showDetailPanel = showNewEmployee || selectedEmployee !== null;
+
+  // Determine delete dialog details
+  const deleteCount = selectedIds.size > 0 ? selectedIds.size : selectedEmployee ? 1 : 0;
+  const deleteEmployeeName = (() => {
+    if (selectedIds.size === 1) {
+      const id = Array.from(selectedIds)[0];
+      return employees.find((e) => e._id === id)?.name;
+    }
+    if (selectedIds.size === 0 && selectedEmployee) {
+      return selectedEmployee.name;
+    }
+    return undefined;
+  })();
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -98,6 +125,8 @@ export default function AppShell() {
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           onAddEmployee={() => { setShowNewEmployee(true); selectEmployee(null); }}
+          searchInputRef={searchInputRef}
+          onOpenShortcutsHelp={() => setShortcutsHelpOpen(true)}
         />
 
         <BulkOperationsToolbar />
@@ -118,6 +147,20 @@ export default function AppShell() {
       )}
 
       <BudgetPanel open={budgetOpen} onClose={() => setBudgetOpen(false)} />
+
+      <KeyboardShortcutsHelp
+        open={shortcutsHelpOpen}
+        onClose={() => setShortcutsHelpOpen(false)}
+      />
+
+      {deleteConfirmOpen && (
+        <DeleteConfirmDialog
+          count={deleteCount}
+          employeeName={deleteEmployeeName}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleteConfirmOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   DndContext,
@@ -21,6 +21,7 @@ import { useSelectionStore } from '@/stores/selectionStore';
 import { cn } from '@/utils/cn';
 import type { Employee } from '@/types';
 import InlineEditableField from '@/components/inline/InlineEditableField';
+import { isInputElement } from '@/hooks/useKeyboardShortcuts';
 
 interface OutletContext {
   filteredEmployees: Employee[];
@@ -470,6 +471,112 @@ export default function HierarchyView() {
     },
     [updateEmployee],
   );
+
+  /* -- Arrow key navigation ----------------------------------------- */
+
+  /** Build a map of id → TreeNode for quick lookup */
+  const nodeMap = useMemo(() => {
+    const map = new Map<string, TreeNode>();
+    const walk = (nodes: TreeNode[]) => {
+      for (const n of nodes) {
+        map.set(n.employee._id, n);
+        walk(n.children);
+      }
+    };
+    walk(tree);
+    return map;
+  }, [tree]);
+
+  /** Find the parent id of a given employee id in the tree */
+  const parentMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    const walk = (nodes: TreeNode[], parentId: string | null) => {
+      for (const n of nodes) {
+        map.set(n.employee._id, parentId);
+        walk(n.children, n.employee._id);
+      }
+    };
+    walk(tree, null);
+    return map;
+  }, [tree]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Don't intercept when typing in inputs
+      if (isInputElement(e.target)) return;
+
+      const currentId = selectedEmployee?._id ?? null;
+      if (!currentId && !['ArrowDown'].includes(e.key)) return;
+
+      switch (e.key) {
+        case 'ArrowDown': {
+          e.preventDefault();
+          if (!currentId) {
+            // Select the first visible row
+            if (sortableIds.length > 0) {
+              const first = employees.find((emp) => emp._id === sortableIds[0]);
+              if (first) handleSelect(first);
+            }
+          } else {
+            const idx = sortableIds.indexOf(currentId);
+            if (idx >= 0 && idx < sortableIds.length - 1) {
+              const nextId = sortableIds[idx + 1];
+              const next = employees.find((emp) => emp._id === nextId);
+              if (next) handleSelect(next);
+            }
+          }
+          break;
+        }
+        case 'ArrowUp': {
+          e.preventDefault();
+          if (!currentId) break;
+          const idx = sortableIds.indexOf(currentId);
+          if (idx > 0) {
+            const prevId = sortableIds[idx - 1];
+            const prev = employees.find((emp) => emp._id === prevId);
+            if (prev) handleSelect(prev);
+          }
+          break;
+        }
+        case 'ArrowRight': {
+          e.preventDefault();
+          if (!currentId) break;
+          const node = nodeMap.get(currentId);
+          if (node && node.children.length > 0) {
+            if (collapsed.has(currentId)) {
+              // Expand the node
+              handleToggle(currentId);
+            } else {
+              // Move to first child
+              const firstChild = node.children[0];
+              if (firstChild) handleSelect(firstChild.employee);
+            }
+          }
+          break;
+        }
+        case 'ArrowLeft': {
+          e.preventDefault();
+          if (!currentId) break;
+          const node = nodeMap.get(currentId);
+          if (node && node.children.length > 0 && !collapsed.has(currentId)) {
+            // Collapse the node
+            handleToggle(currentId);
+          } else {
+            // Move to parent
+            const parentId = parentMap.get(currentId);
+            if (parentId) {
+              const parent = employees.find((emp) => emp._id === parentId);
+              if (parent) handleSelect(parent);
+            }
+          }
+          break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [selectedEmployee, sortableIds, employees, collapsed, nodeMap, parentMap, handleSelect, handleToggle]);
 
   /* -- render ------------------------------------------------------- */
 

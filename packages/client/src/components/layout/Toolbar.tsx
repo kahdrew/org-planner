@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom';
-import { Plus, Upload, Download, Search, Undo2, Redo2, Users } from 'lucide-react';
+import { Plus, Upload, Download, Search, Undo2, Redo2, Users, Keyboard } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { useSelectionStore } from '@/stores/selectionStore';
 import { exportToCSV, parseCSV } from '@/utils/csv';
@@ -23,6 +23,10 @@ interface ToolbarProps {
   onToggleStatus: (status: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  /** Ref forwarded from AppShell so Cmd+K can focus the search bar */
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
+  /** Callback to open the keyboard shortcuts help dialog */
+  onOpenShortcutsHelp?: () => void;
 }
 
 export default function Toolbar({
@@ -31,6 +35,8 @@ export default function Toolbar({
   onToggleStatus,
   searchQuery,
   onSearchChange,
+  searchInputRef,
+  onOpenShortcutsHelp,
 }: ToolbarProps) {
   const location = useLocation();
   const { employees, currentScenario } = useOrgStore();
@@ -147,11 +153,13 @@ export default function Toolbar({
       <div className="relative">
         <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
+          ref={searchInputRef as React.RefObject<HTMLInputElement>}
           type="text"
-          placeholder="Search by name or title..."
+          placeholder="Search by name or title… (⌘K)"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           className="rounded-md border border-gray-300 py-1.5 pl-8 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          data-testid="search-input"
         />
       </div>
 
@@ -170,6 +178,17 @@ export default function Toolbar({
         <Download size={16} />
         Export CSV
       </button>
+
+      {onOpenShortcutsHelp && (
+        <button
+          onClick={onOpenShortcutsHelp}
+          className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+          title="Keyboard shortcuts (?)"
+          data-testid="shortcuts-help-button"
+        >
+          <Keyboard size={18} />
+        </button>
+      )}
     </div>
   );
 }
