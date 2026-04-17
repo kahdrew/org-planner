@@ -1,7 +1,7 @@
 {
   "milestone": "analytics",
-  "round": 1,
-  "status": "fail",
+  "round": 2,
+  "status": "pass",
   "validatorsRun": {
     "test": {
       "passed": true,
@@ -20,74 +20,19 @@
     }
   },
   "reviewsSummary": {
-    "total": 4,
+    "total": 1,
     "passed": 1,
-    "failed": 3,
-    "failedFeatures": [
-      "timeline-slider",
-      "span-of-control-analytics",
-      "analytics-dashboard"
-    ]
+    "failed": 0,
+    "failedFeatures": []
   },
-  "blockingIssues": [
-    {
-      "featureId": "timeline-slider",
-      "severity": "blocking",
-      "description": "Timeline history reconstruction does not apply scheduled changes at scrub target dates, so sliding past effective dates can show incorrect historical/projected state."
-    },
-    {
-      "featureId": "timeline-slider",
-      "severity": "blocking",
-      "description": "Auto-applied scheduled changes do not emit audit-log entries, causing timeline events/history drift because timeline reconstruction depends on audit logs."
-    },
-    {
-      "featureId": "span-of-control-analytics",
-      "severity": "blocking",
-      "description": "Org-chart span warning badges are computed from live employees instead of the currently rendered timeline/historical dataset, producing incorrect warning flags in timeline mode."
-    },
-    {
-      "featureId": "analytics-dashboard",
-      "severity": "blocking",
-      "description": "Headcount trend can undercount the latest point when employees have future start dates, violating required dashboard consistency with HeadcountSummary/BudgetPanel."
-    }
-  ],
-  "appliedUpdates": [
-    {
-      "target": "library",
-      "description": "Updated .factory/library/architecture.md to reflect current client stores (including overlayStore/exportStore) and active DashboardView route mapping.",
-      "sourceFeature": "data-overlays-heatmaps"
-    },
-    {
-      "target": "library",
-      "description": "Updated .factory/library/environment.md to remove stale Relay-specific details and record org-planner environment facts (project path, env vars, Node/npm, MongoDB Atlas usage).",
-      "sourceFeature": "span-of-control-analytics"
-    }
-  ],
-  "suggestedGuidanceUpdates": [
-    {
-      "target": "AGENTS.md",
-      "suggestion": "Keep 'Known Pre-Existing Issues' synchronized with current baseline validator/test state (or explicitly reference the canonical source) to avoid misleading workers during mandatory validation.",
-      "evidence": "Multiple reviews observed AGENTS.md claiming no known issues while handoffs/transcripts and skill guidance referenced persistent baseline warnings/failures.",
-      "isSystemic": true
-    },
-    {
-      "target": "implementation-worker skill",
-      "suggestion": "Add stricter enforcement language for procedural requirements (TDD order and required agent-browser use for UI features), including explicit reporting expectations when deviations occur.",
-      "evidence": "Timeline, span-of-control, and dashboard reviews found repeated procedure mismatches (missing agent-browser or tests-first order) while handoffs still marked followedProcedure=true.",
-      "isSystemic": true
-    },
-    {
-      "target": "implementation-worker skill",
-      "suggestion": "Clarify validator policy for full-suite (`npm run test`) versus scoped test runs when pre-existing baseline instability exists, and require explicit rationale in handoff.",
-      "evidence": "Data-overlays review observed scoped validation usage despite skill text favoring full-suite execution, creating inconsistent interpretations across workers.",
-      "isSystemic": true
-    }
-  ],
+  "blockingIssues": [],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [],
   "rejectedObservations": [
     {
-      "observation": "Dashboard review's TDD-order observation as a separate item",
-      "reason": "duplicate of systemic implementation-worker procedure adherence issue already captured."
+      "observation": "Implementation-worker skill strictness concern from fix-analytics-scrutiny review",
+      "reason": "already-documented in prior analytics scrutiny synthesis guidance updates."
     }
   ],
-  "previousRound": null
+  "previousRound": ".factory/validation/analytics/scrutiny/synthesis.round1.json"
 }

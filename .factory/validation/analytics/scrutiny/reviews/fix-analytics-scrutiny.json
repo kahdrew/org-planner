@@ -1,0 +1,21 @@
+{
+  "featureId": "fix-analytics-scrutiny",
+  "reviewedAt": "2026-04-17T18:13:20Z",
+  "commitId": "6b0eaac",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Reviewed the fix commit plus prior failed reviews/diffs for timeline-slider, span-of-control-analytics, and analytics-dashboard. The fix correctly addresses all four prior blocking issues: history projection now applies pending scheduled changes by scrub date, scheduled-change auto-apply writes audit entries, EmployeeCard span badges use the rendered chart dataset, and the latest dashboard headcount point now aligns with roster/HeadcountSummary semantics.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The implementation-worker skill still prescribes mandatory agent-browser usage for any UI change, but this fix run intentionally relied on targeted automated tests for narrow regressions and marked the procedure as not followed.",
+      "evidence": ".factory/skills/implementation-worker/SKILL.md ('MUST be invoked for any feature that changes UI behavior') vs handoff 2026-04-17T18-08-58-572Z__fix-analytics-scrutiny__b2a223b6-1a52-4c9f-bbc7-ed6db65284a7.json (skillFeedback.deviations step '5. Manual Verification with agent-browser')."
+    }
+  ],
+  "addressesFailureFrom": ".factory/validation/analytics/scrutiny/synthesis.json",
+  "summary": "PASS: fix-analytics-scrutiny commit 6b0eaac adequately resolves the prior blocking findings from timeline-slider, span-of-control-analytics, and analytics-dashboard with appropriate production changes and regression coverage."
+}
