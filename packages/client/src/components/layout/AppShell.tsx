@@ -6,9 +6,12 @@ import HeadcountSummary from '@/components/panels/HeadcountSummary';
 import EmployeeDetailPanel from '@/components/panels/EmployeeDetailPanel';
 import BudgetPanel from '@/components/panels/BudgetPanel';
 import { useOrgStore } from '@/stores/orgStore';
+import { useUndoRedoStore } from '@/stores/undoRedoStore';
 
 export default function AppShell() {
   const { currentOrg, currentScenario, employees, selectedEmployee, selectEmployee, fetchOrgs, fetchScenarios, fetchEmployees } = useOrgStore();
+
+  const setActiveScenario = useUndoRedoStore((s) => s.setActiveScenario);
 
   const [statusFilters, setStatusFilters] = useState<string[]>(['Active', 'Planned', 'Open Req', 'Backfill']);
   const [searchQuery, setSearchQuery] = useState('');
@@ -28,8 +31,11 @@ export default function AppShell() {
   useEffect(() => {
     if (currentScenario) {
       fetchEmployees(currentScenario._id);
+      setActiveScenario(currentScenario._id);
+    } else {
+      setActiveScenario(null);
     }
-  }, [currentScenario, fetchEmployees]);
+  }, [currentScenario, fetchEmployees, setActiveScenario]);
 
   const handleToggleStatus = (status: string) => {
     setStatusFilters((prev) =>

@@ -1,10 +1,10 @@
-import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Plus, Upload, Download, Search } from 'lucide-react';
+import { Plus, Upload, Download, Search, Undo2, Redo2 } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { exportToCSV, parseCSV } from '@/utils/csv';
 import { cn } from '@/utils/cn';
 import * as employeesApi from '@/api/employees';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
 
 const STATUS_OPTIONS = ['Active', 'Planned', 'Open Req', 'Backfill'] as const;
 
@@ -34,6 +34,7 @@ export default function Toolbar({
   const location = useLocation();
   const { employees, currentScenario } = useOrgStore();
   const viewName = viewNames[location.pathname] ?? 'Org Chart';
+  const { handleUndo, handleRedo, canUndo, canRedo } = useUndoRedo();
 
   const handleExport = () => {
     exportToCSV(employees, `org-planner-${currentScenario?.name ?? 'export'}.csv`);
@@ -71,6 +72,40 @@ export default function Toolbar({
         <Plus size={16} />
         Add Employee
       </button>
+
+      <div className="mx-2 h-6 w-px bg-gray-200" />
+
+      {/* Undo / Redo buttons */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={handleUndo}
+          disabled={!canUndo()}
+          title="Undo (⌘Z)"
+          data-testid="undo-button"
+          className={cn(
+            'rounded-md p-1.5 transition-colors',
+            canUndo()
+              ? 'text-gray-700 hover:bg-gray-100'
+              : 'cursor-not-allowed text-gray-300',
+          )}
+        >
+          <Undo2 size={18} />
+        </button>
+        <button
+          onClick={handleRedo}
+          disabled={!canRedo()}
+          title="Redo (⌘⇧Z)"
+          data-testid="redo-button"
+          className={cn(
+            'rounded-md p-1.5 transition-colors',
+            canRedo()
+              ? 'text-gray-700 hover:bg-gray-100'
+              : 'cursor-not-allowed text-gray-300',
+          )}
+        >
+          <Redo2 size={18} />
+        </button>
+      </div>
 
       <div className="mx-2 h-6 w-px bg-gray-200" />
 
