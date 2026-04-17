@@ -1,0 +1,181 @@
+{
+  "groupId": "planning-budget-b",
+  "testedAt": "2026-04-17T21:14:33.480973+00:00",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001/api",
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
+    "suffix": "planning-budget-b",
+    "users": {
+      "owner": "testuser-planning-budget-b-20260417-135641@orgplanner.test",
+      "submitter": "submitter-planning-budget-b-20260417-135641@orgplanner.test"
+    },
+    "org": "Org planning-budget-b 20260417-135641",
+    "scenario": "Scenario planning-budget-b 20260417-135641"
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-BUDGET-006",
+      "title": "Moving employee between departments updates both budgets",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Move 'MoveMe planning-budget-b' department Engineering -> Sales and inspect Budget panel",
+          "expected": "Engineering spend/headcount decrease and Sales increase without refresh",
+          "observed": "After move, employee card department changed to Sales and Budget panel reflected Engineering/Sales redistribution; undo/redo toggled the before/after budget states"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-budget-b/VAL-BUDGET-006-before-move-vs-actual.png",
+          "planning/planning-budget-b/VAL-BUDGET-006-after-move-vs-actual.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e29f74bc5703b857f52e8f observed for department update"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BUDGET-007",
+      "title": "Budget vs actual dashboard with utilization",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Open Budget -> vs Actual",
+          "expected": "Per-department envelope, committed spend, planned spend, remaining budget, utilization% columns",
+          "observed": "View showed budget-vs-actual chart and per-department spend/utilization cards (e.g., '$50,000 / $300,000', On track/Over budget) but no explicit committed-spend vs planned-spend vs remaining-budget column set"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-budget-b/VAL-BUDGET-007-vs-actual-dashboard.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/69e29e96bc5703b857f52d4c/budgets observed repeatedly"
+      },
+      "issues": "Required per-department committed/planned/remaining column breakdown was not present in the rendered vs Actual UI."
+    },
+    {
+      "id": "VAL-BUDGET-008",
+      "title": "Cost projection chart",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open Budget -> Projection with planned future-start employee present",
+          "expected": "12-month projection includes future-start impact in later months",
+          "observed": "Projection rendered with '12-Month Cost Projection'; current run-rate was $495,000 and year-end projected was $555,000, indicating planned future-start costs layered into forward months"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-budget-b/VAL-BUDGET-008-projection-chart.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/69e29e96bc5703b857f52d4c/budgets observed while rendering projection"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BUDGET-009",
+      "title": "Budget alerts at threshold and exceeded",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Set Marketing to a 90% state and inspect Budget panel",
+          "expected": "Threshold warning shown",
+          "observed": "Marketing displayed '>80% used' with Used % = 90.0 and remaining $10,000"
+        },
+        {
+          "action": "Return Marketing to over-budget state and inspect Budget panel",
+          "expected": "Over-budget red alert with overage",
+          "observed": "Marketing displayed 'Over budget' with Used % = 110.0 and negative remaining budget"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-budget-b/VAL-BUDGET-009-threshold-90.png",
+          "planning/planning-budget-b/VAL-BUDGET-009-exceeded-alert.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/scenarios/69e29e96bc5703b857f52d4c/budgets observed during threshold/exceeded checks"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BUDGET-011",
+      "title": "Approved request updates budget; rejected does not",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Create owner approval chain, submit 2 Engineering requests from invited submitter, approve one and reject one as owner",
+          "expected": "Approved request increases budget; rejected request leaves budget unchanged",
+          "observed": "Queue moved to Approved(1)/Rejected(1); total salary cost moved from $655,000 pre-actions to $705,000 post-actions (+$50,000), matching only the approved request amount while the rejected $40,000 request did not add extra budget impact"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-budget-b/VAL-BUDGET-011-owner-queue-before-actions.png",
+          "planning/planning-budget-b/VAL-BUDGET-011-after-approve-confirmed.png",
+          "planning/planning-budget-b/VAL-BUDGET-011-after-reject-confirmed.png",
+          "planning/planning-budget-b/VAL-BUDGET-011-budget-after-approve-reject.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/headcount-requests/69e2a154bc5703b857f5306a/approve and POST /api/headcount-requests/69e2a15dbc5703b857f53070/reject observed"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-019",
+      "title": "Employee deletion cascades manager references",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Delete manager 'Mgr planning-budget-b' (3 direct reports) and verify hierarchy + downstream references",
+          "expected": "Reports reassigned/top-level, deleted manager absent from manager selectors, Spreadsheet manager field updated",
+          "observed": "Hierarchy no longer showed the manager and reports were displayed as top-level, but post-delete API validation showed all three reports retained the deleted managerId reference; Spreadsheet view did not expose a manager column in this configuration, and Add Employee manager selector was unavailable because Add Employee is disabled when approval chains are active"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-budget-b/VAL-CROSS-019-hierarchy-before-delete.png",
+          "planning/planning-budget-b/VAL-CROSS-019-hierarchy-after-delete.png",
+          "planning/planning-budget-b/VAL-CROSS-019-spreadsheet-after-delete.png"
+        ],
+        "consoleErrors": "none",
+        "network": "DELETE /api/employees/69e29f1cbc5703b857f52e3a -> 200; follow-up employee fetch showed reports still carrying managerId 69e29f1cbc5703b857f52e3a"
+      },
+      "issues": "Cascade was incomplete: report managerId references remained pointed at the deleted manager ID instead of being reassigned/cleared."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Approval queue action buttons for actionable rows are icon-only (no visible text/aria label), making automation mapping ambiguous.",
+      "resolved": true,
+      "resolution": "Inspected DOM button classes in-session to map green=approve and red=reject before executing actions.",
+      "affectedAssertions": [
+        "VAL-BUDGET-011"
+      ]
+    },
+    {
+      "description": "When approval chains are enabled, Add Employee is disabled in UI, limiting direct access to manager-selector validation paths.",
+      "resolved": false,
+      "resolution": "Used alternate surfaces (Hierarchy/Spreadsheet) and API confirmation for cascade-state verification.",
+      "affectedAssertions": [
+        "VAL-CROSS-019"
+      ]
+    },
+    {
+      "description": "Manager delete control was not reliably accessible from inline-edit surfaces in this run.",
+      "resolved": true,
+      "resolution": "Used authenticated in-session API delete for the target manager, then validated effects via UI views.",
+      "affectedAssertions": [
+        "VAL-CROSS-019"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 6 assertions: 4 passed (VAL-BUDGET-006/008/009/011) and 2 failed (VAL-BUDGET-007, VAL-CROSS-019)."
+}

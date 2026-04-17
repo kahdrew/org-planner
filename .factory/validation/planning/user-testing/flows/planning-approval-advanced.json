@@ -1,0 +1,209 @@
+{
+  "groupId": "planning-approval-advanced",
+  "testedAt": "2026-04-17T21:09:36.544880+00:00",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001/api",
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
+    "dataSuffix": "planning-approval-advanced-1776459500",
+    "orgA": "Org planning-approval-advanced-1776459500 A",
+    "orgB": "Org planning-approval-advanced-1776459500 B",
+    "scenarioA": "Scenario planning-approval-advanced-1776459500 A1",
+    "scenarioB": "Scenario planning-approval-advanced-1776459500 B1",
+    "users": {
+      "owner": "owner-planning-approval-advanced-1776459500@orgplanner.test",
+      "manager": "manager-planning-approval-advanced-1776459500@orgplanner.test",
+      "vp": "vp-planning-approval-advanced-1776459500@orgplanner.test",
+      "finance": "finance-planning-approval-advanced-1776459500@orgplanner.test",
+      "chro": "chro-planning-approval-advanced-1776459500@orgplanner.test"
+    }
+  },
+  "toolsUsed": [
+    "agent-browser",
+    "python3"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-APPROVAL-008",
+      "title": "Reject action terminates chain with reason",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "As VP approver, reject `VAL-APPROVAL-008 planning-approval-advanced` with reason \"Budget constraints.\"",
+          "expected": "Status becomes Rejected and chain terminates.",
+          "observed": "Request moved to Rejected; audit captured reject comment; no further step advancement."
+        },
+        {
+          "action": "Check submitter (manager) notification after rejection.",
+          "expected": "Submitter is explicitly notified.",
+          "observed": "Submitter can see rejected status only by opening Approvals; no dedicated notification bell/event was shown."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-approval-advanced/VAL-APPROVAL-008-rejected-in-vp-queue.png",
+          "planning/planning-approval-advanced/VAL-APPROVAL-008-rejected-status-tab.png",
+          "planning/planning-approval-advanced/VAL-APPROVAL-008-manager-rejected-visible-no-notification.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/headcount-requests/:id/reject executed; GET /api/orgs/:orgId/headcount-requests confirmed status=rejected with comment \"Budget constraints.\"."
+      },
+      "issues": "Rejection flow works, but required submitter notification UX was not observed."
+    },
+    {
+      "id": "VAL-APPROVAL-009",
+      "title": "Request changes returns to submitter",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "As VP approver, click Request Changes on `VAL-APPROVAL-009 planning-approval-advanced` with a comment.",
+          "expected": "Status changes to Changes Requested and returns to submitter for edits.",
+          "observed": "Status changed to Changes Requested with comment in audit."
+        },
+        {
+          "action": "As manager submitter, attempt to edit and resubmit the request.",
+          "expected": "Submitter can edit and resubmit, restarting chain from step 1.",
+          "observed": "Submitter view shows only View/details; no edit+resubmit control was available."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-approval-advanced/VAL-APPROVAL-009-changes-requested-tab.png",
+          "planning/planning-approval-advanced/VAL-APPROVAL-009-manager-changes-requested-no-resubmit.png",
+          "planning/planning-approval-advanced/VAL-APPROVAL-009-detail-no-resubmit-action.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/headcount-requests/:id/request-changes executed; GET /api/orgs/:orgId/headcount-requests confirmed status=changes_requested."
+      },
+      "issues": "Resubmit/edit UX for submitter after changes requested is missing."
+    },
+    {
+      "id": "VAL-APPROVAL-010",
+      "title": "Notifications for approval events",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Approve `VAL-APPROVAL-010-012 planning-approval-advanced` as VP.",
+          "expected": "Next approver receives notification.",
+          "observed": "Finance account showed pending Approvals badge (count increased), indicating next-step visibility."
+        },
+        {
+          "action": "Check submitter notification UI for approval/rejection/changes events.",
+          "expected": "Submitter receives explicit event notifications with badge updates in real time.",
+          "observed": "No notification bell/event feed was visible for submitter; status changes were only visible inside Approvals views."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-approval-advanced/VAL-APPROVAL-010-after-vp-approval.png",
+          "planning/planning-approval-advanced/VAL-APPROVAL-010-finance-receives-pending-badge.png",
+          "planning/planning-approval-advanced/VAL-APPROVAL-010-manager-no-notification-bell-or-badge.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/headcount-requests/:id/approve advanced the request to finance step; no separate in-app notification endpoint/center surfaced in UI."
+      },
+      "issues": "Event-specific notification UX (bell/feed + submitter notifications) was not present."
+    },
+    {
+      "id": "VAL-APPROVAL-011",
+      "title": "Bulk approve and reject multiple requests",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Select 5 pending `BulkApprove-*` requests and click Approve Selected.",
+          "expected": "All 5 requests advance.",
+          "observed": "All five advanced one step (audit includes approve action; status remained pending at next step)."
+        },
+        {
+          "action": "Select 3 pending `BulkReject-*` requests and click Reject Selected with shared reason.",
+          "expected": "All 3 requests rejected with same reason in audit trail.",
+          "observed": "All three moved to Rejected; API verification confirmed identical reject comment on each request."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-approval-advanced/VAL-APPROVAL-011-five-selected-bulk-approve.png",
+          "planning/planning-approval-advanced/VAL-APPROVAL-011-after-bulk-approve.png",
+          "planning/planning-approval-advanced/VAL-APPROVAL-011-three-selected-bulk-reject.png",
+          "planning/planning-approval-advanced/VAL-APPROVAL-011-after-bulk-reject-tab.png",
+          "planning/planning-approval-advanced/VAL-APPROVAL-011-bulk-reject-audit-comment.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/headcount-requests/bulk-approve and POST /api/headcount-requests/bulk-reject executed; GET /api/orgs/:orgId/headcount-requests verified 5 advanced + 3 rejected with shared reason."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-APPROVAL-012",
+      "title": "Full audit trail on completed request",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Approve `VAL-APPROVAL-010-012 planning-approval-advanced` through VP -> Finance -> CHRO.",
+          "expected": "Completed request has full chronological trail including actors, actions, comments, and status transitions.",
+          "observed": "Completed request shows chronological actions with timestamps/comments and approved status."
+        },
+        {
+          "action": "Inspect detail audit trail content.",
+          "expected": "Trail includes who performed each step and edit history details.",
+          "observed": "UI trail did not surface actor identity (who) or explicit edit-history entries."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-approval-advanced/VAL-APPROVAL-012-after-finance-approval.png",
+          "planning/planning-approval-advanced/VAL-APPROVAL-012-after-chro-final-approval.png",
+          "planning/planning-approval-advanced/VAL-APPROVAL-012-approved-tab.png",
+          "planning/planning-approval-advanced/VAL-APPROVAL-012-audit-trail-detail.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/headcount-requests/:id/approve executed at VP/Finance/CHRO steps; GET /api/orgs/:orgId/headcount-requests shows audit actions [submit, approve, approve, approve]."
+      },
+      "issues": "Audit UI is chronological but incomplete versus contract (missing explicit actor identity and edit-history detail)."
+    },
+    {
+      "id": "VAL-CROSS-018",
+      "title": "Switching org/scenario resets dependent state",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "In Org A, select an employee (detail panel open), open Compare view, and set Scenario A1/A2 selectors.",
+          "expected": "Org A state active with selected employee and compare selectors set.",
+          "observed": "Selected employee detail panel remained open; Compare selectors set to Org A scenarios."
+        },
+        {
+          "action": "Switch org dropdown from Org A to Org B.",
+          "expected": "Scenario dropdown reloads Org B scenarios, employee selection clears, compare selectors reset, and employee data updates.",
+          "observed": "Sidebar scenario dropdown switched to Org B scenarios (B1/B2), Compare selectors reset to Select scenario, detail panel closed, and Org B employee data rendered on Org Chart."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-approval-advanced/VAL-CROSS-018-before-org-switch-compare-selected-employee-open.png",
+          "planning/planning-approval-advanced/VAL-CROSS-018-after-org-switch-state-reset.png",
+          "planning/planning-approval-advanced/VAL-CROSS-018-orgB-employee-list-updated.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Org switch triggered scenario/employee reload requests and UI state reset (org selector, scenario selector, compare selectors)."
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "agent-browser refs became stale after navigation/dialog submit actions, causing intermittent click timeouts.",
+      "resolved": true,
+      "resolution": "Re-ran `snapshot -i` before each post-navigation/post-submit interaction and retried with refreshed refs.",
+      "affectedAssertions": [
+        "VAL-APPROVAL-008",
+        "VAL-APPROVAL-009",
+        "VAL-APPROVAL-010",
+        "VAL-APPROVAL-011",
+        "VAL-APPROVAL-012",
+        "VAL-CROSS-018"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 6 assertions: 2 passed (VAL-APPROVAL-011, VAL-CROSS-018) and 4 failed (VAL-APPROVAL-008, VAL-APPROVAL-009, VAL-APPROVAL-010, VAL-APPROVAL-012). Primary gaps were notification UX, submitter resubmit flow, and missing actor/edit-history detail in audit UI."
+}

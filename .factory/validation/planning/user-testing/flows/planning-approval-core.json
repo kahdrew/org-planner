@@ -1,0 +1,247 @@
+{
+  "groupId": "planning-approval-core",
+  "testedAt": "2026-04-17T20:54:04.644605+00:00",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001/api",
+    "dataSuffix": "planning-approval-core",
+    "orgName": "Org planning-approval-core planning-approval-core-1776458570",
+    "scenarioName": "Scenario planning-approval-core planning-approval-core-1776458570",
+    "users": {
+      "owner": "owner-planning-approval-core-1776458570@orgplanner.test",
+      "manager": "manager-planning-approval-core-1776458570@orgplanner.test",
+      "vp": "vp-planning-approval-core-1776458570@orgplanner.test",
+      "finance": "finance-planning-approval-core-1776458570@orgplanner.test",
+      "chro": "chro-planning-approval-core-1776458570@orgplanner.test"
+    }
+  },
+  "toolsUsed": [
+    "agent-browser",
+    "python3"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-APPROVAL-001",
+      "title": "Submit new hire request",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Login as manager and open Request Hire dialog in Approvals.",
+          "expected": "Manager can fill role/department/level/salary/justification fields.",
+          "observed": "Dialog opened with required fields and accepted manager input."
+        },
+        {
+          "action": "Submit request.",
+          "expected": "Request appears in approval queue with Pending Approval status.",
+          "observed": "Row `VAL-APPROVAL-001 planning-approval-core` appeared with status `Pending` and step `1 / 3`."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-approval-core/VAL-APPROVAL-001-submit-form.png",
+          "planning/planning-approval-core/VAL-APPROVAL-001-queue-pending.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e29b4cbc5703b857f52aca/headcount-requests observed after submit."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-APPROVAL-002",
+      "title": "Submit compensation change request",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Attempt to submit compensation change from UI (request surfaces + employee panel).",
+          "expected": "Manager can submit salary change 130K -> 155K with justification.",
+          "observed": "UI only exposed generic `Request Hire` flow and employee `Save Changes`; no compensation-change submission entry point found."
+        },
+        {
+          "action": "Check for delta display in queue/form.",
+          "expected": "Request shows delta (+$25K).",
+          "observed": "No compensation-change request/delta UI was available."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-approval-core/VAL-APPROVAL-002-no-comp-change-ui.png",
+          "planning/planning-approval-core/VAL-APPROVAL-002-employee-panel-no-comp-request.png",
+          "planning/planning-approval-core/VAL-APPROVAL-002-no-comp-change-action.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No UI request path observed for comp_change submission."
+      },
+      "issues": "Compensation-change submission UX (and delta rendering) is missing from tested UI path."
+    },
+    {
+      "id": "VAL-APPROVAL-003",
+      "title": "Request includes budget impact summary",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Inspect submitter Request Hire budget-impact section.",
+          "expected": "Current spend, projected spend, remaining budget, utilization %. ",
+          "observed": "Only `Projected total cost` and `Routed to approval chain` displayed."
+        },
+        {
+          "action": "Inspect approver request details.",
+          "expected": "Same budget impact summary visible to approver.",
+          "observed": "Approver detail showed projected cost/salary/equity only; required summary fields absent."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-approval-core/VAL-APPROVAL-003-submitter-budget-impact.png",
+          "planning/planning-approval-core/VAL-APPROVAL-003-approver-budget-impact.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Standard headcount request list/load requests observed; no UI evidence of required budget summary payload surfaced."
+      },
+      "issues": "Required budget impact metrics are not rendered on submitter or approver surfaces."
+    },
+    {
+      "id": "VAL-APPROVAL-004",
+      "title": "Linear approval chain progression",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Submit high-cost request configured to Finance 4-step chain.",
+          "expected": "Starts at Manager step.",
+          "observed": "Request showed `1 / 4`, awaiting Manager."
+        },
+        {
+          "action": "Approve sequentially as Manager -> VP -> Finance -> CHRO.",
+          "expected": "Request advances one step each approval with completed-step indicators.",
+          "observed": "Progress moved `1/4 -> 2/4 -> 3/4 -> 4/4`, then status became `Approved`; audit trail logged all approvals."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-approval-core/VAL-APPROVAL-004-stage0-manager-pending.png",
+          "planning/planning-approval-core/VAL-APPROVAL-004-stage1-vp-pending.png",
+          "planning/planning-approval-core/VAL-APPROVAL-004-stage2-finance-pending.png",
+          "planning/planning-approval-core/VAL-APPROVAL-004-stage3-chro-pending.png",
+          "planning/planning-approval-core/VAL-APPROVAL-004-stage4-chro-pending-detail.png",
+          "planning/planning-approval-core/VAL-APPROVAL-004-final-approved.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/headcount-requests/69e29c6cbc5703b857f52c02/approve observed for step advancements."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-APPROVAL-005",
+      "title": "Approver sees only their pending items",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Open VP Approvals dashboard while queue contains manager-pending, VP-pending, and finance-pending requests.",
+          "expected": "VP sees only VP-pending requests.",
+          "observed": "VP view displayed manager-pending rows (`1 / 3`, View), VP-pending row (`2 / 3` actionable), and finance-pending row (`3 / 4`, View)."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-approval-core/VAL-APPROVAL-005-vp-dashboard-before.png",
+          "planning/planning-approval-core/VAL-APPROVAL-005-vp-dashboard-mixed-stages.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/orgs/69e29b4cbc5703b857f52ac7/headcount-requests and /pending calls observed in VP session."
+      },
+      "issues": "Dashboard surfaces non-VP-pending items, contrary to assertion requirement."
+    },
+    {
+      "id": "VAL-APPROVAL-006",
+      "title": "Conditional routing based on cost and level",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Submit low-cost IC request (<$200K).",
+          "expected": "Finance step skipped (3-step chain).",
+          "observed": "Routed to `Standard 3-step planning-approval-core` (Manager -> VP -> CHRO)."
+        },
+        {
+          "action": "Submit high-cost request (>$200K).",
+          "expected": "Finance step included (4-step chain).",
+          "observed": "Routed to `Finance 4-step planning-approval-core` (Manager -> VP -> Finance -> CHRO)."
+        },
+        {
+          "action": "Submit Director-level low-cost request.",
+          "expected": "Director-level includes CHRO even below cost threshold.",
+          "observed": "Routed to `Director 3-step planning-approval-core` with CHRO included."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-approval-core/VAL-APPROVAL-006-lowcost-routing.png",
+          "planning/planning-approval-core/VAL-APPROVAL-006-highcost-routing.png",
+          "planning/planning-approval-core/VAL-APPROVAL-006-director-routing.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e29b4cbc5703b857f52aca/headcount-requests observed for each route case; resulting chain IDs mapped to 3-step/4-step configurations."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-APPROVAL-007",
+      "title": "Approve action advances request",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "As Manager, approve high-cost request from queue.",
+          "expected": "Request advances to next step and leaves manager actionable queue.",
+          "observed": "Request moved to `2 / 4` and changed to `View` for manager."
+        },
+        {
+          "action": "Open VP queue.",
+          "expected": "Next approver sees request pending in their queue.",
+          "observed": "VP queue showed the request at VP step and actionable controls."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-approval-core/VAL-APPROVAL-007-manager-queue-before.png",
+          "planning/planning-approval-core/VAL-APPROVAL-007-manager-after-approving-highcost.png",
+          "planning/planning-approval-core/VAL-APPROVAL-005-vp-dashboard-before.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/headcount-requests/69e29c6cbc5703b857f52c02/approve observed; subsequent queue GETs reflected next-step assignment."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-APPROVAL-013",
+      "title": "Self-approval prevention",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "View manager-submitted pending requests as manager.",
+          "expected": "Disabled `Approve` button with tooltip `You cannot approve your own request.`",
+          "observed": "Rows displayed `View` action only; expected disabled Approve+tooltip UI was not present."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-approval-core/VAL-APPROVAL-013-self-approval-ui.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No own-request approve action available from UI; own rows were non-actionable `View` only."
+      },
+      "issues": "Self-approval is blocked functionally, but required disabled-button tooltip UX is not implemented as specified."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "agent-browser element refs became stale after auth/navigation transitions, causing intermittent click timeouts.",
+      "resolved": true,
+      "resolution": "Re-ran `snapshot -i` before each post-navigation interaction and retried with refreshed refs.",
+      "affectedAssertions": [
+        "VAL-APPROVAL-004",
+        "VAL-APPROVAL-005",
+        "VAL-APPROVAL-007"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 8 assertions: 4 passed (VAL-APPROVAL-001, 004, 006, 007) and 4 failed (VAL-APPROVAL-002, 003, 005, 013). Main failures were missing comp-change submission UX, incomplete budget-impact UI, VP queue visibility scope, and missing self-approval tooltip UX."
+}

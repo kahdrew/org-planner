@@ -1,0 +1,239 @@
+{
+  "groupId": "planning-budget-a",
+  "testedAt": "2026-04-17T20:50:47.192282+00:00",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001/api",
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
+    "suffix": "planning-budget-a",
+    "testUser": {
+      "email": "testuser-planning-budget-a-20260417-001@orgplanner.test",
+      "name": "Test User planning-budget-a"
+    },
+    "org": "Org planning-budget-a",
+    "scenario": "Scenario planning-budget-a"
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-BUDGET-001",
+      "title": "Create department budget envelope",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open Budget panel and create Engineering envelope with $1,000,000 and headcount cap 5",
+          "expected": "Envelope is created with configured values",
+          "observed": "Engineering envelope created; org-wide overview updated to 1 department"
+        },
+        {
+          "action": "Reload app and reopen Budget panel",
+          "expected": "Saved budget values persist after reload",
+          "observed": "Engineering spend cap/headcount cap persisted after reload"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-budget-a/VAL-BUDGET-001-envelope-saved-before-reload.png",
+          "planning/planning-budget-a/VAL-BUDGET-001-envelope-persists-after-reload.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/:scenarioId/budgets -> 201; GET /api/scenarios/:scenarioId/budgets -> 200 after reload"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BUDGET-002",
+      "title": "Multiple department envelopes aggregate correctly",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Add Product ($600,000 / 3) and Sales ($400,000 / 2) envelopes",
+          "expected": "Org-level summary aggregates all department envelopes",
+          "observed": "Org-wide total budget became $2,000,000 (1,000,000 + 600,000 + 400,000) with headcount 0/10"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-budget-a/VAL-BUDGET-002-multi-envelope-aggregate.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/:scenarioId/budgets (multiple) -> 201; aggregated totals rendered in Budget panel"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BUDGET-003",
+      "title": "Manager submits hire request with budget impact preview",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Fill in-budget Engineering hire request and inspect Budget Impact section",
+          "expected": "Preview shows current spend, projected spend, and utilization %",
+          "observed": "Budget Impact showed only 'Projected total cost: $100,000' plus chain routing; required current/projection/utilization breakdown was missing"
+        },
+        {
+          "action": "Submit request",
+          "expected": "Request submitted successfully",
+          "observed": "Submission succeeded and request appeared in Pending queue"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-budget-a/VAL-BUDGET-003-in-budget-preview-with-chain.png",
+          "planning/planning-budget-a/VAL-BUDGET-003-request-submitted-success.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/:scenarioId/headcount-requests -> 201"
+      },
+      "issues": "Budget impact preview is incomplete vs contract requirements (missing current spend / projected spend / utilization%)."
+    },
+    {
+      "id": "VAL-BUDGET-004",
+      "title": "Over-budget and over-headcount hire requests are flagged",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Create HR envelope with budget $50,000 and headcount cap 0, then draft HR request for $100,000",
+          "expected": "Over-budget and over-headcount warnings are shown",
+          "observed": "No over-budget or over-headcount warning text appeared in request form"
+        },
+        {
+          "action": "Submit over-limit request",
+          "expected": "Request can be submitted but flagged",
+          "observed": "Request submitted, but queue showed standard pending entry with no over-limit flag indicator"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-budget-a/hr-envelope-for-overage-tests.png",
+          "planning/planning-budget-a/VAL-BUDGET-004-over-limit-preview.png",
+          "planning/planning-budget-a/VAL-BUDGET-004-over-limit-submitted-no-warning.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/:scenarioId/headcount-requests -> 201 for over-limit request"
+      },
+      "issues": "Expected over-budget/over-headcount warnings and flagging were not present."
+    },
+    {
+      "id": "VAL-BUDGET-005",
+      "title": "Employee CRUD updates budget in real time",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Create employee (salary $150,000, equity $50,000)",
+          "expected": "BudgetPanel headcount and comp increase without refresh",
+          "observed": "Actual Spend/Actual comp increased to $200,000 and headcount to 1"
+        },
+        {
+          "action": "Edit salary to $180,000",
+          "expected": "BudgetPanel comp updates immediately",
+          "observed": "Actual Spend/Actual comp updated to $230,000 immediately"
+        },
+        {
+          "action": "Delete employee",
+          "expected": "BudgetPanel headcount and comp decrease without refresh",
+          "observed": "BudgetPanel returned to headcount 0 and Actual Spend $0"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-budget-a/VAL-BUDGET-005-after-add-budget-panel.png",
+          "planning/planning-budget-a/VAL-BUDGET-005-after-salary-edit.png",
+          "planning/planning-budget-a/VAL-BUDGET-005-delete-decrease-verified.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/:scenarioId/employees -> 201; PATCH /api/employees/:id -> 200; DELETE /api/employees/:id -> 200; GET /api/scenarios/:scenarioId/budgets refreshed in-session"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-BUDGET-010",
+      "title": "Budget includes salary + equity components",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Create employee with salary $150,000 and equity $50,000",
+          "expected": "BudgetPanel totals use combined compensation ($200,000)",
+          "observed": "Budget panel showed Actual Spend/Actual comp = $200,000 and employee card displayed salary + equity"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-budget-a/VAL-BUDGET-010-salary-equity-total.png",
+          "planning/planning-budget-a/VAL-BUDGET-005-after-add-budget-panel.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/:scenarioId/employees -> 201; GET /api/scenarios/:scenarioId/budgets -> 200"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-017",
+      "title": "Employee edit propagates to all dependent surfaces",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Seed one employee in Engineering (isolated scenario), open DetailPanel, change department to Product, save",
+          "expected": "OrgChart node updates and dependent surfaces refresh",
+          "observed": "OrgChart node department changed Engineering -> Product immediately after save"
+        },
+        {
+          "action": "Inspect summary + budget surfaces in same session",
+          "expected": "HeadcountSummary remains consistent and BudgetPanel department breakdown shifts from Engineering to Product",
+          "observed": "HeadcountSummary stayed consistent at Total=1; BudgetPanel shifted spend/headcount from Engineering to Product (Engineering $0/0, Product $140,000/1)"
+        },
+        {
+          "action": "Open Kanban view",
+          "expected": "Card appears in updated department column",
+          "observed": "Kanban grouped by Department showed employee card under Product"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "planning/planning-budget-a/VAL-CROSS-017-before-edit-orgchart-budget.png",
+          "planning/planning-budget-a/VAL-CROSS-017-detail-panel-before-dept-change.png",
+          "planning/planning-budget-a/VAL-CROSS-017-after-dept-change-orgchart-budget.png",
+          "planning/planning-budget-a/VAL-CROSS-017-kanban-after-dept-change.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/:id -> 200; GET /api/scenarios/:scenarioId/budgets -> 200; Kanban/OrgChart reflected updated department without page reload"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Organization/scenario creation uses native prompt dialogs and was non-deterministic unless dialog accept was queued before clicking creation buttons.",
+      "resolved": true,
+      "resolution": "Used `agent-browser dialog accept <value>` immediately before clicking New Organization/New Scenario.",
+      "affectedAssertions": [
+        "VAL-BUDGET-001",
+        "VAL-BUDGET-002",
+        "VAL-BUDGET-005",
+        "VAL-BUDGET-010",
+        "VAL-CROSS-017"
+      ]
+    },
+    {
+      "description": "Approval chain 'Save Chain' stayed disabled until the approver chip was explicitly toggled in the chain step.",
+      "resolved": true,
+      "resolution": "Configured chain, filled required fields, then clicked the approver chip (current user) to enable Save Chain.",
+      "affectedAssertions": [
+        "VAL-BUDGET-003",
+        "VAL-BUDGET-004"
+      ]
+    },
+    {
+      "description": "When approval chains are enabled, Add Employee is disabled in UI by design, requiring request-based flow for normal writes.",
+      "resolved": true,
+      "resolution": "Used authenticated in-session API bootstrap to create isolated test employee for VAL-CROSS-017 setup, then validated behavior via UI.",
+      "affectedAssertions": [
+        "VAL-CROSS-017"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 7 assertions: 5 passed, 2 failed. Failing assertions: VAL-BUDGET-003 (incomplete budget impact preview fields) and VAL-BUDGET-004 (missing over-budget/headcount warnings and flagging behavior)."
+}
