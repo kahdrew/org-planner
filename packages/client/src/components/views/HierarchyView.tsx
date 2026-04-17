@@ -441,6 +441,8 @@ export default function HierarchyView() {
   const handleSelect = useCallback((employee: Employee) => {
     useOrgStore.setState({ selectedEmployee: employee });
     clearSelection();
+    // Set lastClickedId so it serves as the anchor for subsequent Shift+Click range selection
+    useSelectionStore.setState({ lastClickedId: employee._id });
   }, [clearSelection]);
 
   const handleMultiSelect = useCallback(

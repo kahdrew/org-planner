@@ -249,6 +249,10 @@ export default function SpreadsheetView() {
         rangeSelect(event.data._id, orderedIds);
       } else if (isModKey) {
         toggleSelect(event.data._id);
+      } else {
+        // Plain click: set the anchor for future Shift+Click range selection
+        useSelectionStore.getState().clearSelection();
+        useSelectionStore.setState({ lastClickedId: event.data._id });
       }
     },
     [orderedIds, toggleSelect, rangeSelect],

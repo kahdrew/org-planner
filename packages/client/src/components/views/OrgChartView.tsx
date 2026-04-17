@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   ReactFlow,
@@ -10,6 +10,8 @@ import {
   useEdgesState,
   type Node,
   type NodeTypes,
+  type OnSelectionChangeFunc,
+  SelectionMode,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -34,7 +36,10 @@ const nodeTypes: NodeTypes = {
 export default function OrgChartView() {
   const { filteredEmployees } = useOutletContext<OutletContext>();
   const moveEmployee = useOrgStore((s) => s.moveEmployee);
-  const { selectedIds, toggleSelect, clearSelection } = useSelectionStore();
+  const { selectedIds, toggleSelect, clearSelection, selectAll } = useSelectionStore();
+
+  // Track whether we are programmatically updating React Flow selection to avoid loops
+  const isSyncingFromStore = useRef(false);
 
   // Compute layout from filtered employees
   const { nodes: layoutNodes, edges: layoutEdges } = useTreeLayout(filteredEmployees);
@@ -54,8 +59,13 @@ export default function OrgChartView() {
 
   // Sync layout when employees or selection change
   useEffect(() => {
+    isSyncingFromStore.current = true;
     setNodes(nodesWithSelection);
     setEdges(layoutEdges);
+    // Reset the flag after React Flow processes the update
+    requestAnimationFrame(() => {
+      isSyncingFromStore.current = false;
+    });
   }, [nodesWithSelection, layoutEdges, setNodes, setEdges]);
 
   // Handle node clicks for multi-select
@@ -71,16 +81,35 @@ export default function OrgChartView() {
       } else {
         // Plain click: select this employee only (and open detail panel)
         useOrgStore.setState({ selectedEmployee: employee });
-        // Don't change multi-selection on plain click — only open panel
+        clearSelection();
+        // Set lastClickedId as anchor for future Shift+Click range selection
+        useSelectionStore.setState({ lastClickedId: employee._id });
       }
     },
-    [toggleSelect],
+    [toggleSelect, clearSelection],
   );
 
   // Click on canvas background clears selection
   const handlePaneClick = useCallback(() => {
     clearSelection();
   }, [clearSelection]);
+
+  // Sync React Flow's built-in selection (lasso/marquee) with our selectionStore
+  const handleSelectionChange: OnSelectionChangeFunc = useCallback(
+    ({ nodes: selectedNodes }) => {
+      // Skip if we're syncing from store → React Flow (avoids infinite loop)
+      if (isSyncingFromStore.current) return;
+
+      const rfSelectedIds = selectedNodes.map((n) => n.id);
+
+      // Only update store when the selection comes from React Flow's box/marquee selection
+      // (not from our own click handlers which already update the store)
+      if (rfSelectedIds.length > 0) {
+        selectAll(rfSelectedIds);
+      }
+    },
+    [selectAll],
+  );
 
   // Drag-to-reparent: detect when a node is dropped onto another node
   const handleNodeDragStop = useCallback(
@@ -123,11 +152,16 @@ export default function OrgChartView() {
         onNodeClick={handleNodeClick}
         onPaneClick={handlePaneClick}
         onNodeDragStop={handleNodeDragStop}
+        onSelectionChange={handleSelectionChange}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.1}
         maxZoom={2}
+        selectionKeyCode="Shift"
+        selectionMode={SelectionMode.Partial}
+        deleteKeyCode={null}
+        multiSelectionKeyCode={navigator.platform?.toUpperCase().indexOf('MAC') >= 0 ? 'Meta' : 'Control'}
         defaultEdgeOptions={{
           type: 'smoothstep',
           animated: true,

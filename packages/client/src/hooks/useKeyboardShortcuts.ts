@@ -38,7 +38,7 @@ interface UseKeyboardShortcutsOptions {
  *   Backspace/Del  — Delete selected employee(s) with confirmation
  *   Escape         — Close panels, deselect
  *   ?              — Open keyboard shortcuts reference
- *   Cmd+A          — Select all employees (already handled in views)
+ *   Cmd+A          — Select all employees
  *
  * NOTE: Cmd+Z / Cmd+Shift+Z are handled by useUndoRedo hook.
  * NOTE: Arrow keys are handled locally in HierarchyView.
@@ -50,9 +50,11 @@ export function useKeyboardShortcuts({
   onClosePanel,
 }: UseKeyboardShortcutsOptions) {
   const clearSelection = useSelectionStore((s) => s.clearSelection);
+  const selectAll = useSelectionStore((s) => s.selectAll);
   const selectedIds = useSelectionStore((s) => s.selectedIds);
   const selectedEmployee = useOrgStore((s) => s.selectedEmployee);
   const selectEmployee = useOrgStore((s) => s.selectEmployee);
+  const employees = useOrgStore((s) => s.employees);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -72,6 +74,17 @@ export function useKeyboardShortcuts({
         e.stopPropagation();
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
+        return;
+      }
+
+      // --- Cmd+A: select all employees ---
+      if (mod && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const allIds = employees.map((emp) => emp._id);
+        if (allIds.length > 0) {
+          selectAll(allIds);
+        }
         return;
       }
 
@@ -127,9 +140,11 @@ export function useKeyboardShortcuts({
       onDeleteSelected,
       onClosePanel,
       clearSelection,
+      selectAll,
       selectedIds,
       selectedEmployee,
       selectEmployee,
+      employees,
     ],
   );
 
