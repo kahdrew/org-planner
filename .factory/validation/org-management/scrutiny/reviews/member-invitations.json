@@ -1,0 +1,46 @@
+{
+  "featureId": "member-invitations",
+  "reviewedAt": "2026-04-17T04:52:50Z",
+  "commitId": "37b3a00",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "Backend invitation and role enforcement is mostly in place, but the frontend does not disable viewer editing interactions across all views as required.",
+    "issues": [
+      {
+        "file": "packages/client/src/components/views/SpreadsheetView.tsx",
+        "line": 90,
+        "severity": "blocking",
+        "description": "Spreadsheet cells remain editable (`editable: true`) with no viewer-role guard, so viewer users can still initiate employee edits. This violates the required behavior that viewer edit controls be disabled across all views."
+      },
+      {
+        "file": "packages/client/src/components/views/HierarchyView.tsx",
+        "line": 174,
+        "severity": "blocking",
+        "description": "Hierarchy rows are still draggable (`useSortable`) and inline editing remains active in this view, with no viewer-role guard. Viewer users can still initiate write interactions instead of seeing read-only controls."
+      },
+      {
+        "file": "packages/client/src/components/views/KanbanView.tsx",
+        "line": 197,
+        "severity": "blocking",
+        "description": "Kanban drag-and-drop always calls `updateEmployee(...)` on drop without checking viewer role, allowing viewers to trigger status/department mutations."
+      },
+      {
+        "file": "packages/client/src/components/views/OrgChartView.tsx",
+        "line": 197,
+        "severity": "blocking",
+        "description": "Org chart drag-to-reparent still calls `moveEmployee(...)` with no viewer-role guard, so viewer users can trigger move actions even though the feature requires viewer edit controls to be disabled."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "knowledge",
+      "observation": "Shared architecture documentation is stale after this feature and does not reflect invitation/member-role modeling.",
+      "evidence": ".factory/library/architecture.md:40 and :53 still describe Organization as memberIds-only and omit invitation/memberRoles role model introduced by this feature."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Review failed. The implementation does not fully satisfy the feature requirement that viewer edit controls are disabled across all views; several view-level mutation interactions remain enabled."
+}

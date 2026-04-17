@@ -1,0 +1,51 @@
+{
+  "featureId": "effective-date-scheduling",
+  "reviewedAt": "2026-04-17T04:53:17Z",
+  "commitId": "8a47ea7",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The feature delivers substantial UI/backend scaffolding for scheduled changes, but it misses core correctness and security requirements: due-change application is not automatic and the apply endpoint allows unauthorized cross-org mutations.",
+    "issues": [
+      {
+        "file": "packages/server/src/routes/scheduledChangeRoutes.ts",
+        "line": 25,
+        "severity": "blocking",
+        "description": "POST /api/scheduled-changes/apply-due is only protected by auth and has no org/scenario role guard. Any authenticated user can trigger applying scheduled changes."
+      },
+      {
+        "file": "packages/server/src/controllers/scheduledChangeController.ts",
+        "line": 221,
+        "severity": "blocking",
+        "description": "applyDueChanges queries and applies all pending scheduled changes globally (no org/scenario/user scoping). Combined with the unguarded route, one user can mutate employee data outside their org."
+      },
+      {
+        "file": "packages/server/src/controllers/scheduledChangeController.ts",
+        "line": 217,
+        "severity": "blocking",
+        "description": "Auto-apply is not actually automatic. The implementation only exposes a manual endpoint; there is no background job or middleware invocation path (server references to applyDueChanges are only the controller export and route mount), so VAL-ORG-014 behavior is not met."
+      },
+      {
+        "file": "packages/server/src/controllers/scheduledChangeController.ts",
+        "line": 11,
+        "severity": "non_blocking",
+        "description": "effectiveDate is validated only as a non-empty string. Invalid date strings are not rejected up front before Date parsing, which can lead to cast/runtime errors instead of deterministic 400 validation responses."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Mission/server guidance emphasizes auth middleware but does not explicitly codify that mutating scenario/org endpoints must enforce role-scoped authorization middleware. This gap likely contributed to the unguarded apply-due write route.",
+      "evidence": "AGENTS.md:29-31 and implementation-worker SKILL.md:38 describe route pattern as auth middleware; compare to packages/server/src/routes/scheduledChangeRoutes.ts:25 where a mutating endpoint is mounted without requireScenarioRole/requireOrgRole."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Shared architecture documentation is stale for this milestone and does not include ScheduledChange entities/data flow, making it harder for future workers to reason about required invariants (scoping, automatic application semantics).",
+      "evidence": ".factory/library/architecture.md:36-43 lists User→Organization→Scenario→Employee data model only, with no ScheduledChange model or apply-due flow."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Review failed due to blocking security and behavior gaps: apply-due is globally writable by any authenticated user and auto-application is not implemented as an automatic mechanism."
+}

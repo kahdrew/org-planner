@@ -1,0 +1,40 @@
+{
+  "featureId": "pdf-png-export",
+  "reviewedAt": "2026-04-17T04:52:08Z",
+  "commitId": "7296571761a673c70518b871de39087c33885f61",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The feature adds export UI and basic PNG/PDF generation, but key required behaviors are incomplete: department filtering and salary include/exclude do not affect exported output, and full-chart capture is not implemented for off-screen content.",
+    "issues": [
+      {
+        "file": "packages/client/src/utils/exportOrgChart.ts",
+        "line": 116,
+        "severity": "blocking",
+        "description": "Department filtering is not implemented. `ExportOptions.department` is collected in the dialog, but export paths call `captureCanvas(options.includeSalary)` and never apply a department-based filter before capture."
+      },
+      {
+        "file": "packages/client/src/utils/exportOrgChart.ts",
+        "line": 36,
+        "severity": "blocking",
+        "description": "Salary include/exclude toggle is effectively a no-op. Export logic only hides elements matching `[data-export-salary]`, but no chart component renders this attribute, so output does not change when salary is excluded."
+      },
+      {
+        "file": "packages/client/src/utils/exportOrgChart.ts",
+        "line": 73,
+        "severity": "blocking",
+        "description": "Full org-chart capture is not guaranteed. The code snapshots `.react-flow__viewport` directly with `toBlob` and does not compute/fit node bounds for off-screen nodes, so large charts can be clipped to the visible viewport."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The implementation-worker skill allows completion with UI-structure tests, but this feature passed without tests that validate exported-content behavior (department filtering, salary inclusion/exclusion, full-canvas capture).",
+      "evidence": "packages/client/src/__tests__/ExportDialog.test.tsx validates dialog controls/callbacks only, and packages/client/src/__tests__/exportOrgChart.test.ts validates filename/type shapes only; neither asserts export output semantics."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Review failed: export options are partially wired in UI but core behavior is incomplete. Department filtering and salary exclusion do not affect output, and capture logic does not meet the full-canvas export requirement for large/off-screen charts."
+}

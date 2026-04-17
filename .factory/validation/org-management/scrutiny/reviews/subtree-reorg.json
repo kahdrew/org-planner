@@ -1,0 +1,15 @@
+{
+  "featureId": "subtree-reorg",
+  "reviewedAt": "2026-04-17T04:52:07Z",
+  "commitId": "af7e27c",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Implementation matches the feature requirements: subtree move behavior is implemented in OrgChartView and HierarchyView, cycle-preventing checks are present, confirmation dialog includes affected counts, subtree drag feedback is present in both views, and move operations route through existing moveEmployee undo/redo flow. Tests were added for subtree utilities and subtree move semantics/cycle checks.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed handoff, transcript skeleton, skill, and commit af7e27c diff. No actionable blocking or non-blocking defects were identified for subtree-reorg."
+}
