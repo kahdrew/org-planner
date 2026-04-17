@@ -18,6 +18,8 @@ interface OrgState {
   selectEmployee: (employee: Employee | null) => void;
   fetchOrgs: () => Promise<void>;
   createOrg: (name: string) => Promise<Organization>;
+  renameOrg: (id: string, name: string) => Promise<Organization>;
+  deleteOrg: (id: string) => Promise<void>;
   setCurrentOrg: (org: Organization) => void;
   fetchScenarios: (orgId: string) => Promise<void>;
   setCurrentScenario: (scenario: Scenario) => void;
@@ -75,6 +77,31 @@ export const useOrgStore = create<OrgState>((set, get) => ({
       selectedEmployee: null,
     }));
     return org;
+  },
+
+  renameOrg: async (id, name) => {
+    const updated = await orgsApi.updateOrg(id, { name });
+    set((state) => ({
+      orgs: state.orgs.map((o) => (o._id === id ? updated : o)),
+      currentOrg: state.currentOrg?._id === id ? updated : state.currentOrg,
+    }));
+    return updated;
+  },
+
+  deleteOrg: async (id) => {
+    await orgsApi.deleteOrg(id);
+    set((state) => {
+      const remainingOrgs = state.orgs.filter((o) => o._id !== id);
+      const wasCurrentOrg = state.currentOrg?._id === id;
+      return {
+        orgs: remainingOrgs,
+        currentOrg: wasCurrentOrg ? (remainingOrgs[0] ?? null) : state.currentOrg,
+        scenarios: wasCurrentOrg ? [] : state.scenarios,
+        currentScenario: wasCurrentOrg ? null : state.currentScenario,
+        employees: wasCurrentOrg ? [] : state.employees,
+        selectedEmployee: wasCurrentOrg ? null : state.selectedEmployee,
+      };
+    });
   },
 
   setCurrentOrg: (org) => {

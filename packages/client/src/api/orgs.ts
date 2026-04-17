@@ -15,3 +15,7 @@ export async function updateOrg(id: string, updates: Partial<Organization>): Pro
   const { data } = await client.patch<Organization>(`/orgs/${id}`, updates);
   return data;
 }
+
+export async function deleteOrg(id: string): Promise<void> {
+  await client.delete(`/orgs/${id}`);
+}

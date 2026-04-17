@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, X, Mail, Shield, ShieldCheck, Eye, UserMinus, Crown, ChevronDown } from 'lucide-react';
+import { Users, X, Mail, Shield, ShieldCheck, Eye, UserMinus, Crown, ChevronDown, Pencil, Trash2 } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { useInvitationStore } from '@/stores/invitationStore';
 import { cn } from '@/utils/cn';
@@ -30,6 +30,9 @@ const roleLabels: Record<OrgRole, string> = {
 
 export default function MembersPanel({ open, onClose }: MembersPanelProps) {
   const currentOrg = useOrgStore((s) => s.currentOrg);
+  const renameOrg = useOrgStore((s) => s.renameOrg);
+  const deleteOrg = useOrgStore((s) => s.deleteOrg);
+  const fetchOrgs = useOrgStore((s) => s.fetchOrgs);
   const {
     members,
     orgInvitations,
@@ -46,6 +49,16 @@ export default function MembersPanel({ open, onClose }: MembersPanelProps) {
   const [inviteError, setInviteError] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState<string | null>(null);
+
+  // Rename org state
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameError, setRenameError] = useState('');
+
+  // Delete org state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     if (open && currentOrg) {
@@ -98,6 +111,47 @@ export default function MembersPanel({ open, onClose }: MembersPanelProps) {
     }
   };
 
+  const handleStartRename = () => {
+    if (!currentOrg) return;
+    setRenameValue(currentOrg.name);
+    setRenameError('');
+    setIsRenaming(true);
+  };
+
+  const handleRename = async () => {
+    if (!currentOrg || !renameValue.trim()) {
+      setRenameError('Name cannot be empty');
+      return;
+    }
+    try {
+      await renameOrg(currentOrg._id, renameValue.trim());
+      setIsRenaming(false);
+      setRenameError('');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setRenameError(axiosErr.response?.data?.error || 'Failed to rename organization');
+    }
+  };
+
+  const handleDeleteOrg = async () => {
+    if (!currentOrg) return;
+    if (deleteConfirmName !== currentOrg.name) return;
+
+    setDeleteLoading(true);
+    try {
+      await deleteOrg(currentOrg._id);
+      await fetchOrgs();
+      onClose();
+      setShowDeleteConfirm(false);
+      setDeleteConfirmName('');
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      alert(axiosErr.response?.data?.error || 'Failed to delete organization');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-y-0 right-0 z-30 flex w-96 flex-col border-l border-gray-200 bg-white shadow-xl">
       {/* Header */}
@@ -138,6 +192,7 @@ export default function MembersPanel({ open, onClose }: MembersPanelProps) {
                 >
                   <option value="viewer">Viewer</option>
                   <option value="admin">Admin</option>
+                  <option value="owner">Owner</option>
                 </select>
                 <button
                   type="submit"
@@ -265,6 +320,106 @@ export default function MembersPanel({ open, onClose }: MembersPanelProps) {
                   <span className="text-xs text-yellow-600">Pending</span>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Organization Management (owner only) */}
+        {isOwner && currentOrg && (
+          <div className="border-t border-gray-200 p-4">
+            <h3 className="mb-3 text-sm font-semibold text-gray-700">
+              Organization Settings
+            </h3>
+            <div className="space-y-3">
+              {/* Rename Organization */}
+              {isRenaming ? (
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-gray-600">
+                    Organization Name
+                  </label>
+                  <input
+                    type="text"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleRename();
+                      if (e.key === 'Escape') setIsRenaming(false);
+                    }}
+                  />
+                  {renameError && (
+                    <p className="text-xs text-red-600">{renameError}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleRename}
+                      className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setIsRenaming(false)}
+                      className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={handleStartRename}
+                  className="flex w-full items-center gap-2 rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  <Pencil size={14} />
+                  Rename Organization
+                </button>
+              )}
+
+              {/* Delete Organization */}
+              {!showDeleteConfirm ? (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex w-full items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50"
+                >
+                  <Trash2 size={14} />
+                  Delete Organization
+                </button>
+              ) : (
+                <div className="rounded-md border border-red-300 bg-red-50 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-red-800">
+                    This will permanently delete the organization, all scenarios, and all employees.
+                  </p>
+                  <p className="text-xs text-red-700">
+                    Type <span className="font-bold">{currentOrg.name}</span> to confirm:
+                  </p>
+                  <input
+                    type="text"
+                    value={deleteConfirmName}
+                    onChange={(e) => setDeleteConfirmName(e.target.value)}
+                    className="w-full rounded-md border border-red-300 px-3 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+                    placeholder="Type organization name"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleDeleteOrg}
+                      disabled={deleteLoading || deleteConfirmName !== currentOrg.name}
+                      className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {deleteLoading ? 'Deleting...' : 'Delete Forever'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowDeleteConfirm(false);
+                        setDeleteConfirmName('');
+                      }}
+                      className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

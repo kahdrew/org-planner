@@ -11,7 +11,7 @@ import type { OrgRole } from "../models/Organization";
 
 const inviteSchema = z.object({
   email: z.string().email(),
-  role: z.enum(["admin", "viewer"]),
+  role: z.enum(["owner", "admin", "viewer"]),
 });
 
 const changeRoleSchema = z.object({
@@ -34,6 +34,12 @@ export const sendInvite = async (
     const org = await Organization.findById(orgId);
     if (!org) {
       res.status(404).json({ error: "Organization not found" });
+      return;
+    }
+
+    // Only the current owner can invite as owner (ownership transfer)
+    if (role === "owner" && org.ownerId.toString() !== userId) {
+      res.status(403).json({ error: "Only the current owner can invite as owner" });
       return;
     }
 
@@ -166,10 +172,38 @@ export const acceptInvitation = async (
     }
 
     org.memberIds.push(user._id);
-    org.memberRoles.push({
-      userId: user._id,
-      role: invitation.role as OrgRole,
-    });
+
+    if (invitation.role === "owner") {
+      // Transfer ownership: new user becomes owner, old owner becomes admin
+      const previousOwnerId = org.ownerId;
+      org.ownerId = user._id;
+
+      // Update old owner's role to admin
+      const oldOwnerRoleIndex = org.memberRoles.findIndex(
+        (mr) => mr.userId.toString() === previousOwnerId.toString()
+      );
+      if (oldOwnerRoleIndex >= 0) {
+        org.memberRoles[oldOwnerRoleIndex].role = "admin";
+      } else {
+        org.memberRoles.push({
+          userId: previousOwnerId,
+          role: "admin" as OrgRole,
+        });
+      }
+
+      // Set new owner role
+      org.memberRoles.push({
+        userId: user._id,
+        role: "owner" as OrgRole,
+      });
+    } else {
+      org.memberRoles.push({
+        userId: user._id,
+        role: invitation.role as OrgRole,
+      });
+    }
+
+    org.markModified("memberRoles");
     await org.save();
 
     invitation.status = "accepted";

@@ -2,6 +2,10 @@ import { Response } from "express";
 import { z } from "zod";
 import { AuthRequest } from "../middleware/auth";
 import Organization from "../models/Organization";
+import Scenario from "../models/Scenario";
+import Employee from "../models/Employee";
+import Invitation from "../models/Invitation";
+import ScheduledChange from "../models/ScheduledChange";
 
 const createOrgSchema = z.object({
   name: z.string().min(1),
@@ -36,6 +40,41 @@ export const getOrgs = async (req: AuthRequest, res: Response): Promise<void> =>
     const userId = req.user!.userId;
     const orgs = await Organization.find({ memberIds: userId });
     res.json(orgs);
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const deleteOrg = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const orgId = req.params.id;
+    const org = await Organization.findById(orgId);
+    if (!org) {
+      res.status(404).json({ error: "Organization not found" });
+      return;
+    }
+    if (org.ownerId.toString() !== req.user!.userId) {
+      res.status(403).json({ error: "Only the owner can delete the organization" });
+      return;
+    }
+
+    // Cascade delete: find all scenarios, then delete employees and scheduled changes for each
+    const scenarios = await Scenario.find({ orgId });
+    const scenarioIds = scenarios.map((s) => s._id);
+
+    if (scenarioIds.length > 0) {
+      await Employee.deleteMany({ scenarioId: { $in: scenarioIds } });
+      await ScheduledChange.deleteMany({ scenarioId: { $in: scenarioIds } });
+      await Scenario.deleteMany({ orgId });
+    }
+
+    // Delete invitations for this org
+    await Invitation.deleteMany({ orgId });
+
+    // Delete the organization itself
+    await Organization.findByIdAndDelete(orgId);
+
+    res.json({ message: "Organization deleted" });
   } catch {
     res.status(500).json({ error: "Internal server error" });
   }
