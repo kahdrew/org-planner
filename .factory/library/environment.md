@@ -37,6 +37,10 @@ All Relay code lives at `/Users/andy/Documents/GitHub/relay`. Workers MUST work 
 
 All integrations (Salesforce, LinkedIn, Apollo, Gong, Granola) use mock adapters. No real API keys needed. Mock adapters return realistic fake data.
 
+## Dependency Notes
+
+- **Zod v4**: The project uses Zod v4 (4.3.6), NOT v3. Key differences: `required_error` removed (use `error` callback instead), `error.errors` renamed to `error.issues`. Research snippets in `.factory/research/` may reference v3 API - always check against v4 when implementing.
+
 ## Platform
 
 - macOS darwin 25.4.0, 24GB RAM, 10 CPU cores
