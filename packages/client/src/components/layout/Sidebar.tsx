@@ -149,11 +149,18 @@ export default function Sidebar({ onToggleBudget, onToggleMembers, onTogglePendi
               <Icon size={18} />
               <span className="flex-1">{label}</span>
               {showApprovalBadge && (
-                <span
-                  data-testid="approvals-nav-badge"
-                  className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500 px-1 text-xs font-bold text-white"
-                >
-                  {pendingApprovalsCount}
+                <span className="relative inline-flex">
+                  <span
+                    data-testid="approvals-nav-badge"
+                    data-pulse="true"
+                    className="inline-flex h-5 min-w-[20px] animate-pulse items-center justify-center rounded-full bg-amber-500 px-1 text-xs font-bold text-white shadow-[0_0_0_3px_rgba(245,158,11,0.25)]"
+                  >
+                    {pendingApprovalsCount}
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="absolute -right-0.5 -top-0.5 inline-flex h-2 w-2 animate-ping rounded-full bg-amber-400 opacity-75"
+                  />
                 </span>
               )}
             </NavLink>

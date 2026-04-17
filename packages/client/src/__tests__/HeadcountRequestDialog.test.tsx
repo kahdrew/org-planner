@@ -44,7 +44,10 @@ const currentScenario: Scenario = {
 };
 
 vi.mock('@/stores/orgStore', () => ({
-  useOrgStore: () => ({ currentScenario }),
+  useOrgStore: (selector?: (s: Record<string, unknown>) => unknown) => {
+    const state = { currentScenario, employees: [] };
+    return selector ? selector(state) : state;
+  },
 }));
 
 const submitRequest = vi.fn(async () => ({ _id: 'r1' }));
@@ -57,6 +60,14 @@ vi.mock('@/stores/approvalStore', () => ({
       submitRequest,
     };
     return selector(state);
+  },
+}));
+
+const fetchEnvelopes = vi.fn(async () => {});
+vi.mock('@/stores/budgetStore', () => ({
+  useBudgetStore: (selector?: (s: Record<string, unknown>) => unknown) => {
+    const state = { envelopes: [], fetchEnvelopes };
+    return selector ? selector(state) : state;
   },
 }));
 

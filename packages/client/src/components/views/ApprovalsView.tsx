@@ -9,19 +9,28 @@ import {
   RefreshCw,
   Settings,
   ChevronRight,
+  RotateCcw,
+  History,
 } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { useApprovalStore } from '@/stores/approvalStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useInvitationStore } from '@/stores/invitationStore';
+import { useBudgetStore } from '@/stores/budgetStore';
 import { cn } from '@/utils/cn';
 import type {
   HeadcountRequest,
   HeadcountRequestStatus,
   ApprovalChain,
   ApprovalAuditAction,
+  ApprovalAuditEntry,
+  BudgetEnvelope,
+  Employee,
+  OrgMember,
+  HeadcountRequestEmployeeData,
 } from '@/types';
 import ApprovalChainsPanel from '@/components/panels/ApprovalChainsPanel';
+import BudgetImpactCard from '@/components/panels/BudgetImpactCard';
 
 type StatusFilter = HeadcountRequestStatus | 'all';
 
@@ -48,6 +57,18 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
 function formatCost(salary?: number, equity?: number): string {
   const total = (salary ?? 0) + (equity ?? 0);
   return currencyFormatter.format(total);
+}
+
+function resolveActorName(
+  userId: string,
+  members: OrgMember[],
+  currentUserId?: string,
+): string {
+  if (currentUserId && userId === currentUserId) return 'You';
+  const member = members.find((m) => m._id === userId);
+  if (member) return member.name || member.email;
+  // Fall back to a shortened id rather than the full ObjectId string.
+  return `User ${userId.slice(-6)}`;
 }
 
 interface ActionDialogProps {
@@ -131,15 +152,223 @@ function ActionDialog({
   );
 }
 
+interface ResubmitDialogProps {
+  request: HeadcountRequest;
+  onSubmit: (data: HeadcountRequestEmployeeData) => Promise<void>;
+  onCancel: () => void;
+}
+
+/**
+ * Inline edit-and-resubmit form shown to the submitter when their request
+ * is in `changes_requested` status. On submit, the chain restarts from
+ * step 0 on the server.
+ */
+function ResubmitDialog({
+  request,
+  onSubmit,
+  onCancel,
+}: ResubmitDialogProps) {
+  const [form, setForm] = useState({
+    salary:
+      request.employeeData.salary !== undefined
+        ? String(request.employeeData.salary)
+        : '',
+    equity:
+      request.employeeData.equity !== undefined
+        ? String(request.employeeData.equity)
+        : '',
+    title: request.employeeData.title,
+    level: request.employeeData.level,
+    department: request.employeeData.department,
+    justification: request.employeeData.justification ?? '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const handle = async () => {
+    setSubmitting(true);
+    try {
+      const payload: HeadcountRequestEmployeeData = {
+        ...request.employeeData,
+        title: form.title.trim(),
+        level: form.level.trim(),
+        department: form.department.trim(),
+        ...(form.salary ? { salary: Number(form.salary) } : {}),
+        ...(form.equity ? { equity: Number(form.equity) } : {}),
+        ...(form.justification.trim()
+          ? { justification: form.justification.trim() }
+          : {}),
+      };
+      await onSubmit(payload);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div
+        className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
+        data-testid="resubmit-dialog"
+      >
+        <h3 className="mb-1 text-lg font-semibold text-gray-900">
+          Edit & Resubmit
+        </h3>
+        <p className="mb-4 text-sm text-gray-600">
+          Update the request and resubmit. Approval will restart from step 1.
+        </p>
+        <div className="space-y-3 text-sm">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-700">
+              Title
+            </span>
+            <input
+              value={form.title}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, title: e.target.value }))
+              }
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-gray-700">
+                Level
+              </span>
+              <input
+                value={form.level}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, level: e.target.value }))
+                }
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-gray-700">
+                Department
+              </span>
+              <input
+                value={form.department}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, department: e.target.value }))
+                }
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              />
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-gray-700">
+                Salary
+              </span>
+              <input
+                type="number"
+                min={0}
+                value={form.salary}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, salary: e.target.value }))
+                }
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                data-testid="resubmit-salary"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-gray-700">
+                Equity
+              </span>
+              <input
+                type="number"
+                min={0}
+                value={form.equity}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, equity: e.target.value }))
+                }
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              />
+            </label>
+          </div>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-gray-700">
+              Updated justification
+            </span>
+            <textarea
+              value={form.justification}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, justification: e.target.value }))
+              }
+              rows={3}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            />
+          </label>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handle}
+            disabled={submitting}
+            className="flex items-center gap-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            data-testid="resubmit-confirm-btn"
+          >
+            <RotateCcw size={14} />
+            {submitting ? 'Resubmitting...' : 'Resubmit'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface RequestDetailProps {
+  request: HeadcountRequest;
+  chain: ApprovalChain | undefined;
+  employees: Employee[];
+  envelopes: BudgetEnvelope[];
+  members: OrgMember[];
+  currentUserId?: string;
+  onClose: () => void;
+  onResubmit?: () => void;
+}
+
 function RequestDetail({
   request,
   chain,
+  employees,
+  envelopes,
+  members,
+  currentUserId,
   onClose,
-}: {
-  request: HeadcountRequest;
-  chain: ApprovalChain | undefined;
-  onClose: () => void;
-}) {
+  onResubmit,
+}: RequestDetailProps) {
+  // Resolve the employee targeted by a comp-change request for delta display.
+  const targetEmployee =
+    request.requestType === 'comp_change' && request.targetEmployeeId
+      ? employees.find((e) => e._id === request.targetEmployeeId) ?? null
+      : null;
+
+  const currentTotal =
+    (targetEmployee?.salary ?? 0) + (targetEmployee?.equity ?? 0);
+  const newTotal =
+    (request.employeeData.salary ?? 0) + (request.employeeData.equity ?? 0);
+  const deltaTotal = newTotal - currentTotal;
+
+  // Additional cost for budget impact:
+  //  - new_hire: full projected comp
+  //  - comp_change: delta vs. current
+  const additionalCost = targetEmployee ? deltaTotal : newTotal;
+  const additionalHeadcount =
+    request.requestType === 'comp_change' ? 0 : 1;
+
+  const isSubmitter = !!currentUserId && request.requestedBy === currentUserId;
+  const canResubmit =
+    isSubmitter && request.status === 'changes_requested' && !!onResubmit;
+
+  // Track which audit entries are resubmissions, used to badge them.
+  const audit: ApprovalAuditEntry[] = request.audit ?? [];
+
   return (
     <div className="fixed inset-y-0 right-0 z-40 flex w-[520px] max-w-full flex-col border-l border-gray-200 bg-white shadow-xl">
       <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
@@ -155,6 +384,23 @@ function RequestDetail({
         </button>
       </div>
       <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4 text-sm text-gray-800">
+        {/* Request type tag */}
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              'inline-block rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',
+              request.requestType === 'comp_change'
+                ? 'bg-blue-100 text-blue-700'
+                : 'bg-gray-100 text-gray-700',
+            )}
+            data-testid="request-type-badge"
+          >
+            {request.requestType === 'comp_change'
+              ? 'Comp Change'
+              : 'New Hire'}
+          </span>
+        </div>
+
         <div>
           <div className="text-xs font-medium uppercase text-gray-500">
             Role / Department
@@ -163,8 +409,8 @@ function RequestDetail({
             {request.employeeData.name} — {request.employeeData.title}
           </div>
           <div className="text-gray-600">
-            {request.employeeData.department} ·{' '}
-            {request.employeeData.level} · {request.employeeData.location}
+            {request.employeeData.department} · {request.employeeData.level} ·{' '}
+            {request.employeeData.location}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -198,6 +444,62 @@ function RequestDetail({
             </div>
           </div>
         </div>
+
+        {/* Comp change delta */}
+        {targetEmployee && (
+          <div
+            className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900"
+            data-testid="comp-change-delta-detail"
+          >
+            <div className="mb-2 font-medium">
+              Compensation Change: {targetEmployee.name}
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <div className="text-[10px] uppercase text-blue-700">
+                  Current
+                </div>
+                <div className="font-semibold">
+                  {currencyFormatter.format(currentTotal)}
+                </div>
+                <div className="text-[11px] text-blue-700">
+                  {targetEmployee.title} · {targetEmployee.level}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase text-blue-700">
+                  Proposed
+                </div>
+                <div className="font-semibold">
+                  {currencyFormatter.format(newTotal)}
+                </div>
+                <div className="text-[11px] text-blue-700">
+                  {request.employeeData.title} · {request.employeeData.level}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase text-blue-700">
+                  Delta
+                </div>
+                <div
+                  className={cn(
+                    'font-bold',
+                    deltaTotal > 0
+                      ? 'text-green-700'
+                      : deltaTotal < 0
+                        ? 'text-red-700'
+                        : 'text-blue-900',
+                  )}
+                  data-testid="comp-change-delta-value"
+                >
+                  {deltaTotal >= 0 ? '+' : '-'}
+                  {currencyFormatter.format(Math.abs(deltaTotal))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {request.employeeData.justification && (
           <div>
             <div className="text-xs text-gray-500">Justification</div>
@@ -206,6 +508,22 @@ function RequestDetail({
             </div>
           </div>
         )}
+
+        {/* Budget impact */}
+        <BudgetImpactCard
+          department={request.employeeData.department}
+          employees={employees}
+          envelopes={envelopes}
+          additionalCost={additionalCost}
+          additionalHeadcount={additionalHeadcount}
+          excludeEmployeeId={
+            request.requestType === 'comp_change'
+              ? (request.targetEmployeeId ?? null)
+              : null
+          }
+          variant="detailed"
+          title="Department Budget Impact"
+        />
 
         <div>
           <div className="mb-2 text-xs font-medium uppercase text-gray-500">
@@ -248,6 +566,26 @@ function RequestDetail({
           </div>
         </div>
 
+        {canResubmit && (
+          <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+            <div className="mb-2 flex items-center gap-2 font-medium">
+              <RotateCcw size={14} /> Changes requested — your action
+            </div>
+            <p className="mb-2 text-xs text-blue-800">
+              An approver has asked for changes. Update the request and
+              resubmit to restart the chain from step 1.
+            </p>
+            <button
+              type="button"
+              onClick={onResubmit}
+              className="flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+              data-testid="open-resubmit-btn"
+            >
+              <RotateCcw size={12} /> Edit &amp; Resubmit
+            </button>
+          </div>
+        )}
+
         <div>
           <div className="mb-2 text-xs font-medium uppercase text-gray-500">
             Audit Trail
@@ -256,7 +594,7 @@ function RequestDetail({
             className="space-y-2 border-l border-gray-200 pl-4"
             data-testid="audit-trail"
           >
-            {request.audit.map((entry, idx) => {
+            {audit.map((entry, idx) => {
               const label: Record<ApprovalAuditAction, string> = {
                 submit: 'Submitted',
                 approve: 'Approved',
@@ -265,14 +603,42 @@ function RequestDetail({
                 resubmit: 'Resubmitted',
                 auto_apply: 'Auto-applied',
               };
+              const actorName = resolveActorName(
+                entry.performedBy,
+                members,
+                currentUserId,
+              );
+              const isResubmit = entry.action === 'resubmit';
               return (
-                <li key={idx} className="text-xs text-gray-700">
+                <li
+                  key={idx}
+                  className="text-xs text-gray-700"
+                  data-testid={`audit-entry-${idx}`}
+                >
                   <div className="font-medium">
                     {label[entry.action]}
                     {entry.stepRole ? ` · ${entry.stepRole}` : ''}
+                    {isResubmit && (
+                      <span
+                        className="ml-2 inline-flex items-center gap-0.5 rounded bg-blue-100 px-1 py-0.5 text-[10px] font-medium text-blue-700"
+                        data-testid={`audit-resubmit-badge-${idx}`}
+                      >
+                        <History size={10} /> chain restarted
+                      </span>
+                    )}
                   </div>
-                  <div className="text-gray-500">
-                    {new Date(entry.timestamp).toLocaleString()}
+                  <div
+                    className="text-gray-600"
+                    data-testid={`audit-actor-${idx}`}
+                  >
+                    by{' '}
+                    <span className="font-medium text-gray-800">
+                      {actorName}
+                    </span>
+                    <span className="mx-1 text-gray-400">·</span>
+                    <span className="text-gray-500">
+                      {new Date(entry.timestamp).toLocaleString()}
+                    </span>
                   </div>
                   {entry.comment && (
                     <div className="mt-1 rounded bg-gray-50 px-2 py-1 italic text-gray-700">
@@ -290,10 +656,16 @@ function RequestDetail({
 }
 
 export default function ApprovalsView() {
-  const { currentOrg, currentScenario, fetchEmployees } = useOrgStore();
+  const { currentOrg, currentScenario, employees, fetchEmployees } =
+    useOrgStore();
   const currentUser = useAuthStore((s) => s.user);
   const currentRole = useInvitationStore((s) => s.currentRole);
+  const members = useInvitationStore((s) => s.members);
+  const fetchMembers = useInvitationStore((s) => s.fetchMembers);
   const isAdmin = currentRole === 'owner' || currentRole === 'admin';
+
+  const envelopes = useBudgetStore((s) => s.envelopes);
+  const fetchEnvelopes = useBudgetStore((s) => s.fetchEnvelopes);
 
   const {
     chains,
@@ -305,12 +677,18 @@ export default function ApprovalsView() {
     approveRequest,
     rejectRequest,
     requestChanges,
+    resubmitRequest,
     bulkApprove,
     bulkReject,
     loading,
   } = useApprovalStore();
 
   const [filter, setFilter] = useState<StatusFilter>('pending');
+  /**
+   * When viewing the "pending" tab, defaults to showing only items the
+   * current user can act on (VAL-APPROVAL-005). Toggle to see all pending.
+   */
+  const [pendingScope, setPendingScope] = useState<'mine' | 'all'>('mine');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [detailId, setDetailId] = useState<string | null>(null);
   const [actionDialog, setActionDialog] = useState<
@@ -320,23 +698,60 @@ export default function ApprovalsView() {
         requestId: string;
         requestName: string;
       }
-  > (null);
-  const [bulkDialog, setBulkDialog] = useState<
-    null | 'approve' | 'reject'
   >(null);
+  const [bulkDialog, setBulkDialog] = useState<null | 'approve' | 'reject'>(
+    null,
+  );
   const [showChainsPanel, setShowChainsPanel] = useState(false);
+  const [resubmitId, setResubmitId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!currentOrg) return;
     fetchChains(currentOrg._id);
     fetchOrgRequests(currentOrg._id);
     fetchPendingApprovals(currentOrg._id);
-  }, [currentOrg, fetchChains, fetchOrgRequests, fetchPendingApprovals]);
+    fetchMembers(currentOrg._id).catch(() => {});
+  }, [
+    currentOrg,
+    fetchChains,
+    fetchOrgRequests,
+    fetchPendingApprovals,
+    fetchMembers,
+  ]);
+
+  useEffect(() => {
+    if (currentScenario) {
+      fetchEnvelopes(currentScenario._id).catch(() => {});
+    }
+  }, [currentScenario, fetchEnvelopes]);
+
+  const pendingApprovalIds = useMemo(
+    () => new Set(pendingApprovals.map((p) => p._id)),
+    [pendingApprovals],
+  );
+
+  const canActOnRequest = (r: HeadcountRequest): boolean => {
+    if (r.status !== 'pending') return false;
+    return pendingApprovalIds.has(r._id);
+  };
 
   const filteredRequests = useMemo(() => {
-    if (filter === 'all') return requests;
-    return requests.filter((r) => r.status === filter);
-  }, [requests, filter]);
+    let list =
+      filter === 'all' ? requests : requests.filter((r) => r.status === filter);
+    // VAL-APPROVAL-005: on the "Pending" tab, default to the user's own
+    // queue — items they can act on as an approver for the current step,
+    // plus their own submissions (which they can see but not approve).
+    // Items pending at steps they are not responsible for (and did not
+    // submit) are hidden. Toggle to "All pending" to see everything.
+    if (filter === 'pending' && pendingScope === 'mine') {
+      list = list.filter(
+        (r) =>
+          pendingApprovalIds.has(r._id) ||
+          r.requestedBy === currentUser?._id,
+      );
+    }
+    return list;
+  }, [requests, filter, pendingScope, pendingApprovalIds, currentUser]);
 
   const chainsById = useMemo(() => {
     const m = new Map<string, ApprovalChain>();
@@ -358,11 +773,13 @@ export default function ApprovalsView() {
     return result;
   }, [requests]);
 
+  const actionablePendingCount = pendingApprovals.length;
+
   const selectedIds = Array.from(selected);
   const selectedActionable = selectedIds.filter((id) => {
     const r = requests.find((x) => x._id === id);
     if (!r || r.status !== 'pending') return false;
-    return pendingApprovals.some((p) => p._id === id);
+    return pendingApprovalIds.has(id);
   });
 
   const toggleSelected = (id: string) => {
@@ -376,11 +793,7 @@ export default function ApprovalsView() {
 
   const toggleSelectAll = () => {
     const actionableInView = filteredRequests
-      .filter(
-        (r) =>
-          r.status === 'pending' &&
-          pendingApprovals.some((p) => p._id === r._id),
-      )
+      .filter((r) => canActOnRequest(r))
       .map((r) => r._id);
     setSelected((prev) => {
       const anyUnselected = actionableInView.some((id) => !prev.has(id));
@@ -391,11 +804,6 @@ export default function ApprovalsView() {
     });
   };
 
-  const canActOnRequest = (r: HeadcountRequest): boolean => {
-    if (r.status !== 'pending') return false;
-    return pendingApprovals.some((p) => p._id === r._id);
-  };
-
   const handleAction = async (
     action: 'approve' | 'reject' | 'request_changes',
     id: string,
@@ -404,7 +812,6 @@ export default function ApprovalsView() {
     if (action === 'approve') await approveRequest(id, comment);
     else if (action === 'reject') await rejectRequest(id, comment);
     else await requestChanges(id, comment);
-    // When approved as final step, an employee is created — refresh scenario employees.
     if (action === 'approve' && currentScenario) {
       fetchEmployees(currentScenario._id);
     }
@@ -429,8 +836,22 @@ export default function ApprovalsView() {
     setBulkDialog(null);
   };
 
+  const handleResubmit = async (data: HeadcountRequestEmployeeData) => {
+    if (!resubmitId) return;
+    await resubmitRequest(resubmitId, data);
+    setResubmitId(null);
+    if (currentOrg) {
+      await fetchOrgRequests(currentOrg._id);
+      await fetchPendingApprovals(currentOrg._id);
+    }
+  };
+
   const detailRequest = detailId
     ? requests.find((r) => r._id === detailId)
+    : null;
+
+  const resubmitRequestObj = resubmitId
+    ? requests.find((r) => r._id === resubmitId)
     : null;
 
   if (!currentOrg) {
@@ -446,9 +867,7 @@ export default function ApprovalsView() {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">
-            Approvals
-          </h1>
+          <h1 className="text-xl font-semibold text-gray-900">Approvals</h1>
           <p className="text-sm text-gray-500">
             Review and act on headcount requests across the organization
           </p>
@@ -495,9 +914,49 @@ export default function ApprovalsView() {
             data-testid={`filter-${f}`}
           >
             {f === 'all' ? 'All' : STATUS_LABELS[f as HeadcountRequestStatus]}
-            <span className="ml-1 text-[10px] opacity-80">({counts[f]})</span>
+            <span className="ml-1 text-[10px] opacity-80">
+              (
+              {f === 'pending' && pendingScope === 'mine'
+                ? actionablePendingCount
+                : counts[f]}
+              )
+            </span>
           </button>
         ))}
+        {filter === 'pending' && (
+          <div
+            className="ml-auto flex items-center gap-2 text-xs text-gray-600"
+            data-testid="pending-scope-toggle"
+          >
+            <span>Show:</span>
+            <button
+              type="button"
+              onClick={() => setPendingScope('mine')}
+              className={cn(
+                'rounded-full px-2 py-0.5',
+                pendingScope === 'mine'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+              )}
+              data-testid="pending-scope-mine"
+            >
+              My queue ({actionablePendingCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setPendingScope('all')}
+              className={cn(
+                'rounded-full px-2 py-0.5',
+                pendingScope === 'all'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+              )}
+              data-testid="pending-scope-all"
+            >
+              All pending ({counts.pending})
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Bulk action bar */}
@@ -534,7 +993,12 @@ export default function ApprovalsView() {
           <div className="text-center text-gray-500">Loading...</div>
         ) : filteredRequests.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500">
-            No {filter === 'all' ? '' : STATUS_LABELS[filter as HeadcountRequestStatus].toLowerCase()}{' '}
+            No{' '}
+            {filter === 'all'
+              ? ''
+              : STATUS_LABELS[
+                  filter as HeadcountRequestStatus
+                ].toLowerCase()}{' '}
             headcount requests.
           </div>
         ) : (
@@ -549,6 +1013,8 @@ export default function ApprovalsView() {
                       onChange={toggleSelectAll}
                       checked={
                         filteredRequests.length > 0 &&
+                        filteredRequests.filter((r) => canActOnRequest(r))
+                          .length > 0 &&
                         filteredRequests
                           .filter((r) => canActOnRequest(r))
                           .every((r) => selected.has(r._id))
@@ -556,6 +1022,7 @@ export default function ApprovalsView() {
                     />
                   </th>
                   <th className="px-3 py-2">Candidate</th>
+                  <th className="px-3 py-2">Type</th>
                   <th className="px-3 py-2">Department</th>
                   <th className="px-3 py-2">Level</th>
                   <th className="px-3 py-2">Cost</th>
@@ -571,6 +1038,8 @@ export default function ApprovalsView() {
                   const actionable = canActOnRequest(r);
                   const isOwnRequest =
                     currentUser?._id === r.requestedBy;
+                  const awaitingChanges =
+                    r.status === 'changes_requested' && isOwnRequest;
                   return (
                     <tr
                       key={r._id}
@@ -587,20 +1056,52 @@ export default function ApprovalsView() {
                         />
                       </td>
                       <td
-                        className="cursor-pointer px-3 py-2 font-medium text-gray-900"
+                        className="relative cursor-pointer px-3 py-2 font-medium text-gray-900"
                         onClick={() => setDetailId(r._id)}
                       >
-                        {r.employeeData.name}
+                        {actionable && (
+                          <span
+                            className="absolute left-1 top-1/2 -translate-y-1/2 animate-pulse"
+                            aria-hidden="true"
+                            title="Awaiting your action"
+                            data-testid={`pending-dot-${r._id}`}
+                          >
+                            <span className="inline-block h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_0_2px_rgba(245,158,11,0.25)]" />
+                          </span>
+                        )}
+                        <span
+                          className={cn(actionable && 'pl-3')}
+                        >
+                          {r.employeeData.name}
+                        </span>
                         <div className="text-xs text-gray-500">
                           {r.employeeData.title}
                         </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={cn(
+                            'inline-block rounded px-2 py-0.5 text-[10px] font-medium',
+                            r.requestType === 'comp_change'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-gray-100 text-gray-700',
+                          )}
+                          data-testid={`request-type-${r._id}`}
+                        >
+                          {r.requestType === 'comp_change'
+                            ? 'Comp Change'
+                            : 'New Hire'}
+                        </span>
                       </td>
                       <td className="px-3 py-2">
                         {r.employeeData.department}
                       </td>
                       <td className="px-3 py-2">{r.employeeData.level}</td>
                       <td className="px-3 py-2 text-gray-700">
-                        {formatCost(r.employeeData.salary, r.employeeData.equity)}
+                        {formatCost(
+                          r.employeeData.salary,
+                          r.employeeData.equity,
+                        )}
                       </td>
                       <td className="px-3 py-2">
                         <span
@@ -662,10 +1163,18 @@ export default function ApprovalsView() {
                                 <MessageSquare size={12} className="inline" />
                               </button>
                             </>
+                          ) : awaitingChanges ? (
+                            <button
+                              onClick={() => setResubmitId(r._id)}
+                              className="flex items-center gap-1 rounded border border-blue-300 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                              data-testid={`resubmit-${r._id}`}
+                            >
+                              <RotateCcw size={12} /> Edit &amp; Resubmit
+                            </button>
                           ) : isOwnRequest && r.status === 'pending' ? (
                             <button
                               disabled
-                              className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-400"
+                              className="flex items-center gap-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-400"
                               title="You cannot approve your own request"
                               data-testid={`self-approve-blocked-${r._id}`}
                             >
@@ -694,7 +1203,17 @@ export default function ApprovalsView() {
         <RequestDetail
           request={detailRequest}
           chain={chainsById.get(detailRequest.chainId)}
+          employees={employees}
+          envelopes={envelopes}
+          members={members}
+          currentUserId={currentUser?._id}
           onClose={() => setDetailId(null)}
+          onResubmit={
+            detailRequest.status === 'changes_requested' &&
+            currentUser?._id === detailRequest.requestedBy
+              ? () => setResubmitId(detailRequest._id)
+              : undefined
+          }
         />
       )}
 
@@ -715,6 +1234,14 @@ export default function ApprovalsView() {
           requestName={`${selectedActionable.length} selected`}
           onSubmit={(comment) => handleBulk(bulkDialog, comment)}
           onCancel={() => setBulkDialog(null)}
+        />
+      )}
+
+      {resubmitRequestObj && (
+        <ResubmitDialog
+          request={resubmitRequestObj}
+          onSubmit={handleResubmit}
+          onCancel={() => setResubmitId(null)}
         />
       )}
 

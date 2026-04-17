@@ -42,6 +42,8 @@ interface ApprovalState {
     scenarioId: string,
     payload: {
       employeeData: HeadcountRequestEmployeeData;
+      requestType?: 'new_hire' | 'comp_change';
+      targetEmployeeId?: string;
       chainId?: string;
     },
   ) => Promise<HeadcountRequest>;

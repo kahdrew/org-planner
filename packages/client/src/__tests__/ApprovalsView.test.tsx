@@ -46,6 +46,7 @@ vi.mock('@/stores/orgStore', () => ({
     const state = {
       currentOrg: currentOrgValue,
       currentScenario: currentScenarioValue,
+      employees: [],
       fetchEmployees,
     };
     return selector ? selector(state) : state;
@@ -53,9 +54,22 @@ vi.mock('@/stores/orgStore', () => ({
 }));
 
 let roleValue: OrgRole | null = 'admin';
+const fetchMembers = vi.fn(async () => {});
 vi.mock('@/stores/invitationStore', () => ({
   useInvitationStore: (selector?: (s: Record<string, unknown>) => unknown) => {
-    const state = { currentRole: roleValue };
+    const state = {
+      currentRole: roleValue,
+      members: [],
+      fetchMembers,
+    };
+    return selector ? selector(state) : state;
+  },
+}));
+
+const fetchEnvelopes = vi.fn(async () => {});
+vi.mock('@/stores/budgetStore', () => ({
+  useBudgetStore: (selector?: (s: Record<string, unknown>) => unknown) => {
+    const state = { envelopes: [], fetchEnvelopes };
     return selector ? selector(state) : state;
   },
 }));
@@ -130,6 +144,7 @@ const approvedRequest: HeadcountRequest = {
 const approveRequest = vi.fn(async () => {});
 const rejectRequest = vi.fn(async () => {});
 const requestChanges = vi.fn(async () => {});
+const resubmitRequest = vi.fn(async () => {});
 const bulkApprove = vi.fn(async () => {});
 const bulkReject = vi.fn(async () => {});
 const fetchChains = vi.fn(async () => {});
@@ -156,6 +171,7 @@ vi.mock('@/stores/approvalStore', () => ({
       approveRequest,
       rejectRequest,
       requestChanges,
+      resubmitRequest,
       bulkApprove,
       bulkReject,
     };
