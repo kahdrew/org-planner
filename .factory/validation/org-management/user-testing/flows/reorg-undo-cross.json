@@ -1,0 +1,258 @@
+{
+  "groupId": "reorg-undo-cross",
+  "testedAt": "2026-04-17T05:47:33.892036+00:00",
+  "isolation": {
+    "namespace": "orgmgmt_reorg_g2",
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001",
+    "testUserEmail": "orgmgmt_reorg_g2_owner_1776404458317@example.com",
+    "orgName": "OrgMgmt Reorg G2 Org 1776404458317",
+    "scenarioName": "OrgMgmt Reorg G2 Scenario 1776404458317"
+  },
+  "toolsUsed": [
+    "agent-browser",
+    "python3 (API verification)"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-ORG-007",
+      "title": "Subtree drag-and-drop moves manager and all reports",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Open Org Chart with seeded hierarchy (CEO -> Director -> Manager -> Engineer and sibling OpsManager branch)",
+          "expected": "Initial hierarchy renders with Director subtree under CEO",
+          "observed": "Initial hierarchy rendered"
+        },
+        {
+          "action": "Drag Director card onto OpsManager card in Org Chart",
+          "expected": "Director and full subtree move under OpsManager; old parent's direct report count decreases",
+          "observed": "Drag gesture completed visually but hierarchy/labels did not change"
+        },
+        {
+          "action": "Verify backend hierarchy after drag attempt",
+          "expected": "Director.managerId equals OpsManager id",
+          "observed": "Director.managerId remained CEO id in API state"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/reorg-undo-cross/VAL-ORG-007-before-subtree-drag.png",
+          "org-management/reorg-undo-cross/VAL-ORG-007-after-subtree-drag.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No move/reparent request observed; move-related filter returned no requests"
+      },
+      "issues": "Valid drag-to-reparent did not update manager relationship; subtree move behavior not functioning."
+    },
+    {
+      "id": "VAL-ORG-008",
+      "title": "Cycle detection prevents dragging into own subtree",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Attempt invalid drag: Director -> Engineer (own descendant)",
+          "expected": "Drop is rejected with error or visual denial; no data changes",
+          "observed": "No hierarchy change and no move request"
+        },
+        {
+          "action": "Attempt self-reparent drag: Director -> Director",
+          "expected": "Self-reparent ignored silently",
+          "observed": "No hierarchy change; detail panel opened due click focus side effect"
+        },
+        {
+          "action": "Cross-check against valid drag attempts in same session",
+          "expected": "Only invalid drags are blocked while valid drags can move",
+          "observed": "Valid drags were also non-functional, preventing isolation of cycle-detection logic"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/reorg-undo-cross/VAL-ORG-008-before-invalid-drag.png",
+          "org-management/reorg-undo-cross/VAL-ORG-008-after-invalid-drag.png",
+          "org-management/reorg-undo-cross/VAL-ORG-008-after-self-drag.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No move/reparent requests emitted during invalid or self drag attempts"
+      },
+      "issues": "Blocked by missing prerequisite: valid drag-to-reparent behavior is not working, so cycle prevention cannot be distinguished from global drag-reparent failure."
+    },
+    {
+      "id": "VAL-ORG-009",
+      "title": "Subtree move preserves internal hierarchy and persists",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Attempt three-level subtree move: Director (with Manager -> Engineer descendants) onto OpsManager",
+          "expected": "Root managerId changes while internal Director->Manager->Engineer chain stays intact",
+          "observed": "No manager relationship changed"
+        },
+        {
+          "action": "Refresh page after move attempt",
+          "expected": "Moved hierarchy persists after refresh",
+          "observed": "Hierarchy remained in original arrangement before and after refresh"
+        },
+        {
+          "action": "Validate managerIds via API",
+          "expected": "Director.managerId = OpsManager.id; Manager.managerId = Director.id; Engineer.managerId = Manager.id",
+          "observed": "Director.managerId stayed at CEO.id; descendant managerIds unchanged from original"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/reorg-undo-cross/VAL-ORG-009-before-move.png",
+          "org-management/reorg-undo-cross/VAL-ORG-009-after-move-attempt.png",
+          "org-management/reorg-undo-cross/VAL-ORG-009-after-refresh.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No move/reparent network call observed during attempted subtree move",
+        "apiState": "org-management/reorg-undo-cross/post-flow-api-state.json"
+      },
+      "issues": "Subtree reparenting did not execute, so persistence and hierarchy-preservation criteria were not met."
+    },
+    {
+      "id": "VAL-CROSS-005",
+      "title": "Undo reverts inline edit visible across views",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "In Org Chart, inline-edit Engineer title from 'Engineer' to 'Principal Engineer'",
+          "expected": "Edited title appears on card",
+          "observed": "Title updated to 'Principal Engineer'"
+        },
+        {
+          "action": "Press Cmd+Z once",
+          "expected": "Title reverts to 'Engineer'",
+          "observed": "Title reverted to 'Engineer' and redo became available"
+        },
+        {
+          "action": "Navigate to /hierarchy and /spreadsheet",
+          "expected": "Reverted title shown across views",
+          "observed": "Reverted 'Engineer' title visible on both routes"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/reorg-undo-cross/VAL-CROSS-005-before-inline-edit.png",
+          "org-management/reorg-undo-cross/VAL-CROSS-005-after-inline-edit.png",
+          "org-management/reorg-undo-cross/VAL-CROSS-005-after-undo-orgchart.png",
+          "org-management/reorg-undo-cross/VAL-CROSS-005-hierarchy-reverted.png",
+          "org-management/reorg-undo-cross/VAL-CROSS-005-spreadsheet-reverted.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e1c7ecb49b42801d0be460 (edit), then PATCH /api/employees/69e1c7ecb49b42801d0be460 (undo)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-006",
+      "title": "Undo reverts bulk operation as single step across views",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Cmd+click-select Analyst, Designer, Recruiter and open bulk actions",
+          "expected": "Bulk action menu appears for 3 selected employees",
+          "observed": "Bulk action menu appeared with 'Update Department' and 'Update 3 Employees' flow"
+        },
+        {
+          "action": "Bulk update department to 'Product'",
+          "expected": "All 3 selected employees show Product",
+          "observed": "All 3 departments changed to Product"
+        },
+        {
+          "action": "Press Cmd+Z once",
+          "expected": "All 3 revert in a single undo step",
+          "observed": "All 3 reverted to Finance/Design/HR immediately after one undo"
+        },
+        {
+          "action": "Navigate to /spreadsheet and /kanban",
+          "expected": "Reverted departments appear across views",
+          "observed": "Reverted departments visible on both routes"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/reorg-undo-cross/VAL-CROSS-006-selection-state.png",
+          "org-management/reorg-undo-cross/VAL-CROSS-006-after-bulk-update-applied.png",
+          "org-management/reorg-undo-cross/VAL-CROSS-006-after-undo-orgchart.png",
+          "org-management/reorg-undo-cross/VAL-CROSS-006-after-undo-spreadsheet.png",
+          "org-management/reorg-undo-cross/VAL-CROSS-006-after-undo-kanban.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/{analyst,designer,recruiter} for bulk update, then PATCH same 3 employee IDs for single-step undo"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-007",
+      "title": "Undo reverts drag-to-reparent across views",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Attempt drag-to-reparent Engineer under OpsManager in Org Chart",
+          "expected": "Engineer manager changes to OpsManager",
+          "observed": "No hierarchy change after drag attempt"
+        },
+        {
+          "action": "Attempt Cmd+Z after drag",
+          "expected": "Undo restores original manager from changed state",
+          "observed": "No drag-induced hierarchy change occurred, so undo target state was unavailable"
+        },
+        {
+          "action": "Validate managerIds via API after drag attempts",
+          "expected": "Engineer.managerId differs after drag and reverts after undo",
+          "observed": "Engineer.managerId remained original manager id throughout"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/reorg-undo-cross/VAL-CROSS-007-before-drag.png",
+          "org-management/reorg-undo-cross/VAL-CROSS-007-after-drag.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No move/reparent request observed for drag attempts",
+        "apiState": "org-management/reorg-undo-cross/post-flow-api-state.json"
+      },
+      "issues": "Blocked by prerequisite failure: drag-to-reparent does not apply, so undo of drag-reparent cannot be exercised."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "agent-browser ref tokens (@eN) were not accepted by drag/get-box commands in this environment; selector-based interactions were required.",
+      "resolved": true,
+      "resolution": "Used semantic/CSS selectors (text and .react-flow__node:has-text(...)) plus direct mouse movement where needed.",
+      "affectedAssertions": [
+        "VAL-ORG-007",
+        "VAL-ORG-008",
+        "VAL-ORG-009",
+        "VAL-CROSS-007"
+      ]
+    },
+    {
+      "description": "Network capture did not include response status codes in default output.",
+      "resolved": true,
+      "resolution": "Used --json network logs for method+URL evidence and API state checks for data-level confirmation.",
+      "affectedAssertions": [
+        "VAL-CROSS-005",
+        "VAL-CROSS-006",
+        "VAL-ORG-007",
+        "VAL-ORG-009",
+        "VAL-CROSS-007"
+      ]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "Drag-to-reparent manager assignment did not execute for valid subtree/employee drag attempts (no move request, no managerId change), preventing validation of drag-dependent undo/cycle-specific behaviors.",
+      "affectedAssertions": [
+        "VAL-ORG-007",
+        "VAL-ORG-008",
+        "VAL-ORG-009",
+        "VAL-CROSS-007"
+      ],
+      "quickFixAttempted": "Retried drag with semantic selectors, direct mouse drag, page reloads, and interactivity toggle; hierarchy remained unchanged in API state."
+    }
+  ],
+  "summary": "Tested 6 assertions: 2 passed (VAL-CROSS-005, VAL-CROSS-006), 2 failed (VAL-ORG-007, VAL-ORG-009), and 2 blocked (VAL-ORG-008, VAL-CROSS-007) due to non-functional drag-to-reparent prerequisite behavior."
+}

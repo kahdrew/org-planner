@@ -1,0 +1,219 @@
+{
+  "groupId": "export-scheduling",
+  "testedAt": "2026-04-17T05:51:27.242236+00:00",
+  "isolation": {
+    "namespace": "orgmgmt_export_g3",
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001",
+    "credentials": {
+      "email": "orgmgmt_export_g3_owner_20260416a@example.com"
+    },
+    "orgPrefix": "OrgMgmt Export G3",
+    "scenarioPrefix": "OrgMgmt Export G3"
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-ORG-010",
+      "title": "Export org chart as PDF and PNG",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open Export Chart modal",
+          "expected": "Format options for PDF/PNG and export action are available",
+          "observed": "Modal showed PNG/PDF options and Export button"
+        },
+        {
+          "action": "Export as PDF",
+          "expected": "PDF downloads with meaningful default name",
+          "observed": "Downloaded PDF named org-planner-OrgMgmt-Export-G3-Baseline-2026-04-17.pdf"
+        },
+        {
+          "action": "Export as PNG",
+          "expected": "PNG downloads with meaningful default name and readable chart",
+          "observed": "Downloaded PNG named org-planner-OrgMgmt-Export-G3-Baseline-2026-04-17.png with readable chart cards/edges"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/export-scheduling/VAL-ORG-010-format-selection.png",
+          "org-management/export-scheduling/VAL-ORG-010-export.png",
+          "org-management/export-scheduling/VAL-ORG-010-export.pdf"
+        ],
+        "consoleErrors": "none",
+        "network": "Client-side export flow; no export API request captured"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ORG-011",
+      "title": "Export respects current filter and overlay state",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Disable Planned status in toolbar",
+          "expected": "View shows only Active employees",
+          "observed": "Org chart showed only active employees (Alice, Bob)"
+        },
+        {
+          "action": "Export filtered chart",
+          "expected": "Export contains only filtered employees",
+          "observed": "Exported PNG contains only active employees and excludes planned employee"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/export-scheduling/VAL-ORG-011-filtered-view-active-only.png",
+          "org-management/export-scheduling/VAL-ORG-011-export-active-filter.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Client-side export flow; no export API request captured"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ORG-012",
+      "title": "Set future effective date on organizational changes",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open Bob employee details and schedule future title change for 2026-04-18",
+          "expected": "Future-dated change is recorded",
+          "observed": "Scheduled change created; Scheduled Changes badge incremented to 1"
+        },
+        {
+          "action": "Check immediate employee state",
+          "expected": "Title remains current until effective date",
+          "observed": "Title stayed as Software Engineer immediately after scheduling"
+        },
+        {
+          "action": "Open Scheduled Changes panel",
+          "expected": "Pending change is listed",
+          "observed": "Panel listed pending promotion entry for Bob with effective date"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/export-scheduling/VAL-ORG-012-before-schedule.png",
+          "org-management/export-scheduling/VAL-ORG-012-after-schedule-unchanged.png",
+          "org-management/export-scheduling/VAL-ORG-012-pending-recorded-panel.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e1c7d6b49b42801d0be417/scheduled-changes -> 201 (captured via in-page XHR logging)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ORG-013",
+      "title": "Visual indicator for pending effective-dated changes",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Inspect Org Chart after scheduling",
+          "expected": "Pending indicator visible on affected employee card",
+          "observed": "Bob card showed Pending badge on Org Chart"
+        },
+        {
+          "action": "Navigate to Hierarchy view",
+          "expected": "Pending indicator visible on corresponding row",
+          "observed": "Bob row showed pending marker in Hierarchy"
+        },
+        {
+          "action": "View scheduled change details",
+          "expected": "Pending-change details accessible",
+          "observed": "Scheduled Changes panel displayed change type/date/title details"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/export-scheduling/VAL-ORG-013-orgchart-pending-indicator.png",
+          "org-management/export-scheduling/VAL-ORG-013-hierarchy-pending-indicator.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No additional request required during indicator verification"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ORG-014",
+      "title": "Auto-apply when effective date arrives",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Edit pending change effective date to current date (simulation)",
+          "expected": "Change should apply when date arrives",
+          "observed": "After save + reload, pending badge disappeared"
+        },
+        {
+          "action": "Verify employee data across views",
+          "expected": "Updated title visible across views",
+          "observed": "Bob title updated to Senior Software Engineer in Org Chart and Hierarchy"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/export-scheduling/VAL-ORG-014-after-effective-date-applied-orgchart.png",
+          "org-management/export-scheduling/VAL-ORG-014-after-effective-date-applied-hierarchy.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Date-arrival simulation performed via UI edit + reload; agent-browser network log was not reliable for this step"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ORG-015",
+      "title": "Cancel a scheduled change before effective date",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Schedule new future title change for 2026-04-20",
+          "expected": "Pending change appears",
+          "observed": "Employee details showed 1 pending scheduled change"
+        },
+        {
+          "action": "Cancel pending change from Scheduled Changes panel",
+          "expected": "Pending indicator disappears",
+          "observed": "Pending list cleared and entry moved to history as canceled"
+        },
+        {
+          "action": "Reload and verify final state",
+          "expected": "Canceled change is not applied",
+          "observed": "Bob remained Senior Software Engineer (not Principal), no pending indicator"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/export-scheduling/VAL-ORG-015-before-cancel-pending.png",
+          "org-management/export-scheduling/VAL-ORG-015-after-cancel.png",
+          "org-management/export-scheduling/VAL-ORG-015-after-reload-still-unchanged.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e1c7d6b49b42801d0be417/scheduled-changes -> 201; DELETE /api/scheduled-changes/69e1c9c5b49b42801d0be692 -> 200 (captured via in-page XHR logging)"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "agent-browser network requests output was intermittently empty during UI flows",
+      "resolved": true,
+      "resolution": "Used temporary in-page XHR/fetch logging (window.__netLog) to capture request/status evidence when needed",
+      "affectedAssertions": [
+        "VAL-ORG-012",
+        "VAL-ORG-015"
+      ]
+    },
+    {
+      "description": "Export format radio inputs were intermittently blocked by overlay icon hitboxes",
+      "resolved": true,
+      "resolution": "Used cursor-interactive container targets plus agent-browser download command to complete deterministic PDF/PNG exports",
+      "affectedAssertions": [
+        "VAL-ORG-010"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 6 assertions (VAL-ORG-010..015): 6 passed, 0 failed, 0 blocked. Export flows produced PDF/PNG artifacts, filtered export matched active-only state, future-dated scheduling behaved correctly with pending indicators, simulated effective-date auto-apply updated title across views, and cancel-before-effective-date prevented application."
+}

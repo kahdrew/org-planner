@@ -1,0 +1,56 @@
+{
+  "milestone": "org-management",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 19,
+    "passed": 13,
+    "failed": 4,
+    "blocked": 2
+  },
+  "passedAssertions": [
+    "VAL-CROSS-004",
+    "VAL-CROSS-005",
+    "VAL-CROSS-006",
+    "VAL-ORG-002",
+    "VAL-ORG-003",
+    "VAL-ORG-004",
+    "VAL-ORG-006",
+    "VAL-ORG-010",
+    "VAL-ORG-011",
+    "VAL-ORG-012",
+    "VAL-ORG-013",
+    "VAL-ORG-014",
+    "VAL-ORG-015"
+  ],
+  "failedAssertions": [
+    {
+      "id": "VAL-ORG-001",
+      "reason": "Invite role selector does not expose the Owner role option (only Viewer/Admin shown), so required role assignment coverage is incomplete."
+    },
+    {
+      "id": "VAL-ORG-005",
+      "reason": "Owner full-control surface is incomplete in tested UI; rename/delete-org/transfer-ownership controls were not found."
+    },
+    {
+      "id": "VAL-ORG-007",
+      "reason": "Valid subtree drag-and-drop did not change manager relationships (no reparent request observed; hierarchy unchanged)."
+    },
+    {
+      "id": "VAL-ORG-009",
+      "reason": "Subtree move persistence/hierarchy-preservation criteria failed because valid subtree reparenting did not execute."
+    }
+  ],
+  "blockedAssertions": [
+    {
+      "id": "VAL-ORG-008",
+      "blockedBy": "Blocked by prerequisite failure: valid drag-to-reparent is non-functional, so cycle-detection behavior cannot be isolated."
+    },
+    {
+      "id": "VAL-CROSS-007",
+      "blockedBy": "Blocked by prerequisite failure: drag-to-reparent does not apply, so undo of drag-to-reparent cannot be exercised."
+    }
+  ],
+  "appliedUpdates": [],
+  "previousRound": null
+}

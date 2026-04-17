@@ -1,0 +1,277 @@
+{
+  "groupId": "invitations-rbac",
+  "testedAt": "2026-04-17T05:53:30Z",
+  "isolation": {
+    "namespace": "orgmgmt_invite_g1",
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001",
+    "credentialPrefix": "orgmgmt_invite_g1_",
+    "orgNamePrefix": "OrgMgmt Invite G1"
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-ORG-001",
+      "title": "Send invitation with role assignment",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Owner opened Members panel and sent invite to orgmgmt_invite_g1_viewer_20260416a@example.com with Viewer role",
+          "expected": "Pending invitation shows email with Viewer role",
+          "observed": "Pending invitation displayed with Viewer role"
+        },
+        {
+          "action": "Owner sent invite to orgmgmt_invite_g1_admin_20260416a@example.com with Admin role",
+          "expected": "Pending invitation shows email with Admin role",
+          "observed": "Pending invitation displayed with Admin role"
+        },
+        {
+          "action": "Checked role selector options in invite form",
+          "expected": "Viewer/Admin/Owner role options available",
+          "observed": "Only Viewer and Admin options were available; Owner option was missing"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/invitations-rbac/VAL-ORG-001-pending-viewer-invite.png",
+          "org-management/invitations-rbac/VAL-ORG-001-pending-admin-invite.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/orgs/:orgId/invite observed for sent invitations"
+      },
+      "issues": "Invite role selector does not expose Owner role required by assertion."
+    },
+    {
+      "id": "VAL-ORG-002",
+      "title": "Invitation rejects invalid, duplicate, and existing-member emails",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Entered invalid email value \"bad\" and attempted Send Invite",
+          "expected": "Validation error shown for invalid email",
+          "observed": "Native email validation triggered (validationMessage: \"Please include an '@' in the email address. 'bad' is missing an '@'.\")"
+        },
+        {
+          "action": "Re-invited existing pending email orgmgmt_invite_g1_viewer_20260416a@example.com",
+          "expected": "Duplicate invite rejected with already-sent error",
+          "observed": "UI displayed \"Invitation already sent to this email\""
+        },
+        {
+          "action": "Invited existing member email orgmgmt_invite_g1_owner_20260416a@example.com",
+          "expected": "Existing member invite rejected",
+          "observed": "UI displayed \"User is already a member of this organization\""
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/invitations-rbac/VAL-ORG-002-invalid-email-error-2.png",
+          "org-management/invitations-rbac/VAL-ORG-002-duplicate-invite-error.png",
+          "org-management/invitations-rbac/VAL-ORG-002-existing-member-error.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/orgs/:orgId/invite conflict responses observed for duplicate/existing-member attempts"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ORG-003",
+      "title": "Accept invitation adds user to org",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Registered/logged in as orgmgmt_invite_g1_viewer_20260416a@example.com",
+          "expected": "Invitation inbox shows org name and assigned role",
+          "observed": "Inbox showed OrgMgmt Invite G1 Org 20260416a with role viewer"
+        },
+        {
+          "action": "Clicked Accept on invitation",
+          "expected": "User joins org and org appears in organization selector/sidebar",
+          "observed": "Org appeared in selector and user loaded into org views"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/invitations-rbac/VAL-ORG-003-invitation-inbox-before-accept.png",
+          "org-management/invitations-rbac/VAL-ORG-003-org-visible-after-accept.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/invitations/:invitationId/accept observed"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ORG-004",
+      "title": "Decline invitation keeps user out of org",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Registered/logged in as orgmgmt_invite_g1_decline_20260416a@example.com",
+          "expected": "Pending invitation is visible",
+          "observed": "Invitation to OrgMgmt Invite G1 Org 20260416a was shown"
+        },
+        {
+          "action": "Clicked Decline",
+          "expected": "Invitation removed and user not added to org",
+          "observed": "Invitation disappeared; organization selector remained \"No organizations\""
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/invitations-rbac/VAL-ORG-004-invitation-inbox-before-decline.png",
+          "org-management/invitations-rbac/VAL-ORG-004-after-decline-no-org.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/invitations/:invitationId/decline observed"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ORG-005",
+      "title": "Role-based permissions — viewer, admin, owner",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Validated viewer account across Org Chart/Hierarchy/Spreadsheet/Kanban/Compare and attempted writes",
+          "expected": "Viewer can browse views but cannot mutate data",
+          "observed": "Viewer could browse all views; write paths were blocked (disabled controls/read-only banner/no write requests; scenario create returned 403)"
+        },
+        {
+          "action": "Validated admin account capabilities",
+          "expected": "Admin can CRUD employees/scenarios but cannot manage members/delete org",
+          "observed": "Admin successfully created scenario and employee; Members panel showed list only (no invite/remove/change controls)"
+        },
+        {
+          "action": "Validated owner-exclusive org controls",
+          "expected": "Owner can rename org, delete org, transfer ownership, and manage members",
+          "observed": "Owner member-management controls worked, but no visible rename/delete-org/transfer-ownership controls were found in tested owner surfaces"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/invitations-rbac/VAL-ORG-005-viewer-scenario-create-blocked.png",
+          "org-management/invitations-rbac/VAL-ORG-005-viewer-compare-view-access.png",
+          "org-management/invitations-rbac/VAL-ORG-005-admin-create-scenario.png",
+          "org-management/invitations-rbac/VAL-ORG-005-admin-create-employee.png",
+          "org-management/invitations-rbac/VAL-ORG-005-admin-members-blocked.png",
+          "org-management/invitations-rbac/VAL-ORG-005-owner-missing-transfer-delete-controls.png"
+        ],
+        "consoleErrors": "Expected 403 surfaced during viewer scenario-create attempt; no unexpected runtime crashes",
+        "network": "Viewer: POST /api/orgs/:orgId/scenarios -> 403; Admin: POST /api/orgs/:orgId/scenarios and POST /api/scenarios/:scenarioId/employees observed; Owner: PATCH/DELETE /api/orgs/:orgId/members/:memberId observed"
+      },
+      "issues": "Owner full-control requirement not fully met in tested UI: transfer ownership / delete organization / rename organization controls were not found."
+    },
+    {
+      "id": "VAL-ORG-006",
+      "title": "Remove and change role of org members",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Owner changed orgmgmt_invite_g1_viewer_20260416a@example.com role from Viewer to Admin",
+          "expected": "Role updates in member list",
+          "observed": "Member role updated to Admin in members table"
+        },
+        {
+          "action": "Owner removed orgmgmt_invite_g1_admin_20260416a@example.com from org",
+          "expected": "Member disappears from list and loses org access",
+          "observed": "Member removed from list; removed user later logged in and saw \"No organizations\""
+        },
+        {
+          "action": "Logged in as promoted user (former viewer)",
+          "expected": "New admin capabilities available immediately",
+          "observed": "Add Employee/New Scenario were enabled and promoted user could create a new scenario"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/invitations-rbac/VAL-ORG-006-owner-members-before-changes.png",
+          "org-management/invitations-rbac/VAL-ORG-006-owner-role-change-viewer-to-admin.png",
+          "org-management/invitations-rbac/VAL-ORG-006-owner-remove-member.png",
+          "org-management/invitations-rbac/VAL-ORG-006-removed-member-no-org.png",
+          "org-management/invitations-rbac/VAL-ORG-006-promoted-member-admin-capabilities.png",
+          "org-management/invitations-rbac/VAL-ORG-006-promoted-member-scenario-create.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/orgs/:orgId/members/:memberId (role change), DELETE /api/orgs/:orgId/members/:memberId (remove), and POST /api/orgs/:orgId/scenarios (promoted member capability) observed"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-004",
+      "title": "Viewer role blocked consistently across all 5 views",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Org Chart: attempted node drag as viewer",
+          "expected": "Write attempt blocked",
+          "observed": "Drag attempt produced no move/write request"
+        },
+        {
+          "action": "Hierarchy: attempted drag/reorder as viewer",
+          "expected": "Write attempt blocked",
+          "observed": "Drag attempt produced no move/write request"
+        },
+        {
+          "action": "Spreadsheet: attempted inline edit and typed into selected cell",
+          "expected": "No edit commit/write",
+          "observed": "No active AG Grid editor state and no employee write request"
+        },
+        {
+          "action": "Kanban: attempted card drag as viewer",
+          "expected": "Write attempt blocked",
+          "observed": "Cards were disabled; drag attempt generated no write request"
+        },
+        {
+          "action": "Detail panel: attempted edit/save path as viewer",
+          "expected": "Save path blocked",
+          "observed": "UI showed \"Viewer role — read-only access\" and no employee write request was sent"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "org-management/invitations-rbac/VAL-CROSS-004-viewer-orgchart-drag-attempt-blocked.png",
+          "org-management/invitations-rbac/VAL-CROSS-004-viewer-hierarchy-drag-attempt-blocked.png",
+          "org-management/invitations-rbac/VAL-CROSS-004-viewer-spreadsheet-edit-attempt-network.png",
+          "org-management/invitations-rbac/VAL-CROSS-004-viewer-kanban-drag-attempt-blocked.png",
+          "org-management/invitations-rbac/VAL-CROSS-004-viewer-detailpanel-readonly.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No write requests captured during viewer modification attempts across OrgChart/Hierarchy/Spreadsheet/Kanban/DetailPanel"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Immediately after invitation acceptance/login, org data sometimes rendered as empty until a page reload.",
+      "resolved": true,
+      "resolution": "Used explicit reload + network-idle wait before asserting data-dependent behavior.",
+      "affectedAssertions": [
+        "VAL-ORG-003",
+        "VAL-ORG-005",
+        "VAL-CROSS-004"
+      ]
+    },
+    {
+      "description": "agent-browser network log output is verbose/repetitive and does not include HTTP status codes directly.",
+      "resolved": true,
+      "resolution": "Correlated network endpoint presence with UI outcomes and console errors (e.g., expected 403) for enforcement checks.",
+      "affectedAssertions": [
+        "VAL-ORG-005",
+        "VAL-CROSS-004",
+        "VAL-ORG-006"
+      ]
+    },
+    {
+      "description": "Invalid-email rejection surfaced via native HTML validation message instead of a persistent in-app error banner.",
+      "resolved": true,
+      "resolution": "Captured browser validation state/message and screenshot after invalid input attempt.",
+      "affectedAssertions": [
+        "VAL-ORG-002"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 7 assertions: 5 passed, 2 failed. Failures: VAL-ORG-001 (Owner invite role option missing) and VAL-ORG-005 (owner full-control controls for rename/delete/transfer not found in tested UI surfaces)."
+}
