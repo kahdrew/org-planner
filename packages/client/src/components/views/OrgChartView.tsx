@@ -90,39 +90,65 @@ function OrgChartViewInner() {
   // Compute layout from filtered employees
   const { nodes: layoutNodes, edges: layoutEdges } = useTreeLayout(filteredEmployees);
 
-  // Apply selection state and drag visual feedback to nodes. We also inject
-  // the currently-rendered employee dataset (`_chartEmployees`) into each
-  // node's data so the EmployeeCard can compute relational state (overlay
-  // context, span-of-control flags) from the same list the chart is
-  // displaying — this keeps badges in sync when the timeline slider is
-  // scrubbing to a historical snapshot.
-  const nodesWithSelection = useMemo(
+  // Layout-only data for each node. We intentionally DO NOT include the
+  // `selected` state here — selection is managed by React Flow's internal
+  // node state (driven by clicks/lasso) and mirrored to our store via
+  // `onSelectionChange`. Previously we rebuilt nodes on every store change
+  // (including selection) and passed them to `setNodes`, which immediately
+  // clobbered React Flow's transient lasso selection before
+  // `onSelectionChange` had a chance to propagate it to our store — that
+  // broke VAL-MULTI-003 (lasso/marquee selection).
+  const nodesWithLayout = useMemo(
     () =>
       layoutNodes.map((node) => ({
         ...node,
         data: { ...node.data, _chartEmployees: filteredEmployees },
-        selected: selectedIds.has(node.id),
         className:
           draggingNodeId && draggingDescendantIds.has(node.id)
             ? 'ring-2 ring-blue-400 ring-offset-1 opacity-70'
             : undefined,
       })),
-    [layoutNodes, filteredEmployees, selectedIds, draggingNodeId, draggingDescendantIds],
+    [layoutNodes, filteredEmployees, draggingNodeId, draggingDescendantIds],
   );
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(nodesWithSelection);
+  const [nodes, setNodes, onNodesChange] = useNodesState(nodesWithLayout);
   const [edges, setEdges, onEdgesChange] = useEdgesState(layoutEdges);
 
-  // Sync layout when employees or selection change
+  // Sync structural/layout changes but preserve each node's current
+  // `selected` state so React Flow's internal selection (from click/lasso)
+  // is not clobbered when unrelated renders occur.
+  useEffect(() => {
+    setNodes((prev) => {
+      const prevSelected = new Map(prev.map((n) => [n.id, n.selected ?? false]));
+      return nodesWithLayout.map((n) => ({
+        ...n,
+        selected: prevSelected.get(n.id) ?? false,
+      }));
+    });
+    setEdges(layoutEdges);
+  }, [nodesWithLayout, layoutEdges, setNodes, setEdges]);
+
+  // Push store-driven selection changes (click, Cmd+A) into React Flow.
+  // Guarded with a ref so we don't infinitely ping-pong with
+  // `onSelectionChange` when the store change originated from React Flow.
   useEffect(() => {
     isSyncingFromStore.current = true;
-    setNodes(nodesWithSelection);
-    setEdges(layoutEdges);
-    // Reset the flag after React Flow processes the update
+    setNodes((prev) => {
+      let changed = false;
+      const next = prev.map((n) => {
+        const shouldBe = selectedIds.has(n.id);
+        if (n.selected !== shouldBe) {
+          changed = true;
+          return { ...n, selected: shouldBe };
+        }
+        return n;
+      });
+      return changed ? next : prev;
+    });
     requestAnimationFrame(() => {
       isSyncingFromStore.current = false;
     });
-  }, [nodesWithSelection, layoutEdges, setNodes, setEdges]);
+  }, [selectedIds, setNodes]);
 
   // Handle node clicks for multi-select
   const handleNodeClick = useCallback(
@@ -150,21 +176,35 @@ function OrgChartViewInner() {
     clearSelection();
   }, [clearSelection]);
 
-  // Sync React Flow's built-in selection (lasso/marquee) with our selectionStore
+  // Sync React Flow's built-in selection (click, box / lasso / marquee) into
+  // our selectionStore. We only push IDs into the store when they actually
+  // differ from what we already have, and we ignore events that originate
+  // from our own store → RF sync to avoid an infinite loop.
   const handleSelectionChange: OnSelectionChangeFunc = useCallback(
     ({ nodes: selectedNodes }) => {
-      // Skip if we're syncing from store → React Flow (avoids infinite loop)
       if (isSyncingFromStore.current) return;
 
       const rfSelectedIds = selectedNodes.map((n) => n.id);
+      const rfSet = new Set(rfSelectedIds);
+      const current = useSelectionStore.getState().selectedIds;
 
-      // Only update store when the selection comes from React Flow's box/marquee selection
-      // (not from our own click handlers which already update the store)
+      // Skip if nothing changed to avoid redundant updates.
+      if (
+        rfSet.size === current.size &&
+        rfSelectedIds.every((id) => current.has(id))
+      ) {
+        return;
+      }
+
       if (rfSelectedIds.length > 0) {
         selectAll(rfSelectedIds);
+      } else if (current.size > 0) {
+        // Lasso/click that results in zero selection should clear the store
+        // so indicators and bulk toolbars update correctly.
+        clearSelection();
       }
     },
-    [selectAll],
+    [selectAll, clearSelection],
   );
 
   // Track drag start to show subtree visual feedback
@@ -195,14 +235,14 @@ function OrgChartViewInner() {
         // Prevent circular: can't reparent to self or already a child
         if (draggedEmp.managerId === targetEmp._id) {
           // Already reports to this manager, reset positions
-          setNodes(nodesWithSelection);
+          setNodes(nodesWithLayout);
           return;
         }
 
         // Cycle detection: prevent dropping onto own descendant
         if (isDescendant(draggedEmp._id, targetEmp._id, employees)) {
           // Show brief visual rejection — cannot create cycle
-          setNodes(nodesWithSelection);
+          setNodes(nodesWithLayout);
           return;
         }
 
@@ -217,10 +257,10 @@ function OrgChartViewInner() {
         });
       } else {
         // No drop target — reset positions
-        setNodes(nodesWithSelection);
+        setNodes(nodesWithLayout);
       }
     },
-    [reactFlowInstance, employees, nodesWithSelection, setNodes],
+    [reactFlowInstance, employees, nodesWithLayout, setNodes],
   );
 
   // Handle subtree move confirmation
@@ -237,8 +277,8 @@ function OrgChartViewInner() {
   const handleCancelMove = useCallback(() => {
     setPendingMove(null);
     // Reset node positions
-    setNodes(nodesWithSelection);
-  }, [nodesWithSelection, setNodes]);
+    setNodes(nodesWithLayout);
+  }, [nodesWithLayout, setNodes]);
 
   return (
     <div className="relative h-full w-full -m-6">

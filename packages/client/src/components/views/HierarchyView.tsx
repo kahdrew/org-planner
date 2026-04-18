@@ -232,6 +232,18 @@ function TreeRow({
           isDraggedSubtreeMember && !isDragging && 'bg-blue-50 ring-1 ring-blue-300 opacity-70',
           !isSelected && !isMultiSelected && !isOver && !isDragging && !isDraggedSubtreeMember && 'hover:bg-gray-50',
         )}
+        onMouseDownCapture={(e) => {
+          // Establish the selection anchor in capture phase so that even
+          // clicks landing on inline-editable fields (which call
+          // e.stopPropagation() in their own onClick) still register this
+          // row as the Shift+Click anchor. Without this, clicking an
+          // employee name would only enter edit mode and leave the
+          // selection anchor un-set, breaking VAL-MULTI-002.
+          if (!isInlineEditing && !e.shiftKey) {
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
+            useSelectionStore.setState({ lastClickedId: employee._id });
+          }
+        }}
         onClick={(e) => {
           if (!isInlineEditing) {
             const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;

@@ -711,8 +711,8 @@ function RequestDetail({
                 type="button"
                 disabled
                 className="flex items-center gap-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-400"
-                title="Cannot approve your own request"
-                aria-label="Cannot approve your own request"
+                title="You cannot approve your own request."
+                aria-label="You cannot approve your own request."
                 data-testid="detail-self-approve-disabled"
               >
                 <Ban size={12} /> Approve
@@ -897,21 +897,29 @@ export default function ApprovalsView() {
   };
 
   const filteredRequests = useMemo(() => {
-    let list =
-      filter === 'all' ? requests : requests.filter((r) => r.status === filter);
-    // VAL-APPROVAL-005: on the "Pending" tab, default to the user's own
-    // queue — items they can act on as an approver for the current step,
-    // plus their own submissions (which they can see but not approve).
-    // Items pending at steps they are not responsible for (and did not
-    // submit) are hidden. Toggle to "All pending" to see everything.
+    // VAL-APPROVAL-005 / VAL-APPROVAL-009: on the "Pending" tab, default
+    // to the user's own queue — items they can act on as an approver for
+    // the current step, plus their own submissions (including items that
+    // have been returned with status `changes_requested`, which require
+    // the submitter to edit & resubmit). Toggle to "All pending" to see
+    // everything org-wide.
     if (filter === 'pending' && pendingScope === 'mine') {
-      list = list.filter(
-        (r) =>
-          pendingApprovalIds.has(r._id) ||
-          r.requestedBy === currentUser?._id,
-      );
+      return requests.filter((r) => {
+        if (r.status === 'pending') {
+          return (
+            pendingApprovalIds.has(r._id) ||
+            r.requestedBy === currentUser?._id
+          );
+        }
+        if (r.status === 'changes_requested') {
+          return r.requestedBy === currentUser?._id;
+        }
+        return false;
+      });
     }
-    return list;
+    return filter === 'all'
+      ? requests
+      : requests.filter((r) => r.status === filter);
   }, [requests, filter, pendingScope, pendingApprovalIds, currentUser]);
 
   const chainsById = useMemo(() => {
@@ -934,7 +942,24 @@ export default function ApprovalsView() {
     return result;
   }, [requests]);
 
-  const actionablePendingCount = pendingApprovals.length;
+  /**
+   * My-queue count: things *I* need to act on.
+   *  - Pending requests where I'm the designated approver
+   *  - `changes_requested` requests that I submitted (awaiting my
+   *    edit & resubmit)
+   * Used both for the tab badge and the top-of-page submitter banner.
+   */
+  const myResubmitRequests = useMemo(
+    () =>
+      requests.filter(
+        (r) =>
+          r.status === 'changes_requested' &&
+          r.requestedBy === currentUser?._id,
+      ),
+    [requests, currentUser?._id],
+  );
+  const actionablePendingCount =
+    pendingApprovals.length + myResubmitRequests.length;
 
   const selectedIds = Array.from(selected);
   const selectedActionable = selectedIds.filter((id) => {
@@ -1057,6 +1082,47 @@ export default function ApprovalsView() {
           )}
         </div>
       </div>
+
+      {/* Submitter "resubmit required" banner (VAL-APPROVAL-009) */}
+      {myResubmitRequests.length > 0 && (
+        <div
+          className="flex items-center justify-between border-b border-blue-200 bg-blue-50 px-6 py-3 text-sm text-blue-900"
+          data-testid="resubmit-required-banner"
+          role="status"
+        >
+          <div className="flex items-center gap-2">
+            <RotateCcw size={16} />
+            <span>
+              <strong>{myResubmitRequests.length}</strong> of your requests{' '}
+              {myResubmitRequests.length === 1 ? 'is' : 'are'} awaiting your
+              edits. Update &amp; resubmit to restart the approval chain from
+              step&nbsp;1.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setFilter('changes_requested');
+                setPendingScope('all');
+              }}
+              className="rounded-md border border-blue-300 bg-white px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+              data-testid="resubmit-banner-view-all"
+            >
+              View all
+            </button>
+            <button
+              type="button"
+              onClick={() => setResubmitId(myResubmitRequests[0]._id)}
+              className="flex items-center gap-1 rounded-md bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700"
+              data-testid="resubmit-banner-open"
+            >
+              <RotateCcw size={12} />
+              Edit &amp; Resubmit
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Filter tabs */}
       <div className="flex items-center gap-2 border-b border-gray-200 bg-white px-6 py-2">
@@ -1365,11 +1431,12 @@ export default function ApprovalsView() {
                           ) : isOwnRequest && r.status === 'pending' ? (
                             <button
                               disabled
-                              className="flex items-center gap-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-400"
-                              title="You cannot approve your own request"
+                              className="flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-400"
+                              title="You cannot approve your own request."
+                              aria-label="You cannot approve your own request."
                               data-testid={`self-approve-blocked-${r._id}`}
                             >
-                              <Ban size={12} className="inline" /> Own Request
+                              <Ban size={12} className="inline" /> Approve
                             </button>
                           ) : (
                             <button

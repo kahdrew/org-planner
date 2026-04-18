@@ -251,7 +251,8 @@ export default function SpreadsheetView() {
       } else if (isModKey) {
         toggleSelect(event.data._id);
       } else {
-        // Plain click: set the anchor for future Shift+Click range selection
+        // Plain click: clear multi-selection but retain this row as the
+        // anchor for subsequent Shift+Click range selection (VAL-MULTI-002).
         useSelectionStore.getState().clearSelection();
         useSelectionStore.setState({ lastClickedId: event.data._id });
       }
@@ -259,10 +260,31 @@ export default function SpreadsheetView() {
     [orderedIds, toggleSelect, rangeSelect],
   );
 
+  /**
+   * AG Grid does not fire `onRowClicked` when cell editing starts (the cell
+   * intercepts the click). To ensure the anchor is always set — even when
+   * the user clicks directly on a cell to begin inline editing — establish
+   * the anchor in the grid's capture-phase click listener as well.
+   */
+  const handleGridMouseDown = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (event.shiftKey) return;
+      const rowEl = (event.target as HTMLElement).closest('[row-id]');
+      const rowId = rowEl?.getAttribute('row-id');
+      if (rowId) {
+        useSelectionStore.setState({ lastClickedId: rowId });
+      }
+    },
+    [],
+  );
+
   /* -- Render ------------------------------------------------------- */
 
   return (
-    <div className="ag-theme-alpine h-full w-full">
+    <div
+      className="ag-theme-alpine h-full w-full"
+      onMouseDownCapture={handleGridMouseDown}
+    >
       <AgGridReact<Employee>
         ref={gridRef}
         rowData={filteredEmployees}

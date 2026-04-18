@@ -130,7 +130,42 @@ export default function NotificationBell() {
     () => deriveEvents(requests ?? [], members ?? [], currentUser?._id),
     [requests, members, currentUser?._id],
   );
-  const badgeCount = pendingApprovals?.length ?? 0;
+
+  // Badge count reflects anything currently requiring the signed-in
+  // user's attention (VAL-APPROVAL-010):
+  //  - Pending requests where they are the designated approver
+  //  - Their own submissions returned with status `changes_requested`
+  //  - Recent approval events (approved / rejected / request_changes /
+  //    resubmit) on their own submissions in the last 7 days
+  const badgeCount = useMemo(() => {
+    const pending = pendingApprovals?.length ?? 0;
+    if (!currentUser?._id) return pending;
+    const ownResubmits = (requests ?? []).filter(
+      (r) =>
+        r.status === 'changes_requested' &&
+        r.requestedBy === currentUser._id,
+    ).length;
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const recentStatusEvents = (requests ?? []).reduce((sum, r) => {
+      if (r.requestedBy !== currentUser._id) return sum;
+      const entries = r.audit ?? [];
+      const hits = entries.filter((e) => {
+        if (
+          e.action !== 'approve' &&
+          e.action !== 'reject' &&
+          e.action !== 'request_changes'
+        ) {
+          return false;
+        }
+        const t = new Date(e.timestamp).getTime();
+        if (Number.isNaN(t)) return false;
+        return now - t <= sevenDaysMs;
+      });
+      return sum + hits.length;
+    }, 0);
+    return pending + ownResubmits + recentStatusEvents;
+  }, [pendingApprovals, requests, currentUser?._id]);
 
   return (
     <div className="relative" ref={rootRef}>
