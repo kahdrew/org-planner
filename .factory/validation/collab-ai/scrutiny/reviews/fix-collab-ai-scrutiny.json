@@ -1,0 +1,15 @@
+{
+  "featureId": "fix-collab-ai-scrutiny",
+  "reviewedAt": "2026-04-18T01:00:37Z",
+  "commitId": "350879c66dcbcaa10d8218d06dcde4cbd908936c",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The fix commit addresses both prior blocking scrutiny findings: non-employeeController employee mutations now emit scenario-scoped SSE events with appropriate event types/payloads, and AI history forwarding now filters empty/whitespace assistant turns before API submission.",
+    "issues": []
+  },
+  "sharedStateObservations": [],
+  "addressesFailureFrom": ".factory/validation/collab-ai/scrutiny/reviews/sse-realtime-updates.json; .factory/validation/collab-ai/scrutiny/reviews/ai-powered-planning.json",
+  "summary": "Reviewed fix-collab-ai-scrutiny (commit 350879c). The previously blocking SSE gap is resolved in headcount approval materialization and scheduled-change apply paths (including internal applyDueChangesForScenario), and the blocking AI empty-assistant-history regression is resolved in aiChatStore history construction. No new blocking issues were identified for the targeted failures."
+}
