@@ -1,0 +1,35 @@
+{
+  "featureId": "sse-realtime-updates",
+  "reviewedAt": "2026-04-18T00:30:36Z",
+  "commitId": "266f54035706e5b0febda3804941c06c2aaafe93",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "Core SSE plumbing is implemented (endpoint, event bus, client store, indicator, tests), but event emission coverage is incomplete for existing employee mutation paths and reconnection sync does not fetch full org state as specified.",
+    "issues": [
+      {
+        "severity": "blocking",
+        "description": "Not all employee create/update mutations emit SSE events, so cross-tab realtime behavior is incomplete.",
+        "evidence": "Feature contract requires emitting employee created/updated/deleted/moved events (features.json:1562,1573). Emission is wired in employeeController only (packages/server/src/controllers/employeeController.ts:8,103,164,248,354,398). Other employee mutation paths have no SSE emit calls: headcount approval materialization updates/creates employees (packages/server/src/controllers/headcountRequestController.ts:511,522) and scheduled change application updates employees (packages/server/src/controllers/scheduledChangeController.ts:317,377).",
+        "suggestedFix": "After successful employee mutations in headcountRequestController and scheduledChangeController, emit scenario-scoped events via emitScenarioScopedEvent (employee.created/employee.updated) using the same payload shape as employeeController."
+      },
+      {
+        "severity": "non_blocking",
+        "description": "Reconnect sync fetches only employees, not full org state, which can miss non-employee changes that occurred while disconnected.",
+        "evidence": "Feature description calls for full-state sync on reconnect (features.json:1562). Client reconnect path invokes syncMissedChanges() (packages/client/src/stores/sseStore.ts:209,253), and that function only calls fetchEmployees (packages/client/src/stores/sseStore.ts:213).",
+        "suggestedFix": "Expand reconnect recovery to refresh full org-scoped state (at minimum scenarios + active scenario employees; optionally org metadata) before marking recovery complete."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Mission conventions say all protected routes use auth middleware, but SSE intentionally bypasses auth middleware and authenticates in-controller.",
+      "evidence": "AGENTS.md states \"All protected routes use the `auth` middleware\" (AGENTS.md:31), while sseRoutes explicitly does not use it (packages/server/src/routes/sseRoutes.ts:7-11).",
+      "recommendation": "Document an explicit SSE exception in AGENTS.md (and/or architecture docs) so future workers and reviewers treat this as an intentional pattern rather than a policy violation."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Review result: fail. The implementation delivers core SSE functionality, but it does not yet satisfy full feature scope because employee mutations outside employeeController do not emit SSE updates, and reconnect recovery does not perform the specified full-state resync."
+}

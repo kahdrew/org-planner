@@ -1,0 +1,63 @@
+{
+  "featureId": "ai-powered-planning",
+  "reviewedAt": "2026-04-18T00:30:39Z",
+  "commitId": "4aeb9c0397c358b4b575abc9f2a94ae94e7248ca",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "issues": [
+    {
+      "file": "packages/client/src/stores/aiChatStore.ts",
+      "line": 108,
+      "severity": "blocking",
+      "description": "A failed assistant turn can persist with empty content, and that empty string is forwarded in history on the next request, which violates server validation and breaks follow-up queries.",
+      "evidence": "Client sets failed assistant content to empty string at packages/client/src/stores/aiChatStore.ts:140 and forwards all prior messages at :108. Server requires each history message content to be non-empty at packages/server/src/controllers/aiController.ts:33 (`z.string().min(1)`).",
+      "suggestedFix": "Do not forward empty-content turns (filter `history` by `content.trim().length > 0`) and/or persist a non-empty placeholder/friendly error text for failed assistant messages before mapping history."
+    },
+    {
+      "file": "packages/client/src/stores/aiChatStore.ts",
+      "line": 75,
+      "severity": "non_blocking",
+      "description": "Cancelling a stream updates only global `streaming` state but does not clear the in-progress assistant message's `streaming` flag, leaving stale per-message spinner state.",
+      "evidence": "`cancel` only calls `set({ _abortController: null, streaming: false })` at packages/client/src/stores/aiChatStore.ts:75. Message-level `streaming` is only set false in `onDone`/`onError` handlers (:129, :140). In api/ai.ts abort paths return early without callbacks (:104, :211), so aborted turns never reach those handlers.",
+      "suggestedFix": "On cancel/abort, mark the latest in-flight assistant message as `streaming: false` (optionally attach an `aborted` marker) before clearing controller state."
+    }
+  ],
+  "codeReview": {
+    "summary": "Implementation generally matches feature scope (new authenticated AI endpoint, Claude streaming integration, AI panel/store/client, and targeted tests), but one blocking conversation-state bug and one non-blocking cancellation-state bug remain.",
+    "issues": [
+      {
+        "file": "packages/client/src/stores/aiChatStore.ts",
+        "line": 108,
+        "severity": "blocking",
+        "description": "A failed assistant turn can persist with empty content, and that empty string is forwarded in history on the next request, which violates server validation and breaks follow-up queries.",
+        "evidence": "Client sets failed assistant content to empty string at packages/client/src/stores/aiChatStore.ts:140 and forwards all prior messages at :108. Server requires each history message content to be non-empty at packages/server/src/controllers/aiController.ts:33 (`z.string().min(1)`).",
+        "suggestedFix": "Do not forward empty-content turns (filter `history` by `content.trim().length > 0`) and/or persist a non-empty placeholder/friendly error text for failed assistant messages before mapping history."
+      },
+      {
+        "file": "packages/client/src/stores/aiChatStore.ts",
+        "line": 75,
+        "severity": "non_blocking",
+        "description": "Cancelling a stream updates only global `streaming` state but does not clear the in-progress assistant message's `streaming` flag, leaving stale per-message spinner state.",
+        "evidence": "`cancel` only calls `set({ _abortController: null, streaming: false })` at packages/client/src/stores/aiChatStore.ts:75. Message-level `streaming` is only set false in `onDone`/`onError` handlers (:129, :140). In api/ai.ts abort paths return early without callbacks (:104, :211), so aborted turns never reach those handlers.",
+        "suggestedFix": "On cancel/abort, mark the latest in-flight assistant message as `streaming: false` (optionally attach an `aborted` marker) before clearing controller state."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The implementation-worker skill has stale guidance for known baseline failures, which increases unnecessary validation churn.",
+      "evidence": ".factory/skills/implementation-worker/SKILL.md:57 says there are '4 pre-existing failures' in scheduledChanges, but this worker session performed extra baseline checks (including `git stash` + rerun) to confirm a broader pre-existing failure set documented in the handoff.",
+      "recommendation": "Update the skill note to the current known-baseline set (or replace the hardcoded count with a pointer to a living source-of-truth file maintained by validators)."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Shared architecture docs are behind the codebase after this feature; AI planning components/flow are not captured.",
+      "evidence": ".factory/library/architecture.md:16 lists client stores and omits `aiChatStore`; the document also has no AI endpoint/panel section despite this feature adding `/api/scenarios/:id/ai/query`, `AiChatPanel`, and streaming client/store flow.",
+      "recommendation": "Add a concise AI planning section in `.factory/library/architecture.md` describing backend endpoint + authz, prompt/context flow, and client streaming pipeline."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed feature ai-powered-planning at commit 4aeb9c0. Scope and core behavior are largely implemented, but status is fail due to a blocking empty-history regression after error turns; a non-blocking cancel-state UI inconsistency is also present. Added two shared-state observations (skill guidance staleness and architecture knowledge drift)."
+}

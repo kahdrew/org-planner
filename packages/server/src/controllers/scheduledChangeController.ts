@@ -63,13 +63,31 @@ const updateScheduledChangeSchema = z.object({
 });
 
 function parseDateOnly(dateValue: string): Date | null {
-  const [year, month, day] = dateValue.split("-").map(Number);
-  if (!year || !month || !day) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateValue.trim());
+  if (!match) {
     return null;
   }
 
-  const parsed = new Date(year, month - 1, day);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+
+  // Guard against invalid dates like 2026-02-31 that would roll over.
+  if (
+    parsed.getUTCFullYear() !== year
+    || parsed.getUTCMonth() !== month - 1
+    || parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function startOfTodayUtc(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
 /**
@@ -87,8 +105,7 @@ export const createScheduledChange = async (req: AuthRequest, res: Response): Pr
       res.status(400).json({ error: "Invalid effective date" });
       return;
     }
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = startOfTodayUtc();
     if (effectiveDate < today) {
       res.status(400).json({ error: "Effective date cannot be in the past" });
       return;
@@ -198,8 +215,7 @@ export const updateScheduledChange = async (req: AuthRequest, res: Response): Pr
         res.status(400).json({ error: "Invalid effective date" });
         return;
       }
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = startOfTodayUtc();
       if (newDate < today) {
         res.status(400).json({ error: "Effective date cannot be in the past" });
         return;

@@ -1,0 +1,65 @@
+{
+  "milestone": "collab-ai",
+  "round": 1,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run test",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run lint",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 2,
+    "passed": 0,
+    "failed": 2,
+    "failedFeatures": [
+      "sse-realtime-updates",
+      "ai-powered-planning"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "sse-realtime-updates",
+      "severity": "blocking",
+      "description": "SSE emission coverage is incomplete: employee mutations outside employeeController (e.g. headcount approval materialization and scheduled-change application) do not emit realtime events, so cross-tab synchronization is incomplete."
+    },
+    {
+      "featureId": "ai-powered-planning",
+      "severity": "blocking",
+      "description": "Failed assistant turns can persist with empty content and are forwarded in history on follow-up queries; server validation rejects empty history content, breaking continued conversation flows."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Document an explicit exception for SSE auth handling where routes intentionally authenticate in-controller instead of the standard auth middleware pattern.",
+      "evidence": "AGENTS.md currently states all protected routes use auth middleware, but sseRoutes intentionally bypasses route-level auth and authenticates inside the controller.",
+      "isSystemic": false
+    },
+    {
+      "target": "skills",
+      "suggestion": "Update implementation-worker skill guidance to avoid stale hardcoded baseline-failure counts; point to a maintained source-of-truth for known baseline failures.",
+      "evidence": "The review observed skill guidance with stale baseline failure counts, causing unnecessary validation churn and extra manual confirmation steps.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "Refresh .factory/library/architecture.md with the AI planning endpoint/panel/store flow.",
+      "reason": "deferred-documentation-update"
+    }
+  ],
+  "previousRound": null
+}
