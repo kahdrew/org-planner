@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom';
-import { Plus, Upload, Download, Search, Undo2, Redo2, Users, Keyboard, FileDown, Send } from 'lucide-react';
+import { Plus, Upload, Download, Search, Undo2, Redo2, Users, Keyboard, FileDown, Send, Sparkles } from 'lucide-react';
 import { useOrgStore } from '@/stores/orgStore';
 import { useApprovalStore } from '@/stores/approvalStore';
 import { useSelectionStore } from '@/stores/selectionStore';
@@ -37,6 +37,10 @@ interface ToolbarProps {
   onExportChart?: () => void;
   /** Callback to open the headcount request dialog */
   onSubmitHeadcountRequest?: () => void;
+  /** Callback to toggle the AI chat panel */
+  onToggleAiChat?: () => void;
+  /** Whether the AI chat panel is currently open (drives the button's active state) */
+  isAiChatOpen?: boolean;
   /** When true, write controls (Add Employee, Import) are disabled */
   isViewer?: boolean;
 }
@@ -51,6 +55,8 @@ export default function Toolbar({
   onExportChart,
   onOpenShortcutsHelp,
   onSubmitHeadcountRequest,
+  onToggleAiChat,
+  isAiChatOpen = false,
   isViewer = false,
 }: ToolbarProps) {
   const location = useLocation();
@@ -254,6 +260,24 @@ export default function Toolbar({
       )}
 
       <OverlaySelector />
+
+      {onToggleAiChat && (
+        <button
+          onClick={onToggleAiChat}
+          className={cn(
+            'flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors',
+            isAiChatOpen
+              ? 'border-blue-400 bg-blue-50 text-blue-700'
+              : 'border-gray-300 text-gray-700 hover:bg-gray-50',
+          )}
+          title="AI planning assistant"
+          data-testid="ai-chat-toggle"
+          aria-pressed={isAiChatOpen}
+        >
+          <Sparkles size={16} />
+          AI
+        </button>
+      )}
 
       <ConnectionStatusIndicator />
 

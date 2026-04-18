@@ -10,6 +10,7 @@ import timelineRoutes from "./routes/timelineRoutes";
 import budgetRoutes from "./routes/budgetRoutes";
 import approvalRoutes from "./routes/approvalRoutes";
 import sseRoutes from "./routes/sseRoutes";
+import aiRoutes from "./routes/aiRoutes";
 
 const app = express();
 
@@ -28,5 +29,6 @@ app.use("/api", scheduledChangeRoutes);
 app.use("/api", timelineRoutes);
 app.use("/api", budgetRoutes);
 app.use("/api", approvalRoutes);
+app.use("/api", aiRoutes);
 
 export default app;

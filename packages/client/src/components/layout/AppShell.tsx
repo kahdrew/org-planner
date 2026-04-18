@@ -14,6 +14,8 @@ import PendingChangesPanel from '@/components/panels/PendingChangesPanel';
 import SpanOfControlPanel from '@/components/panels/SpanOfControlPanel';
 import TimelineSlider from '@/components/panels/TimelineSlider';
 import HeadcountRequestDialog from '@/components/panels/HeadcountRequestDialog';
+import AiChatPanel from '@/components/panels/AiChatPanel';
+import { useAiChatStore } from '@/stores/aiChatStore';
 import { useApprovalStore } from '@/stores/approvalStore';
 import { useOrgStore } from '@/stores/orgStore';
 import { useUndoRedoStore } from '@/stores/undoRedoStore';
@@ -60,6 +62,10 @@ export default function AppShell() {
   const [headcountRequestOpen, setHeadcountRequestOpen] = useState(false);
 
   const fetchApprovalChains = useApprovalStore((s) => s.fetchChains);
+
+  const aiChatOpen = useAiChatStore((s) => s.isOpen);
+  const togglePanelAi = useAiChatStore((s) => s.togglePanel);
+  const closeAiPanel = useAiChatStore((s) => s.closePanel);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -209,6 +215,8 @@ export default function AppShell() {
           onExportChart={() => setExportDialogOpen(true)}
           onOpenShortcutsHelp={() => setShortcutsHelpOpen(true)}
           onSubmitHeadcountRequest={() => setHeadcountRequestOpen(true)}
+          onToggleAiChat={togglePanelAi}
+          isAiChatOpen={aiChatOpen}
           isViewer={currentRole === 'viewer'}
         />
 
@@ -266,6 +274,8 @@ export default function AppShell() {
           onClose={() => setHeadcountRequestOpen(false)}
         />
       )}
+
+      <AiChatPanel open={aiChatOpen} onClose={closeAiPanel} />
     </div>
   );
 }
