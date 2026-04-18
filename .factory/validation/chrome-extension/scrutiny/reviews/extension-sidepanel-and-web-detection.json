@@ -1,0 +1,45 @@
+{
+  "featureId": "extension-sidepanel-and-web-detection",
+  "reviewedAt": "2026-04-18T21:13:19Z",
+  "commitId": "96e185e39a5028fad3378ce7c9c38ec897cd9224",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The feature is substantial and well-tested, but two requirement-level blockers remain: side-panel click behavior is configured inconsistently with the manifest, and Request Intro depends on a user field that does not exist in the shared auth contract.",
+    "issues": [
+      {
+        "file": "packages/chrome-extension/manifest.json",
+        "line": 15,
+        "severity": "blocking",
+        "description": "The reviewed commit still declares `action.default_popup` (`popup/index.html`) while also enabling `chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })` in `background/index.ts`. This conflicts with the expected behavior that the extension icon opens the side panel."
+      },
+      {
+        "file": "packages/chrome-extension/src/sidepanel/ProspectDetail.tsx",
+        "line": 64,
+        "severity": "blocking",
+        "description": "Request Intro path checks rely on `(currentUser as PublicUser & { contactId?: string }).contactId`, but `PublicUser` in `packages/shared/src/schemas/auth.ts` only includes id/name/email/timestamps. For normal auth payloads, `sourceContactId` is missing and the button stays disabled even when a path may exist, violating the expected Request Intro behavior."
+      },
+      {
+        "file": "packages/chrome-extension/src/content/web-index.ts",
+        "line": 55,
+        "severity": "non_blocking",
+        "description": "The non-LinkedIn overlay \"Open in Relay\" action hardcodes `http://localhost:3101/companies/${company.id}`. This works only in local dev and is not environment-aware."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "services",
+      "observation": "Mission guidance requires all work in `/Users/andy/Documents/GitHub/relay`, but repository-level `.factory/services.yaml` only documents org-planner commands and ports. This can mislead workers on how to run validators/services for Relay features.",
+      "evidence": "Mission AGENTS.md line 5 mandates relay path; `.factory/services.yaml` lines 2-20 point to `/Users/andy/Documents/GitHub/org-planner` commands only."
+    },
+    {
+      "area": "knowledge",
+      "observation": "The shared architecture document in this repo is for org-planner, not Relay/extension architecture used by this mission, so workers cannot rely on `.factory/library/architecture.md` for feature-specific constraints.",
+      "evidence": "`.factory/library/architecture.md` line 3 states 'How the org-planner system works' and documents `packages/client` / `packages/server` (lines 13, 23), while this mission's code target is Relay."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Reviewed handoff, transcript skeleton, and commit `96e185e39a5028fad3378ce7c9c38ec897cd9224`. Result is FAIL due to two blockers: icon-click side-panel behavior conflicts with manifest popup settings in the reviewed commit, and Request Intro depends on a non-existent `PublicUser.contactId` field, leaving core intro behavior unavailable for standard users."
+}

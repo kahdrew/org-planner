@@ -1,0 +1,44 @@
+{
+  "featureId": "extension-linkedin-detection-overlay",
+  "reviewedAt": "2026-04-18T21:12:31Z",
+  "commitId": "db504f70d503015f636e175c9abbf7a3ef7b31cd",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "LinkedIn detection/extraction/overlay fundamentals are implemented and tested, but two blocking requirements are not fully met: known-contact overlay context is incomplete, and duplicate detection is page-limited.",
+    "issues": [
+      {
+        "file": "packages/chrome-extension/src/content/linkedin/overlay.ts",
+        "line": 200,
+        "severity": "blocking",
+        "description": "Known-contact rendering only shows `name/title/company/tags` (lines 200-203). VAL-EXT-013 requires known contact context including relationship status and last interaction date, but those fields are neither fetched nor rendered in the LinkedIn overlay flow."
+      },
+      {
+        "file": "packages/chrome-extension/src/background/linkedinService.ts",
+        "line": 27,
+        "severity": "blocking",
+        "description": "Duplicate detection is limited to the first 100 contacts (`LOOKUP_PAGE_LIMIT = 100` and `/api/contacts?limit=100` at lines 27 and 63). Contacts beyond page 1 are never checked, so `captureLinkedInProfile` (line 79+) can create duplicates for existing LinkedIn URLs."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The extension skill references setup docs that are missing in the relay repo, which creates procedural drift during worker setup.",
+      "evidence": "Skill file `/Users/andy/Documents/GitHub/org-planner/.factory/skills/extension-worker/SKILL.md` instructs reading `/Users/andy/Documents/GitHub/relay/.factory/library/architecture.md` and `.factory/research/chrome-extension-mv3.md`, but relay `.factory/library` only contains `user-testing.md` and no `.factory/research` directory exists."
+    },
+    {
+      "area": "skills",
+      "observation": "Tests-first procedure was not followed even though `skillFeedback.followedProcedure` is marked true.",
+      "evidence": "Transcript skeleton ordering for worker session `5e6ec6c5-2e55-41bb-8048-20e5bf4c81bf` shows implementation files created before tests (e.g., `content/linkedin/detector.ts` string index 9417 vs `__tests__/linkedinDetector.test.ts` index 11846)."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Validation contract and implementation disagree on lookup strategy for LinkedIn URL matching; this mismatch should be codified in shared state.",
+      "evidence": "validation-contract.md VAL-EXT-013 expects `/api/contacts?linkedinUrl=<profileUrl>`, while implementation uses `/api/contacts?limit=100` plus client-side filtering (`linkedinService.ts` lines 27, 63-67)."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Fail: two blocking gaps remain in commit db504f70 (missing known-contact relationship context in overlay and duplicate detection limited to first-page contacts). Transcript/skill review also found tests-first drift and stale skill references."
+}

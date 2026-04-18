@@ -1,0 +1,33 @@
+{
+  "featureId": "extension-scaffolding-and-auth",
+  "reviewedAt": "2026-04-18T21:30:00Z",
+  "commitId": "98c71e532d820d640a34e8b78d1004367b2237a4",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "The feature implementation covers the requested MV3 scaffolding, typed background message routing, auth token persistence in chrome.storage, popup login/authenticated flows, and multi-entry build outputs with tests for auth logic, message passing, and token management. I found one reliability gap in popup message transport error handling.",
+    "issues": [
+      {
+        "file": "packages/chrome-extension/src/popup/popupApi.ts",
+        "line": 14,
+        "severity": "non_blocking",
+        "description": "sendToBackground awaits chrome.runtime.sendMessage without try/catch or runtime.lastError handling. If the background worker is temporarily unavailable (worker restart/disconnect), the Promise can reject and bubble an uncaught error into popup UI flows instead of returning a typed error envelope."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The extension-worker skill procedure requires reading `.factory/library/architecture.md` and `.factory/research/chrome-extension-mv3.md`, but this mission run lacks one of those docs in the Relay repo and the transcript skeleton shows no read of the MV3 research doc; nevertheless handoff.skillFeedback reports followedProcedure=true.",
+      "evidence": "Skill: /Users/andy/Documents/GitHub/org-planner/.factory/skills/extension-worker/SKILL.md lines 26-27. Relay library listing: /Users/andy/Documents/GitHub/relay/.factory/library contains only user-testing.md. Transcript skeleton for workerSessionId 5fb5a569-772c-4e10-a70f-fbfe0df77b77 includes reads for mission.md/validation-contract/AGENTS/features/services but no `.factory/research/chrome-extension-mv3.md` entry."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Repo-root shared state in this environment is inconsistent with mission boundaries: mission guidance targets the Relay repo, while repo-root architecture/services files describe org-planner. This can mislead reviewers/workers when following generic instructions to consult repo-root `.factory/library` and `.factory/services.yaml`.",
+      "evidence": "Mission guidance: /Users/andy/.factory/missions/e9b0e43e-24b4-4baa-87be-b21f151a466c/AGENTS.md says all code lives in /Users/andy/Documents/GitHub/relay. Repo-root files read during review (`/Users/andy/Documents/GitHub/org-planner/.factory/library/architecture.md` and `/Users/andy/Documents/GitHub/org-planner/.factory/services.yaml`) describe org-planner components/ports instead."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Review completed for commit 98c71e532d820d640a34e8b78d1004367b2237a4. Implementation is functionally aligned with the feature contract and passes scrutiny with one non-blocking popup robustness issue plus two actionable shared-state observations."
+}

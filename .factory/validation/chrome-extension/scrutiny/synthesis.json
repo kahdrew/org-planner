@@ -1,0 +1,86 @@
+{
+  "milestone": "chrome-extension",
+  "round": 2,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run test",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run lint",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 4,
+    "passed": 1,
+    "failed": 3,
+    "failedFeatures": [
+      "extension-linkedin-detection-overlay",
+      "extension-sidepanel-and-web-detection",
+      "fix-extension-scrutiny-issues"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "extension-linkedin-detection-overlay",
+      "severity": "blocking",
+      "description": "Known-contact overlay rendering does not include required relationship context fields (e.g., relationship status/last interaction), so VAL-EXT-013 behavior is not met."
+    },
+    {
+      "featureId": "extension-linkedin-detection-overlay",
+      "severity": "blocking",
+      "description": "Duplicate LinkedIn URL detection only queries the first 100 contacts (`LOOKUP_PAGE_LIMIT = 100`), allowing duplicates beyond page 1."
+    },
+    {
+      "featureId": "extension-sidepanel-and-web-detection",
+      "severity": "blocking",
+      "description": "Request Intro path checks depend on `currentUser.contactId`, but `PublicUser` does not expose `contactId`, so intro-path gating can stay disabled for normal authenticated users."
+    },
+    {
+      "featureId": "fix-extension-scrutiny-issues",
+      "severity": "blocking",
+      "description": "LinkedIn SPA stale-profile race can still occur because same-URL suppression in detector evaluation can skip re-entry after early route change detection, leaving stale extracted profile data."
+    }
+  ],
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Clarify and enforce a single mission repo root for shared-state files so worker startup references (`services.yaml`, `library/`) do not mix org-planner and relay contexts.",
+      "evidence": "Multiple review reports observed mission guidance targeting relay while repo-root shared-state files in this worker context describe org-planner, causing recurring setup ambiguity.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills",
+      "suggestion": "Update `extension-worker` procedure to reference only guaranteed existing context files and tighten procedure checks for tests-first ordering before allowing `followedProcedure=true`.",
+      "evidence": "Reviewers repeatedly reported missing required reference docs and transcript ordering drift where implementation edits preceded tests while handoff still claimed procedure compliance.",
+      "isSystemic": true
+    },
+    {
+      "target": "validation-contract.md",
+      "suggestion": "Reconcile VAL-EXT-013 lookup expectations with implementation strategy (dedicated `linkedinUrl` query endpoint vs paginated client-side scan) and document required contract surface explicitly.",
+      "evidence": "Review reported contract expectation for direct linkedinUrl lookup while implementation uses limited-page contact fetch + local filtering, producing functional gaps and unclear acceptance criteria.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "Immediately update org-planner .factory/services.yaml with relay service commands.",
+      "reason": "ambiguous"
+    },
+    {
+      "observation": "Treat manifest `default_popup` conflict from `extension-sidepanel-and-web-detection` as an active blocker in current head state.",
+      "reason": "superseded-by-fix-feature"
+    }
+  ],
+  "previousRound": "/Users/andy/Documents/GitHub/relay/.factory/validation/chrome-extension/scrutiny/synthesis.json"
+}

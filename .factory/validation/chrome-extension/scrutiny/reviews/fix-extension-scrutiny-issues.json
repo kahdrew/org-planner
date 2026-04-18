@@ -1,0 +1,33 @@
+{
+  "featureId": "fix-extension-scrutiny-issues",
+  "reviewedAt": "2026-04-18T21:13:31Z",
+  "commitId": "b07f18419610b3cacec20658daf21fc442dbfa02",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The commit correctly removes manifest.default_popup, adds auth-based runtime popup toggling, adds offline queue fallback for LinkedIn capture, hardens popup messaging, and normalizes www LinkedIn URLs. However, the blocking stale-profile SPA transition bug is still possible because watcher re-evaluation after delayed DOM swaps is suppressed for same URL transitions.",
+    "issues": [
+      {
+        "file": "packages/chrome-extension/src/content/linkedin/detector.ts",
+        "line": 141,
+        "severity": "blocking",
+        "description": "`evaluate()` returns early when `sameAsCurrent` is true, while `pushState/replaceState` trigger `queueMicrotask(evaluate)` immediately (lines 183/193). If URL changes before LinkedIn finishes DOM swap, `onEnter` fires once with old DOM, `current` is set to the new URL, and later MutationObserver evaluations are ignored by the sameAsCurrent guard. Since extraction happens once in `mountForProfile` (`packages/chrome-extension/src/content/contentScript.ts:93`), stale profile fields can still persist across SPA transitions. The new regression tests set Bob's DOM before `pushState` (`contentSpaNavigation.test.ts:149,178`), so they do not cover the real delayed-DOM ordering that caused the original scrutiny failure."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The extension-worker skill procedure and actual worker behavior are out of sync for required context reads, but handoff still reports followedProcedure=true.",
+      "evidence": "Skill requires reading `.factory/library/architecture.md` and `.factory/research/chrome-extension-mv3.md` (`/Users/andy/Documents/GitHub/org-planner/.factory/skills/extension-worker/SKILL.md:26-27`), while session skeleton `/tmp/b471_skeleton.md` contains neither path (both missing in string search)."
+    },
+    {
+      "area": "knowledge",
+      "observation": "The expected relay architecture reference file is still absent from relay shared library, which keeps causing scrutiny/worker context drift.",
+      "evidence": "`/Users/andy/Documents/GitHub/relay/.factory/library` contains only `user-testing.md`; `architecture.md` is missing."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Scrutiny failed: four requested fixes are implemented, but the stale LinkedIn profile data race across SPA transitions remains possible due to detector same-URL suppression after pushState-triggered early enter."
+}
