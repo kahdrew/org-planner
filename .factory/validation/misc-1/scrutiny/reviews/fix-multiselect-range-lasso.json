@@ -1,0 +1,28 @@
+{
+  "featureId": "fix-multiselect-range-lasso",
+  "reviewedAt": "2026-04-18T03:53:22.014216Z",
+  "commitId": "ee38118157d565242e690c49740f3c424ed4b41e",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Implementation addresses the targeted assertions for Shift+Click range anchor handling, OrgChart lasso/store synchronization, and approvals UX/tooltip copy updates. I found one non-blocking regression risk in OrgChart drag-reset flows where selection state can be unintentionally cleared.",
+    "issues": [
+      {
+        "file": "packages/client/src/components/views/OrgChartView.tsx",
+        "line": 238,
+        "severity": "non_blocking",
+        "description": "`handleNodeDragStop`/cancel paths call `setNodes(nodesWithLayout)` where `nodesWithLayout` intentionally omits `selected`. This can clear React Flow selection on invalid drop/cancel (and may clear store selection via `onSelectionChange`), creating an unexpected selection reset regression after drag flows. Preserve previous `selected` flags (or reapply `selectedIds`) when resetting positions."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The `implementation-worker` skill requires agent-browser manual verification for UI changes, but this UI-heavy feature appears to have completed without agent-browser usage while still marked as followed procedure.",
+      "evidence": "Transcript skeleton for session 9bd13c77-1066-4973-83f3-b138587db5fc shows no `agent-browser` invocation/tooling; handoff verification lists command-line checks only and no interactiveChecks, yet `skillFeedback.followedProcedure` is true."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Pass with one non-blocking regression risk: the core targeted fixes are present and well-covered by tests, but OrgChart drag reset logic may unintentionally clear selection state. Also noted a skill-procedure enforcement gap around required manual UI verification."
+}

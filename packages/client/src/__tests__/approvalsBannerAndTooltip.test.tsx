@@ -166,10 +166,12 @@ const ownChangesRequestedRequest: HeadcountRequest = {
 
 const envEng: BudgetEnvelope = {
   _id: 'env-eng',
+  orgId: 'org-1',
   scenarioId: 'scn-1',
   department: 'Engineering',
   totalBudget: 1_000_000,
   headcountCap: 10,
+  createdBy: 'user-owner',
   createdAt: '',
   updatedAt: '',
 };

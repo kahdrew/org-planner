@@ -105,7 +105,9 @@ export default function NotificationBell() {
   );
 
   const [open, setOpen] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const currentUserId = currentUser?._id;
 
   // Keep the bell populated regardless of which view the user is on.
   useEffect(() => {
@@ -126,9 +128,14 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleClickAway);
   }, [open]);
 
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const events = useMemo(
-    () => deriveEvents(requests ?? [], members ?? [], currentUser?._id),
-    [requests, members, currentUser?._id],
+    () => deriveEvents(requests ?? [], members ?? [], currentUserId),
+    [requests, members, currentUserId],
   );
 
   // Badge count reflects anything currently requiring the signed-in
@@ -139,16 +146,13 @@ export default function NotificationBell() {
   //    resubmit) on their own submissions in the last 7 days
   const badgeCount = useMemo(() => {
     const pending = pendingApprovals?.length ?? 0;
-    if (!currentUser?._id) return pending;
+    if (!currentUserId) return pending;
     const ownResubmits = (requests ?? []).filter(
-      (r) =>
-        r.status === 'changes_requested' &&
-        r.requestedBy === currentUser._id,
+      (r) => r.status === 'changes_requested' && r.requestedBy === currentUserId,
     ).length;
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-    const now = Date.now();
     const recentStatusEvents = (requests ?? []).reduce((sum, r) => {
-      if (r.requestedBy !== currentUser._id) return sum;
+      if (r.requestedBy !== currentUserId) return sum;
       const entries = r.audit ?? [];
       const hits = entries.filter((e) => {
         if (
@@ -160,12 +164,12 @@ export default function NotificationBell() {
         }
         const t = new Date(e.timestamp).getTime();
         if (Number.isNaN(t)) return false;
-        return now - t <= sevenDaysMs;
+        return nowMs - t <= sevenDaysMs;
       });
       return sum + hits.length;
     }, 0);
     return pending + ownResubmits + recentStatusEvents;
-  }, [pendingApprovals, requests, currentUser?._id]);
+  }, [pendingApprovals, requests, currentUserId, nowMs]);
 
   return (
     <div className="relative" ref={rootRef}>
