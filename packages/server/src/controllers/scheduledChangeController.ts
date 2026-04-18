@@ -4,8 +4,33 @@ import mongoose from "mongoose";
 import { AuthRequest } from "../middleware/auth";
 import { checkScenarioAccess, getUserOrgRole } from "../middleware/authorization";
 import ScheduledChange from "../models/ScheduledChange";
-import Employee from "../models/Employee";
+import Employee, { IEmployee } from "../models/Employee";
 import AuditLog, { AuditAction } from "../models/AuditLog";
+import { emitScenarioScopedEvent } from "../sse/emit";
+import type { SseEventType } from "../sse/eventBus";
+
+/**
+ * Serialize an Employee document to a plain snapshot suitable for SSE payloads.
+ * Matches the shape produced by employeeController so SSE consumers see a
+ * consistent event payload regardless of which mutation path fired.
+ */
+function serializeEmployeeForSse(emp: IEmployee): Record<string, unknown> {
+  const obj = emp.toObject({ depopulate: true });
+  delete obj.__v;
+  return obj;
+}
+
+/**
+ * Map a scheduled change's `changeData` to the appropriate SSE event type.
+ * Changes that re-parent an employee emit `employee.moved`; everything else
+ * is a generic `employee.updated`.
+ */
+function sseEventTypeFor(changeData: Record<string, unknown>): SseEventType {
+  if (Object.prototype.hasOwnProperty.call(changeData, "managerId")) {
+    return "employee.moved";
+  }
+  return "employee.updated";
+}
 
 /**
  * Determine the appropriate audit action for an applied scheduled change.
@@ -314,6 +339,10 @@ export const applyDueChanges = async (req: AuthRequest, res: Response): Promise<
       }
 
       const changeData = change.changeData as Record<string, unknown>;
+      const previousManagerId = employee.managerId
+        ? employee.managerId.toString()
+        : null;
+      const previousOrder = employee.order;
       const updated = await Employee.findByIdAndUpdate(
         change.employeeId,
         changeData,
@@ -331,6 +360,19 @@ export const applyDueChanges = async (req: AuthRequest, res: Response): Promise<
           snapshot,
           performedBy: req.user!.userId,
         });
+
+        // Fan out to SSE clients so realtime consumers see the applied
+        // scheduled change (e.g. timeline slider, org chart, dashboards).
+        const eventType = sseEventTypeFor(changeData);
+        const payload: Record<string, unknown> =
+          eventType === "employee.moved"
+            ? {
+                employee: serializeEmployeeForSse(updated),
+                previousManagerId,
+                previousOrder,
+              }
+            : { employee: serializeEmployeeForSse(updated) };
+        await emitScenarioScopedEvent(change.scenarioId, eventType, payload);
       }
 
       applied.push(change._id.toString());
@@ -374,6 +416,10 @@ export async function applyDueChangesForScenario(
     }
 
     const changeData = change.changeData as Record<string, unknown>;
+    const previousManagerId = employee.managerId
+      ? employee.managerId.toString()
+      : null;
+    const previousOrder = employee.order;
     const updated = await Employee.findByIdAndUpdate(
       change.employeeId,
       changeData,
@@ -391,6 +437,19 @@ export async function applyDueChangesForScenario(
         snapshot,
         performedBy: performedBy ?? change.createdBy.toString(),
       });
+
+      // Fan out to SSE clients so realtime consumers see the applied
+      // scheduled change (e.g. timeline slider, org chart, dashboards).
+      const eventType = sseEventTypeFor(changeData);
+      const payload: Record<string, unknown> =
+        eventType === "employee.moved"
+          ? {
+              employee: serializeEmployeeForSse(updated),
+              previousManagerId,
+              previousOrder,
+            }
+          : { employee: serializeEmployeeForSse(updated) };
+      await emitScenarioScopedEvent(change.scenarioId, eventType, payload);
     }
 
     appliedCount++;

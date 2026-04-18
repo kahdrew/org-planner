@@ -128,6 +128,76 @@ describe('aiChatStore — sendQuery streaming', () => {
     ]);
   });
 
+  it('filters empty assistant messages out of forwarded history', async () => {
+    // Simulate the aftermath of a failed assistant turn: an empty assistant
+    // message with an error attached. Anthropic's API rejects requests that
+    // include empty assistant content blocks, so the store should drop
+    // these from the history it forwards on the next query.
+    let capturedHistory: unknown[] | null = null;
+    streamAiQueryMock.mockImplementation(
+      async (
+        _s: string,
+        _q: string,
+        history: unknown[],
+        cb: AiStreamCallbacks,
+      ) => {
+        capturedHistory = history;
+        cb.onDone();
+      },
+    );
+
+    useAiChatStore.setState({
+      messages: [
+        { id: 'u1', role: 'user', content: 'Broken question' },
+        {
+          id: 'a1',
+          role: 'assistant',
+          content: '',
+          error: {
+            code: 'network',
+            message: 'stream failed',
+          },
+        },
+        { id: 'u2', role: 'user', content: 'Good follow up' },
+        { id: 'a2', role: 'assistant', content: 'Good answer' },
+      ],
+    });
+
+    await useAiChatStore.getState().sendQuery('scen1', 'retry');
+    // The empty assistant message must NOT appear in the forwarded
+    // history, while preceding/following messages are preserved.
+    expect(capturedHistory).toEqual([
+      { role: 'user', content: 'Broken question' },
+      { role: 'user', content: 'Good follow up' },
+      { role: 'assistant', content: 'Good answer' },
+    ]);
+  });
+
+  it('filters whitespace-only assistant messages out of forwarded history', async () => {
+    let capturedHistory: unknown[] | null = null;
+    streamAiQueryMock.mockImplementation(
+      async (
+        _s: string,
+        _q: string,
+        history: unknown[],
+        cb: AiStreamCallbacks,
+      ) => {
+        capturedHistory = history;
+        cb.onDone();
+      },
+    );
+
+    useAiChatStore.setState({
+      messages: [
+        { id: 'u1', role: 'user', content: 'Hi' },
+        { id: 'a1', role: 'assistant', content: '   \n   \t  ' },
+      ],
+    });
+
+    await useAiChatStore.getState().sendQuery('scen1', 'next');
+    expect(capturedHistory).toEqual([{ role: 'user', content: 'Hi' }]);
+  });
+
   it('clearConversation drops all messages', async () => {
     streamAiQueryMock.mockImplementation(
       async (_s: string, _q: string, _h: unknown[], cb: AiStreamCallbacks) => {

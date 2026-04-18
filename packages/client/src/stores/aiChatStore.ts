@@ -105,6 +105,10 @@ export const useAiChatStore = create<AiChatState>((set, get) => ({
     const history = get()
       .messages // historical messages up to (but excluding) the new pair
       .filter((m) => m.id !== assistantMessage.id && m.id !== userMessage.id)
+      // Skip failed assistant turns whose content never streamed in — sending
+      // empty assistant messages to the API causes Anthropic to reject the
+      // whole request ("messages: assistant content blocks must be non-empty").
+      .filter((m) => !(m.role === 'assistant' && m.content.trim().length === 0))
       .map((m) => ({ role: m.role, content: m.content }));
 
     await streamAiQuery(

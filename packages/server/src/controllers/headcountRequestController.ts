@@ -8,8 +8,20 @@ import HeadcountRequest, {
 } from "../models/HeadcountRequest";
 import ApprovalChain, { IApprovalChain } from "../models/ApprovalChain";
 import Scenario from "../models/Scenario";
-import Employee from "../models/Employee";
+import Employee, { IEmployee } from "../models/Employee";
 import Organization from "../models/Organization";
+import { emitScenarioScopedEvent } from "../sse/emit";
+
+/**
+ * Serialize an Employee document to a plain snapshot suitable for SSE payloads.
+ * Mirrors `serializeEmployee` in employeeController.ts so SSE consumers see the
+ * same shape regardless of which controller triggered the mutation.
+ */
+function serializeEmployee(emp: IEmployee): Record<string, unknown> {
+  const obj = emp.toObject({ depopulate: true });
+  delete obj.__v;
+  return obj;
+}
 
 // ---------- Zod schemas ----------
 
@@ -513,6 +525,16 @@ async function materializeEmployee(
           updatePayload,
           { new: true },
         );
+
+        // Fan out to SSE clients so realtime consumers see the comp change.
+        if (updated) {
+          await emitScenarioScopedEvent(
+            updated.scenarioId,
+            "employee.updated",
+            { employee: serializeEmployee(updated) },
+          );
+        }
+
         return updated
           ? (updated._id as mongoose.Types.ObjectId)
           : (existing._id as mongoose.Types.ObjectId);
@@ -520,6 +542,15 @@ async function materializeEmployee(
     }
 
     const created = await Employee.create(employeePayload);
+
+    // Fan out to SSE clients so realtime consumers see the newly created
+    // employee, matching the behavior of the direct employee CRUD path.
+    await emitScenarioScopedEvent(
+      created.scenarioId,
+      "employee.created",
+      { employee: serializeEmployee(created) },
+    );
+
     return created._id as mongoose.Types.ObjectId;
   } catch (err) {
     console.error("Failed to materialize employee from approved request:", err);
