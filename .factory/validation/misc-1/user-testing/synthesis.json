@@ -1,0 +1,83 @@
+{
+  "milestone": "misc-1",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 14,
+    "passed": 1,
+    "failed": 4,
+    "blocked": 9
+  },
+  "passedAssertions": [
+    "VAL-MULTI-002"
+  ],
+  "failedAssertions": [
+    {
+      "id": "VAL-MULTI-003",
+      "reason": "OrgChart lasso/marquee selection did not trigger selection UI; Cmd+Click control path still worked."
+    },
+    {
+      "id": "VAL-APPROVAL-009",
+      "reason": "Request-changes flow did not provide submitter edit/resubmit path to restart approval chain."
+    },
+    {
+      "id": "VAL-APPROVAL-010",
+      "reason": "Notification events appeared in dropdown but submitter bell badge did not render/update as required."
+    },
+    {
+      "id": "VAL-APPROVAL-013",
+      "reason": "Self-approval prevention UI did not show disabled Approve button with required tooltip; request row was view-only."
+    }
+  ],
+  "blockedAssertions": [
+    {
+      "id": "VAL-AI-002",
+      "blockedBy": "AI backend returns HTTP 503 missing_api_key (ANTHROPIC_API_KEY not configured)."
+    },
+    {
+      "id": "VAL-AI-003",
+      "blockedBy": "AI backend returns HTTP 503 missing_api_key (ANTHROPIC_API_KEY not configured)."
+    },
+    {
+      "id": "VAL-AI-004",
+      "blockedBy": "AI backend returns HTTP 503 missing_api_key (ANTHROPIC_API_KEY not configured)."
+    },
+    {
+      "id": "VAL-AI-005",
+      "blockedBy": "AI backend returns HTTP 503 missing_api_key (ANTHROPIC_API_KEY not configured)."
+    },
+    {
+      "id": "VAL-AI-006",
+      "blockedBy": "AI backend returns HTTP 503 missing_api_key (ANTHROPIC_API_KEY not configured)."
+    },
+    {
+      "id": "VAL-AI-007",
+      "blockedBy": "Missing-key branch verified, but invalid-key/rate-limit branches unreachable while missing_api_key precheck short-circuits requests."
+    },
+    {
+      "id": "VAL-AI-008",
+      "blockedBy": "AI backend returns HTTP 503 missing_api_key (ANTHROPIC_API_KEY not configured)."
+    },
+    {
+      "id": "VAL-AI-009",
+      "blockedBy": "AI backend returns HTTP 503 missing_api_key (ANTHROPIC_API_KEY not configured)."
+    },
+    {
+      "id": "VAL-CROSS-024",
+      "blockedBy": "Cross-scenario AI verification blocked by global missing_api_key responses from AI endpoint."
+    }
+  ],
+  "appliedUpdates": [
+    {
+      "target": "services.yaml",
+      "description": "Updated service start commands: run API from packages/server to load .env correctly; run web from packages/client on fixed port 5173 and IPv4 healthcheck URL.",
+      "source": "setup"
+    },
+    {
+      "target": "user-testing.md",
+      "description": "Added misc-1 setup notes documenting corrected API start location and reliable web healthcheck endpoint.",
+      "source": "setup"
+    }
+  ],
+  "previousRound": null
+}

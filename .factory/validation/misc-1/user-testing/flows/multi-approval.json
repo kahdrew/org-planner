@@ -1,0 +1,181 @@
+{
+  "groupId": "multi-approval",
+  "testedAt": "2026-04-18T04:13:55.027594+00:00",
+  "isolation": {
+    "surface": "agent-browser",
+    "appUrl": "http://127.0.0.1:5173",
+    "apiUrl": "http://localhost:3001/api",
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
+    "groupId": "multi-approval",
+    "emailPrefix": "testuser-multi-approval-",
+    "orgName": "UT Misc1 MultiApproval 1776485136",
+    "scenarioName": "Scenario MultiApproval 1776485136",
+    "users": {
+      "owner": "testuser-multi-approval-owner-1776485136@example.com",
+      "manager": "testuser-multi-approval-manager-1776485136@example.com",
+      "vp": "testuser-multi-approval-vp-1776485136@example.com",
+      "finance": "testuser-multi-approval-finance-1776485136@example.com",
+      "chro": "testuser-multi-approval-chro-1776485136@example.com"
+    },
+    "requestIds": {
+      "changes": "69e30319867b0c7f4dffe77e",
+      "reject": "69e3031a867b0c7f4dffe784",
+      "approve": "69e3031a867b0c7f4dffe78a",
+      "self": "69e3031a867b0c7f4dffe790"
+    },
+    "evidenceDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a/evidence/misc-1/multi-approval"
+  },
+  "toolsUsed": [
+    "agent-browser",
+    "python3"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-MULTI-002",
+      "title": "Shift+Click range select in list views",
+      "status": "pass",
+      "reason": "HierarchyView selected an inclusive range (employees 1-4) after click + Shift+click; bulk delete confirmation showed count 4.",
+      "steps": [
+        {
+          "action": "Open HierarchyView, click first employee, hold Shift, click fourth employee.",
+          "expected": "Employees 1 through 4 are selected.",
+          "observed": "Bulk action toolbar appeared and Delete Selected confirmation showed 'Delete 4 Employees'."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "misc-1/multi-approval/VAL-MULTI-002-shift-range-hierarchy-selected.png",
+          "misc-1/multi-approval/VAL-MULTI-002-shift-range-hierarchy-delete-count.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No mutation API calls required for this UI-only selection check."
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-MULTI-003",
+      "title": "Lasso/marquee select in OrgChartView",
+      "status": "fail",
+      "reason": "Shift+drag marquee attempts on canvas did not produce selected state or bulk action controls.",
+      "steps": [
+        {
+          "action": "In OrgChartView, perform Shift+drag marquee over multiple employee cards.",
+          "expected": "Cards inside marquee become selected.",
+          "observed": "No selected-state/bulk-action UI appeared after repeated marquee attempts."
+        },
+        {
+          "action": "Control check with Cmd+click on two cards.",
+          "expected": "Multi-select works via alternate path.",
+          "observed": "Bulk actions appeared on Cmd+click, indicating issue is specific to lasso/marquee gesture."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "misc-1/multi-approval/VAL-MULTI-003-lasso-attempt-no-selection.png",
+          "misc-1/multi-approval/VAL-MULTI-003-control-cmd-click-selection.png"
+        ],
+        "consoleErrors": "none",
+        "network": "No mutation API calls required for this UI-only selection check."
+      },
+      "issues": "Marquee/lasso interaction did not trigger selection even with Shift modifier."
+    },
+    {
+      "id": "VAL-APPROVAL-009",
+      "title": "Request changes returns to submitter",
+      "status": "fail",
+      "reason": "Approver could set Changes Requested, but submitter UI only exposed View; Edit & Resubmit controls were not present.",
+      "steps": [
+        {
+          "action": "As VP approver, request changes on request 69e30319867b0c7f4dffe77e with comment.",
+          "expected": "Request status changes to Changes Requested.",
+          "observed": "Changes Requested count increased and request status persisted as changes_requested."
+        },
+        {
+          "action": "As manager submitter, open Changes Requested tab and request detail.",
+          "expected": "Submitter can edit and resubmit; chain restarts from step 1.",
+          "observed": "Row was view-only and detail modal had no resubmit controls."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "misc-1/multi-approval/VAL-APPROVAL-009-vp-request-changes-result.png",
+          "misc-1/multi-approval/VAL-APPROVAL-009-manager-changes-requested-view-only.png",
+          "misc-1/multi-approval/VAL-APPROVAL-009-manager-detail-no-resubmit.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/headcount-requests/69e30319867b0c7f4dffe77e/request-changes -> 200; GET /api/headcount-requests/69e30319867b0c7f4dffe77e -> status=changes_requested (see network-summary.json)."
+      },
+      "issues": "Submitter resubmit/edit path is missing from observed UI state."
+    },
+    {
+      "id": "VAL-APPROVAL-010",
+      "title": "Notifications for approval events",
+      "status": "fail",
+      "reason": "Event entries were visible in notification dropdown and next-approver queue badges updated, but submitter bell badge count did not render/update.",
+      "steps": [
+        {
+          "action": "Advance approval request 69e3031a867b0c7f4dffe78a through VP -> Finance -> CHRO; reject request 69e3031a867b0c7f4dffe784; request changes on 69e30319867b0c7f4dffe77e.",
+          "expected": "Next approver receives notification on advancement and submitter receives approval/rejection/changes notifications with real-time badge updates.",
+          "observed": "Finance and CHRO received pending items (Approvals nav badge), and manager notification dropdown listed approved/rejected/request_changes events; however submitter bell badge element was absent after events."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "misc-1/multi-approval/VAL-APPROVAL-010-manager-notifications-before-events.png",
+          "misc-1/multi-approval/VAL-APPROVAL-010-vp-after-approve-reject-changes.png",
+          "misc-1/multi-approval/VAL-APPROVAL-010-finance-sidebar-and-bell-badge.png",
+          "misc-1/multi-approval/VAL-APPROVAL-010-finance-notification-dropdown.png",
+          "misc-1/multi-approval/VAL-APPROVAL-010-chro-received-final-approval-task.png",
+          "misc-1/multi-approval/VAL-APPROVAL-010-chro-after-final-approval.png",
+          "misc-1/multi-approval/VAL-APPROVAL-010-manager-bell-after-events.png",
+          "misc-1/multi-approval/VAL-APPROVAL-010-manager-notification-dropdown-events.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Audit verification via GET /api/headcount-requests/{id}: approve request progressed with 3 approve actions and final status approved; reject request status rejected; changes request status changes_requested (see misc-1/multi-approval/network-summary.json)."
+      },
+      "issues": "Submitter notification bell badge did not appear/update despite event history existing in dropdown."
+    },
+    {
+      "id": "VAL-APPROVAL-013",
+      "title": "Self-approval prevention",
+      "status": "fail",
+      "reason": "Own pending request rendered as View-only row instead of disabled Approve button with tooltip text.",
+      "steps": [
+        {
+          "action": "As VP submitter, view own pending request 69e3031a867b0c7f4dffe790 in Approvals.",
+          "expected": "Disabled Approve button is shown with tooltip 'You cannot approve your own request.'",
+          "observed": "Request appeared with disabled checkbox and View action only; no disabled Approve control/tooltip rendered."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "misc-1/multi-approval/VAL-APPROVAL-013-vp-own-request-view-only.png"
+        ],
+        "consoleErrors": "none",
+        "network": "GET /api/headcount-requests/69e3031a867b0c7f4dffe790 -> status=pending, requestedBy=VP user id (see network-summary.json)."
+      },
+      "issues": "Required self-approval disabled-approve tooltip UX not present."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "OrgChart marquee selection requires Shift+drag; despite repeated coordinate drag attempts, marquee did not select nodes in this run.",
+      "resolved": false,
+      "resolution": "Used Cmd+click as a control path to confirm multi-select plumbing still works while recording lasso failure evidence.",
+      "affectedAssertions": [
+        "VAL-MULTI-003"
+      ]
+    },
+    {
+      "description": "Action buttons in Approvals rows are icon-only and require careful row/action mapping during automation.",
+      "resolved": true,
+      "resolution": "Verified each action by resulting modal CTA label (Approve Request / Reject Request / Request Changes) before submitting.",
+      "affectedAssertions": [
+        "VAL-APPROVAL-009",
+        "VAL-APPROVAL-010"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 5 assertions: 1 passed (VAL-MULTI-002) and 4 failed (VAL-MULTI-003, VAL-APPROVAL-009, VAL-APPROVAL-010, VAL-APPROVAL-013)."
+}

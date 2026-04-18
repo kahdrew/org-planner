@@ -1,0 +1,292 @@
+{
+  "groupId": "ai-cross",
+  "testedAt": "2026-04-18T04:23:01.891456+00:00",
+  "isolation": {
+    "surface": "agent-browser",
+    "appUrl": "http://127.0.0.1:5173",
+    "apiUrl": "http://localhost:3001/api",
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
+    "groupId": "ai-cross",
+    "emailPrefix": "testuser-ai-cross-",
+    "orgNamePrefix": "UT Misc1 AICross",
+    "scenarioNamePrefix": "Scenario AICross",
+    "testUser": "testuser-ai-cross-1776485824@orgplanner.test",
+    "org": {
+      "id": "69e3061c867b0c7f4dffe939",
+      "name": "UT Misc1 AICross 1776485824"
+    },
+    "scenarios": {
+      "primary": {
+        "id": "69e3061c867b0c7f4dffe93c",
+        "name": "Scenario AICross 1776485824 A"
+      },
+      "secondary": {
+        "id": "69e3061c867b0c7f4dffe93f",
+        "name": "Scenario AICross 1776485824 B"
+      }
+    },
+    "evidenceDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a/evidence/misc-1/ai-cross"
+  },
+  "toolsUsed": [
+    "agent-browser"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-AI-002",
+      "title": "Submit natural language query and receive response",
+      "status": "blocked",
+      "reason": "Query submission works, but AI backend is not configured (missing ANTHROPIC_API_KEY), so no assistant response can be produced.",
+      "steps": [
+        {
+          "action": "Open AI panel and submit: 'How many employees are in Engineering?'",
+          "expected": "Query accepted, loading indicator appears, then AI response is returned.",
+          "observed": "Query submitted; request returned 503 with 'AI is not configured' message instead of an answer."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "misc-1/ai-cross/VAL-AI-002-submitted-loading.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e3061c867b0c7f4dffe93c/ai/query -> 503 (missing_api_key); see misc-1/ai-cross/network-ai-query-log.json"
+      },
+      "issues": "Prerequisite failure: AI service is not configured in server environment."
+    },
+    {
+      "id": "VAL-AI-003",
+      "title": "AI responses stream incrementally",
+      "status": "blocked",
+      "reason": "Streaming behavior cannot be validated because all AI requests terminate early with missing_api_key (HTTP 503).",
+      "steps": [
+        {
+          "action": "Submit a long-form query to observe incremental chunking.",
+          "expected": "Assistant response text grows over time via streamed chunks.",
+          "observed": "No streamed assistant content; immediate user-friendly configuration error shown."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "misc-1/ai-cross/VAL-AI-003-no-stream-missing-key.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e3061c867b0c7f4dffe93c/ai/query -> 503 (missing_api_key); see misc-1/ai-cross/network-ai-query-log.json"
+      },
+      "issues": "Blocked by missing ANTHROPIC_API_KEY before SSE stream starts."
+    },
+    {
+      "id": "VAL-AI-004",
+      "title": "Team merge preview query",
+      "status": "blocked",
+      "reason": "Unable to validate AI merge analysis because backend returns missing_api_key for every query.",
+      "steps": [
+        {
+          "action": "Submit: 'What happens if we merge Platform and Infrastructure teams?'",
+          "expected": "AI references real team names/employees and describes merge impact.",
+          "observed": "AI request failed with configuration error; no analytical response returned."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "misc-1/ai-cross/VAL-AI-004-merge-query-missing-key.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e3061c867b0c7f4dffe93c/ai/query -> 503 (missing_api_key); see misc-1/ai-cross/network-ai-query-log.json"
+      },
+      "issues": "AI model call is gated by missing API key configuration."
+    },
+    {
+      "id": "VAL-AI-005",
+      "title": "Cost impact calculation query",
+      "status": "blocked",
+      "reason": "Could not validate numerical cost output because AI endpoint is unavailable due to missing key configuration.",
+      "steps": [
+        {
+          "action": "Submit: 'What's the cost impact of promoting all Senior Engineers to Staff?'",
+          "expected": "AI returns current/projected totals and delta using scenario salary data.",
+          "observed": "Request failed with 'AI is not configured' error; no calculation returned."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "misc-1/ai-cross/VAL-AI-005-cost-impact-missing-key.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e3061c867b0c7f4dffe93c/ai/query -> 503 (missing_api_key); see misc-1/ai-cross/network-ai-query-log.json"
+      },
+      "issues": "AI endpoint unavailable until ANTHROPIC_API_KEY is configured."
+    },
+    {
+      "id": "VAL-AI-006",
+      "title": "AI is context-aware with real org data",
+      "status": "blocked",
+      "reason": "Context-awareness could not be evaluated because AI generation is blocked by missing_api_key.",
+      "steps": [
+        {
+          "action": "Submit: 'Who reports to Avery Manager?'",
+          "expected": "AI returns direct reports matching org hierarchy.",
+          "observed": "No answer generated; configuration error shown instead."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "misc-1/ai-cross/VAL-AI-006-manager-report-query-missing-key.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e3061c867b0c7f4dffe93c/ai/query -> 503 (missing_api_key); see misc-1/ai-cross/network-ai-query-log.json"
+      },
+      "issues": "Blocked by AI backend configuration prerequisite."
+    },
+    {
+      "id": "VAL-AI-007",
+      "title": "Error handling for API key issues",
+      "status": "blocked",
+      "reason": "Missing-key path is verified, but invalid-key and rate-limit paths cannot be exercised while server is hard-failing preflight with missing_api_key.",
+      "steps": [
+        {
+          "action": "Submit AI query with current environment configuration.",
+          "expected": "User-friendly missing-key message (no stack trace) when key absent.",
+          "observed": "Displayed user-friendly 'AI is not configured' message with setup instructions."
+        },
+        {
+          "action": "Attempt to validate invalid-key and rate-limit responses.",
+          "expected": "Authentication-failure and try-again-later messages respectively.",
+          "observed": "Not reachable in this environment because all requests are short-circuited at missing_key precheck."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "misc-1/ai-cross/VAL-AI-007-missing-key-error-message.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e3061c867b0c7f4dffe93c/ai/query -> 503 (missing_api_key); see misc-1/ai-cross/network-ai-query-log.json"
+      },
+      "issues": "Only the missing-key branch could be validated in current shared environment."
+    },
+    {
+      "id": "VAL-AI-008",
+      "title": "AI handles non-existent employee gracefully",
+      "status": "blocked",
+      "reason": "Cannot validate non-existent employee handling without a successful AI response path.",
+      "steps": [
+        {
+          "action": "Submit: 'Tell me about John Nonexistent in this org.'",
+          "expected": "AI indicates employee not found and avoids fabricated data.",
+          "observed": "Request failed before model execution with missing_api_key configuration error."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "misc-1/ai-cross/VAL-AI-008-nonexistent-employee-missing-key.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e3061c867b0c7f4dffe93c/ai/query -> 503 (missing_api_key); see misc-1/ai-cross/network-ai-query-log.json"
+      },
+      "issues": "Blocked by missing AI configuration."
+    },
+    {
+      "id": "VAL-AI-009",
+      "title": "AI chat preserves conversation context",
+      "status": "blocked",
+      "reason": "Multi-turn context behavior cannot be assessed because both turns fail at missing_key precheck.",
+      "steps": [
+        {
+          "action": "Ask: 'How many employees are in Engineering?' then follow with 'What about Sales?'",
+          "expected": "Follow-up interpreted in headcount context from prior turn.",
+          "observed": "Both requests returned missing-key configuration error; no context-bearing assistant responses were produced."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "misc-1/ai-cross/VAL-AI-009-followup-context-missing-key.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Two POST /api/scenarios/69e3061c867b0c7f4dffe93c/ai/query calls -> 503 (missing_api_key); see misc-1/ai-cross/network-ai-query-log.json"
+      },
+      "issues": "Blocked by AI endpoint configuration prerequisite."
+    },
+    {
+      "id": "VAL-CROSS-024",
+      "title": "AI query reflects latest org data and selected scenario",
+      "status": "blocked",
+      "reason": "Data setup and scenario switching succeeded, but AI verification steps are blocked by missing_api_key responses in both scenarios.",
+      "steps": [
+        {
+          "action": "Add employee 'Jane Test' to Scenario A in Org Chart.",
+          "expected": "Jane appears in current scenario.",
+          "observed": "Jane Test was created and rendered in Org Chart (headcount increased)."
+        },
+        {
+          "action": "In Scenario A, ask AI about recent additions.",
+          "expected": "AI references Jane Test.",
+          "observed": "AI query returned missing-key configuration error (503)."
+        },
+        {
+          "action": "Switch to Scenario B and ask AI for scenario headcount.",
+          "expected": "AI answer reflects Scenario B data, not Scenario A.",
+          "observed": "Scenario switch succeeded (2 employees visible), but AI query again returned missing-key configuration error (503)."
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "misc-1/ai-cross/VAL-CROSS-024-jane-added-orgchart.png",
+          "misc-1/ai-cross/VAL-CROSS-024-scenario-a-recent-additions-query-missing-key.png",
+          "misc-1/ai-cross/VAL-CROSS-024-scenario-b-headcount-query-missing-key.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e3061c867b0c7f4dffe93c/ai/query -> 503 and POST /api/scenarios/69e3061c867b0c7f4dffe93f/ai/query -> 503; see misc-1/ai-cross/network-ai-query-log.json"
+      },
+      "issues": "Cross-scenario AI validation blocked by global AI configuration prerequisite."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "When Add Employee panel and AI panel were both open, the Create Employee button click was blocked by overlapping panel layers.",
+      "resolved": true,
+      "resolution": "Closed AI panel, then submitted employee form successfully.",
+      "affectedAssertions": [
+        "VAL-CROSS-024"
+      ]
+    },
+    {
+      "description": "`agent-browser network requests` returned no captured entries for these flows.",
+      "resolved": true,
+      "resolution": "Added temporary in-session fetch instrumentation via `agent-browser eval` and persisted request statuses to evidence file.",
+      "affectedAssertions": [
+        "VAL-AI-002",
+        "VAL-AI-003",
+        "VAL-AI-004",
+        "VAL-AI-005",
+        "VAL-AI-006",
+        "VAL-AI-007",
+        "VAL-AI-008",
+        "VAL-AI-009",
+        "VAL-CROSS-024"
+      ]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "AI backend is not configured in this environment. Every AI query returned HTTP 503 with code `missing_api_key` and setup instructions to configure ANTHROPIC_API_KEY.",
+      "affectedAssertions": [
+        "VAL-AI-002",
+        "VAL-AI-003",
+        "VAL-AI-004",
+        "VAL-AI-005",
+        "VAL-AI-006",
+        "VAL-AI-007",
+        "VAL-AI-008",
+        "VAL-AI-009",
+        "VAL-CROSS-024"
+      ],
+      "quickFixAttempted": "Retried queries across multiple prompts and both scenarios; all requests remained 503 with missing_api_key."
+    },
+    {
+      "description": "VAL-AI-007 requires invalid-key and rate-limit branches in addition to missing-key; these branches are unreachable while server precheck fails for missing key.",
+      "affectedAssertions": [
+        "VAL-AI-007"
+      ],
+      "quickFixAttempted": "Validated missing-key UX branch; attempted additional queries but could not bypass precheck without changing shared server environment."
+    }
+  ],
+  "summary": "Tested 9 assertions. 0 passed, 0 failed, 9 blocked due AI backend missing-key configuration prerequisite (with data setup and cross-scenario switching otherwise verified)."
+}

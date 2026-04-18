@@ -58,3 +58,8 @@ Testing surface, required tools, isolation guidance, and resource limits for val
 - Every validator creates and uses isolated data.
 - Email pattern: `testuser-<group>-<timestamp>@orgplanner.test`.
 - Org/scenario names include the validator group id for traceability.
+
+## Setup Notes (misc-1 run)
+
+- Start API from `packages/server` so `dotenv` loads `packages/server/.env` correctly.
+- Use the web server healthcheck URL `http://127.0.0.1:5173` (IPv4 loopback) for reliable readiness checks.
