@@ -1,0 +1,300 @@
+{
+  "groupId": "browser-ai-core",
+  "testedAt": "2026-04-18T01:42:00Z",
+  "isolation": {
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
+    "appUrl": "http://localhost:5173",
+    "apiBase": "http://localhost:3001/api",
+    "validatorUser": {
+      "email": "utv-collab-ai-core-20260417183345@orgplanner.test",
+      "name": "UTV Collab AI Core User 20260417183345"
+    },
+    "createdOrg": {
+      "id": "69e2dfa8b16554ccde84ba7f",
+      "name": "UTV Collab AI Core Org 20260417183345"
+    },
+    "createdScenarios": [
+      {
+        "id": "69e2dfa9b16554ccde84ba82",
+        "name": "UTV Collab AI Core Scenario A 20260417183345"
+      },
+      {
+        "id": "69e2dfa9b16554ccde84ba85",
+        "name": "UTV Collab AI Core Scenario B 20260417183345"
+      }
+    ],
+    "createdEmployeeForCrossAssertion": "UTV Collab AI Core Jane Test"
+  },
+  "toolsUsed": [
+    "agent-browser",
+    "curl"
+  ],
+  "assertionResults": [
+    {
+      "id": "VAL-AI-001",
+      "title": "AI chat panel accessible from UI",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open app shell and click toolbar AI button",
+          "expected": "AI panel entry point is visible and opens chat drawer",
+          "observed": "AI button visible in toolbar and opened right-side AI Planning Assistant panel"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-ai-core/VAL-AI-001-ai-chat-entry-open.png"
+        ],
+        "consoleErrors": "none",
+        "network": "N/A (UI entry-point assertion)"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-AI-002",
+      "title": "Submit natural language query and receive response",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Submit 'How many employees are in Engineering?' from AI panel",
+          "expected": "Query accepted, loading indicator shown while processing, then AI response",
+          "observed": "Query accepted and rendered in chat, but backend returned configuration error instead of model response"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-ai-core/VAL-AI-002-loading-state.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e2dfa9b16554ccde84ba82/ai/query -> 503 { code: 'missing_api_key' }"
+      },
+      "issues": "Blocked by missing ANTHROPIC_API_KEY on server; assertion cannot be fully validated without configured AI backend."
+    },
+    {
+      "id": "VAL-AI-003",
+      "title": "AI responses stream incrementally",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Capture time-sequenced screenshots after submitting AI query",
+          "expected": "Assistant content grows chunk-by-chunk over time",
+          "observed": "No incremental assistant text growth; same missing-api-key error shown at each capture point"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-ai-core/VAL-AI-003-stream-step-1.png",
+          "collab-ai/browser-ai-core/VAL-AI-003-stream-step-2.png",
+          "collab-ai/browser-ai-core/VAL-AI-003-stream-step-3.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e2dfa9b16554ccde84ba82/ai/query -> 503 { code: 'missing_api_key' }"
+      },
+      "issues": "Blocked by missing ANTHROPIC_API_KEY; no stream frames available to validate incremental growth."
+    },
+    {
+      "id": "VAL-AI-004",
+      "title": "Team merge preview query",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Ask 'What happens if we merge Platform and Infrastructure teams?'",
+          "expected": "AI references real team names/employees and describes structural impact",
+          "observed": "UI accepted prompt but returned missing-api-key configuration error"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-ai-core/VAL-AI-004-merge-query-result.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e2dfa9b16554ccde84ba82/ai/query -> 503 { code: 'missing_api_key' }"
+      },
+      "issues": "Blocked by unconfigured AI provider."
+    },
+    {
+      "id": "VAL-AI-005",
+      "title": "Cost impact calculation query",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Ask cost-impact promotion question for Senior Engineers",
+          "expected": "AI returns current/projected totals and delta from scenario salary data",
+          "observed": "Prompt accepted but missing-api-key error returned; no numerical analysis response"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-ai-core/VAL-AI-005-cost-impact-query-result.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e2dfa9b16554ccde84ba82/ai/query -> 503 { code: 'missing_api_key' }"
+      },
+      "issues": "Blocked by unconfigured AI provider."
+    },
+    {
+      "id": "VAL-AI-006",
+      "title": "AI is context-aware with real org data",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Ask 'Who reports to UTV Collab AI Core Alice Manager?'",
+          "expected": "AI returns accurate reports (Bob, Carol, Dave)",
+          "observed": "Prompt accepted but missing-api-key error returned"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-ai-core/VAL-AI-006-manager-query-result.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e2dfa9b16554ccde84ba82/ai/query -> 503 { code: 'missing_api_key' }"
+      },
+      "issues": "Blocked by unconfigured AI provider."
+    },
+    {
+      "id": "VAL-AI-007",
+      "title": "Error handling for API key issues",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Trigger AI query with current environment configuration",
+          "expected": "User-friendly errors for missing key, invalid key, and rate limit",
+          "observed": "Missing-key path verified with clear user-friendly message; invalid-key and rate-limit paths not feasible without changing shared server configuration/limits"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-ai-core/VAL-AI-007-missing-api-key-error.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/{scenarioId}/ai/query -> 503 { code: 'missing_api_key', setupInstructions: 'Set ANTHROPIC_API_KEY...' }"
+      },
+      "issues": "Partially validated (missing key). Invalid-key and rate-limit scenarios blocked by inability to safely mutate shared env/API quota during parallel validation."
+    },
+    {
+      "id": "VAL-AI-008",
+      "title": "AI handles non-existent employee gracefully",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Ask about 'John Nonexistent'",
+          "expected": "AI indicates employee not found without hallucination",
+          "observed": "Prompt accepted but missing-api-key error returned before model inference"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-ai-core/VAL-AI-008-nonexistent-employee-query-result.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e2dfa9b16554ccde84ba82/ai/query -> 503 { code: 'missing_api_key' }"
+      },
+      "issues": "Blocked by unconfigured AI provider."
+    },
+    {
+      "id": "VAL-AI-009",
+      "title": "AI chat preserves conversation context",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "After prior turns, ask follow-up 'What about Sales?'",
+          "expected": "AI resolves follow-up context to headcount query",
+          "observed": "Follow-up submitted but returned missing-api-key error"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-ai-core/VAL-AI-009-followup-query-result.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e2dfa9b16554ccde84ba82/ai/query -> 503 { code: 'missing_api_key' }"
+      },
+      "issues": "Blocked by unconfigured AI provider."
+    },
+    {
+      "id": "VAL-CROSS-024",
+      "title": "AI query reflects latest org data and selected scenario",
+      "status": "blocked",
+      "steps": [
+        {
+          "action": "Create employee 'UTV Collab AI Core Jane Test' in Scenario A and verify UI",
+          "expected": "Latest org data includes Jane",
+          "observed": "Jane visible in Org Chart and headcount increased to 7"
+        },
+        {
+          "action": "Query AI for recent additions in Scenario A",
+          "expected": "AI mentions Jane",
+          "observed": "Returned missing-api-key error"
+        },
+        {
+          "action": "Switch to Scenario B (2 employees) and query AI again",
+          "expected": "AI response reflects Scenario B, not Scenario A",
+          "observed": "Scenario switch reflected in UI/headcount and endpoint scenarioId changed, but AI response remained blocked by missing-api-key error"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-ai-core/VAL-CROSS-024-jane-added-visible.png",
+          "collab-ai/browser-ai-core/VAL-CROSS-024-recent-additions-query-scenario-a.png",
+          "collab-ai/browser-ai-core/VAL-CROSS-024-scenario-b-query-result.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Scenario A query: POST /api/scenarios/69e2dfa9b16554ccde84ba82/ai/query -> 503 missing_api_key; Scenario B query: POST /api/scenarios/69e2dfa9b16554ccde84ba85/ai/query -> 503 missing_api_key"
+      },
+      "issues": "Blocked by unconfigured AI provider; scenario-aware endpoint routing observed but answer-level validation impossible."
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Initial default browser session contained state/data from another validator run.",
+      "resolved": true,
+      "resolution": "Switched to an isolated validator-owned identity and explicit org/scenario seed data prefixed 'UTV Collab AI Core'.",
+      "affectedAssertions": [
+        "VAL-AI-001",
+        "VAL-AI-002",
+        "VAL-AI-003",
+        "VAL-AI-004",
+        "VAL-AI-005",
+        "VAL-AI-006",
+        "VAL-AI-007",
+        "VAL-AI-008",
+        "VAL-AI-009",
+        "VAL-CROSS-024"
+      ]
+    },
+    {
+      "description": "Named agent-browser session daemon intermittently failed to start due stale socket state.",
+      "resolved": true,
+      "resolution": "Reinitialized session via open/login flow and continued with one active session for all assertions.",
+      "affectedAssertions": [
+        "VAL-AI-001"
+      ]
+    }
+  ],
+  "blockers": [
+    {
+      "description": "Anthropic backend is not configured in this environment (missing ANTHROPIC_API_KEY). All AI query attempts return a 503 missing_api_key response.",
+      "affectedAssertions": [
+        "VAL-AI-002",
+        "VAL-AI-003",
+        "VAL-AI-004",
+        "VAL-AI-005",
+        "VAL-AI-006",
+        "VAL-AI-007",
+        "VAL-AI-008",
+        "VAL-AI-009",
+        "VAL-CROSS-024"
+      ],
+      "quickFixAttempted": "Retried through UI and directly probed /api/scenarios/{id}/ai/query for both Scenario A and Scenario B; all returned 503 with missing_api_key setup instructions."
+    },
+    {
+      "description": "VAL-AI-007 requires invalid-key and rate-limit paths in addition to missing-key behavior.",
+      "affectedAssertions": [
+        "VAL-AI-007"
+      ],
+      "quickFixAttempted": "Missing-key path validated. Invalid-key/rate-limit not attempted because they require disruptive shared-environment mutation (server env key change/restart or quota forcing), disallowed in concurrent validator context."
+    }
+  ],
+  "summary": "Tested 10 assigned assertions. 1 passed (VAL-AI-001). 9 were blocked due missing ANTHROPIC_API_KEY causing all AI query endpoints to return 503 missing_api_key; therefore response-content, streaming, context, and cross-scenario AI assertions could not be fully validated."
+}

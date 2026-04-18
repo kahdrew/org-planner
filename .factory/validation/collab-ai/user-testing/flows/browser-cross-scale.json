@@ -1,0 +1,166 @@
+{
+  "groupId": "browser-cross-scale",
+  "testedAt": "2026-04-18T02:07:01Z",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001/api",
+    "userEmail": "utv-collab-cross-scale-1776477157@orgplanner.test",
+    "orgId": "69e2e3e5b16554ccde84c285",
+    "orgName": "UTV Collab Cross Scale Org 1776477157",
+    "scenarioId": "69e2e3e5b16554ccde84c288",
+    "scenarioName": "UTV Collab Cross Scale Scenario 1776477157",
+    "datasetEmployees": 520,
+    "namingPrefix": "UTV Collab Cross Scale"
+  },
+  "toolsUsed": [
+    "agent-browser",
+    "curl (bootstrap only)"
+  ],
+  "assertionResults": [
+    {
+      "id": "VAL-CROSS-020",
+      "title": "Session expiry during editing shows graceful error",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Open employee details (Emp 001) from SpreadsheetView and edit Title field",
+          "expected": "Pending edit is ready to save",
+          "observed": "Title changed in form to \"Engineer 1 Expired Attempt\" before save"
+        },
+        {
+          "action": "Invalidate browser token and click Save Changes",
+          "expected": "Save request fails with 401; app handles auth failure gracefully and redirects to login",
+          "observed": "Redirected to /login immediately; console showed \"Request failed with status code 401\"; no blank screen"
+        },
+        {
+          "action": "Re-login and re-open Emp 001 details",
+          "expected": "Data remains intact (failed save does not corrupt employee)",
+          "observed": "Title value remained \"Engineer 1\" (edit was not persisted)"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-cross-scale/VAL-CROSS-020-redirect-login.png",
+          "collab-ai/browser-cross-scale/VAL-CROSS-020-relogin-intact-data.png"
+        ],
+        "consoleErrors": "Intentional auth-failure flow produced: \"Request failed with status code 401\"",
+        "network": "Save attempt after token invalidation returned 401 and triggered client auth redirect to /login"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-021",
+      "title": "Large dataset (500+) does not break navigation",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Bootstrap isolated scenario with 520 employees and navigate all 5 views via sidebar links",
+          "expected": "All views render; no crashes/freezes >3s",
+          "observed": "All views rendered successfully; measured navigation times (ms): / 2215, /hierarchy 2189, /spreadsheet 2228, /kanban 1478, /compare 1469"
+        },
+        {
+          "action": "Check OrgChart node layout at scale",
+          "expected": "No overlapping nodes",
+          "observed": "Computed overlapPairs=0 across 520 rendered .react-flow__node elements"
+        },
+        {
+          "action": "Check large-list scrolling behavior",
+          "expected": "No scroll failures",
+          "observed": "Spreadsheet vertical scroll advanced to row-index 28; Kanban column scrollTop reached 1200 without UI breakage"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-cross-scale/VAL-CROSS-021-orgchart.png",
+          "collab-ai/browser-cross-scale/VAL-CROSS-021-hierarchy.png",
+          "collab-ai/browser-cross-scale/VAL-CROSS-021-spreadsheet.png",
+          "collab-ai/browser-cross-scale/VAL-CROSS-021-compare.png",
+          "collab-ai/browser-cross-scale/VAL-CROSS-021-spreadsheet-scroll.png",
+          "collab-ai/browser-cross-scale/VAL-CROSS-021-kanban-scroll.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Observed normal data-loading traffic including GET /api/scenarios/{scenarioId}/employees and SSE org events stream"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-022",
+      "title": "BudgetPanel totals are mathematically correct",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Compute salary+equity totals from SpreadsheetView rowData (520 rows)",
+          "expected": "Spreadsheet total comp should match BudgetPanel grand total",
+          "observed": "Spreadsheet sums: salary 48,994,900 + equity 3,806,200 = 52,801,100"
+        },
+        {
+          "action": "Open Budget panel and read grand total and department spend rows",
+          "expected": "Budget grand total equals spreadsheet sum; per-department subtotals sum to grand total",
+          "observed": "Budget grand total = $52,801,100; sum of 8 department subtotals = 52,801,100 (exact match)"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-cross-scale/VAL-CROSS-022-spreadsheet.png",
+          "collab-ai/browser-cross-scale/VAL-CROSS-022-budget-panel.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Budget panel loaded scenario budget data via GET /api/scenarios/{scenarioId}/budgets; computations matched spreadsheet-derived sums"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-CROSS-023",
+      "title": "HeadcountSummary matches actual employee count in all views",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Read HeadcountSummary total",
+          "expected": "Baseline N available for cross-view validation",
+          "observed": "HeadcountSummary Total = 520"
+        },
+        {
+          "action": "Count OrgChart, Hierarchy, Spreadsheet, and Kanban entries for the same dataset",
+          "expected": "Each view count equals HeadcountSummary N",
+          "observed": "OrgChart nodes=520; Hierarchy rows=520; Spreadsheet rowData length=520; Kanban cards=520"
+        }
+      ],
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-cross-scale/VAL-CROSS-023-orgchart.png",
+          "collab-ai/browser-cross-scale/VAL-CROSS-023-hierarchy.png",
+          "collab-ai/browser-cross-scale/VAL-CROSS-023-spreadsheet.png",
+          "collab-ai/browser-cross-scale/VAL-CROSS-023-kanban.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Counts validated after normal scenario employee fetches; no error responses observed during count checks"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Direct URL open to /spreadsheet intermittently landed back on / during this run.",
+      "resolved": true,
+      "resolution": "Used sidebar navigation links for deterministic cross-view transitions.",
+      "affectedAssertions": [
+        "VAL-CROSS-021",
+        "VAL-CROSS-023"
+      ]
+    },
+    {
+      "description": "At 500+ scale, direct click targeting of OrgChart text nodes could be non-interactable due viewport fit/positioning.",
+      "resolved": true,
+      "resolution": "Performed the session-expiry edit/save flow through Spreadsheet row selection + detail panel, then re-validated data integrity.",
+      "affectedAssertions": [
+        "VAL-CROSS-020"
+      ]
+    }
+  ],
+  "blockers": [],
+  "artifacts": {
+    "bootstrap": "collab-ai/browser-cross-scale/bootstrap-metadata.json",
+    "metrics": "collab-ai/browser-cross-scale/validation-metrics.json"
+  },
+  "summary": "Validated 4 assertions (VAL-CROSS-020/021/022/023): all passed with 520-employee isolated dataset; auth-expiry redirect path behaved gracefully and cross-view/budget/headcount consistency checks matched exactly."
+}

@@ -1,0 +1,74 @@
+{
+  "groupId": "curl-auth-stream",
+  "testedAt": "2026-04-18T01:31:53.072399+00:00",
+  "isolation": {
+    "missionDir": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a",
+    "appUrl": "http://localhost:5173",
+    "apiBase": "http://localhost:3001/api",
+    "email": "testuser-collab-curl-1776475906@orgplanner.test",
+    "emailPrefixPattern": "testuser-collab-curl-<timestamp>@orgplanner.test",
+    "orgName": "UTV Collab Curl Org 1776475906",
+    "scenarioName": "UTV Collab Curl Scenario 1776475906",
+    "resourceNamingPrefix": "UTV Collab Curl"
+  },
+  "toolsUsed": [
+    "curl"
+  ],
+  "assertionResults": [
+    {
+      "id": "VAL-SSE-001",
+      "status": "pass",
+      "reason": "Expected SSE stream with auth. Got HTTP 200, Content-Type text/event-stream=True, Cache-Control includes no-cache=True, body contains connected event=True, curl exit=28 (28 indicates timeout while connection remained open).",
+      "evidence": {
+        "request": "GET /api/orgs/69e2df03b16554ccde84b9f0/events with Authorization: Bearer <token>",
+        "httpStatus": "200",
+        "responseHeaders": "HTTP/1.1 200 OK\nX-Powered-By: Express\nAccess-Control-Allow-Origin: *\nContent-Type: text/event-stream\nCache-Control: no-cache, no-transform\nConnection: keep-alive\nX-Accel-Buffering: no\nDate: Sat, 18 Apr 2026 01:31:48 GMT\nTransfer-Encoding: chunked",
+        "responseBodySnippet": "event: connected\ndata: {\"type\":\"connected\",\"orgId\":\"69e2df03b16554ccde84b9f0\",\"ts\":1776475908818}",
+        "curlExitCode": "28",
+        "artifacts": [
+          "collab-ai/curl-auth-stream/VAL-SSE-001.headers.txt",
+          "collab-ai/curl-auth-stream/VAL-SSE-001.body.txt",
+          "collab-ai/curl-auth-stream/VAL-SSE-001.status.txt",
+          "collab-ai/curl-auth-stream/VAL-SSE-001.exitcode.txt"
+        ]
+      }
+    },
+    {
+      "id": "VAL-SSE-009",
+      "status": "pass",
+      "reason": "Expected unauthenticated SSE request to return 401. Got HTTP 401 with body: {\"error\":\"No token provided\"}",
+      "evidence": {
+        "request": "GET /api/orgs/69e2df03b16554ccde84b9f0/events without Authorization header",
+        "httpStatus": "401",
+        "responseBody": {
+          "error": "No token provided"
+        },
+        "artifacts": [
+          "collab-ai/curl-auth-stream/VAL-SSE-009.headers.txt",
+          "collab-ai/curl-auth-stream/VAL-SSE-009.body.json",
+          "collab-ai/curl-auth-stream/VAL-SSE-009.status.txt"
+        ]
+      }
+    },
+    {
+      "id": "VAL-AI-010",
+      "status": "pass",
+      "reason": "Expected unauthenticated AI query to return 401. Got HTTP 401 with body: {\"error\":\"No token provided\"}",
+      "evidence": {
+        "request": "POST /api/scenarios/69e2df04b16554ccde84b9f3/ai/query without Authorization header, body={\"query\":\"How many employees are in Engineering?\"}",
+        "httpStatus": "401",
+        "responseBody": {
+          "error": "No token provided"
+        },
+        "artifacts": [
+          "collab-ai/curl-auth-stream/VAL-AI-010.headers.txt",
+          "collab-ai/curl-auth-stream/VAL-AI-010.body.json",
+          "collab-ai/curl-auth-stream/VAL-AI-010.status.txt"
+        ]
+      }
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 3 assertions via curl: 3 passed, 0 failed, 0 blocked."
+}

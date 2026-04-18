@@ -1,0 +1,72 @@
+{
+  "milestone": "collab-ai",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 27,
+    "passed": 18,
+    "failed": 0,
+    "blocked": 9
+  },
+  "passedAssertions": [
+    "VAL-AI-001",
+    "VAL-AI-010",
+    "VAL-CROSS-009",
+    "VAL-CROSS-010",
+    "VAL-CROSS-020",
+    "VAL-CROSS-021",
+    "VAL-CROSS-022",
+    "VAL-CROSS-023",
+    "VAL-SSE-001",
+    "VAL-SSE-002",
+    "VAL-SSE-003",
+    "VAL-SSE-004",
+    "VAL-SSE-005",
+    "VAL-SSE-006",
+    "VAL-SSE-007",
+    "VAL-SSE-008",
+    "VAL-SSE-009",
+    "VAL-SSE-010"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [
+    {
+      "id": "VAL-AI-002",
+      "blockedBy": "Blocked by missing ANTHROPIC_API_KEY on server; assertion cannot be fully validated without configured AI backend."
+    },
+    {
+      "id": "VAL-AI-003",
+      "blockedBy": "Blocked by missing ANTHROPIC_API_KEY; no stream frames available to validate incremental growth."
+    },
+    {
+      "id": "VAL-AI-004",
+      "blockedBy": "Blocked by unconfigured AI provider."
+    },
+    {
+      "id": "VAL-AI-005",
+      "blockedBy": "Blocked by unconfigured AI provider."
+    },
+    {
+      "id": "VAL-AI-006",
+      "blockedBy": "Blocked by unconfigured AI provider."
+    },
+    {
+      "id": "VAL-AI-007",
+      "blockedBy": "Partially validated (missing key). Invalid-key and rate-limit scenarios blocked by inability to safely mutate shared env/API quota during parallel validation."
+    },
+    {
+      "id": "VAL-AI-008",
+      "blockedBy": "Blocked by unconfigured AI provider."
+    },
+    {
+      "id": "VAL-AI-009",
+      "blockedBy": "Blocked by unconfigured AI provider."
+    },
+    {
+      "id": "VAL-CROSS-024",
+      "blockedBy": "Blocked by unconfigured AI provider; scenario-aware endpoint routing observed but answer-level validation impossible."
+    }
+  ],
+  "appliedUpdates": [],
+  "previousRound": null
+}

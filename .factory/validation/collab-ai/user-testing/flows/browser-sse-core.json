@@ -1,0 +1,212 @@
+{
+  "groupId": "browser-sse-core",
+  "testedAt": "2026-04-18T01:48:18Z",
+  "isolation": {
+    "appUrl": "http://localhost:5173",
+    "apiUrl": "http://localhost:3001/api",
+    "runId": "20260418013213",
+    "userA": {
+      "email": "utv-collab-sse-core-a-20260418013213@orgplanner.test",
+      "name": "UTV Collab SSE Core User A 20260418013213"
+    },
+    "userB": {
+      "email": "utv-collab-sse-core-b-20260418013213@orgplanner.test",
+      "name": "UTV Collab SSE Core User B 20260418013213"
+    },
+    "org1": {
+      "id": "69e2df21b16554ccde84b9fe",
+      "name": "UTV Collab SSE Core Org 1 20260418013213"
+    },
+    "org2": {
+      "id": "69e2df21b16554ccde84ba00",
+      "name": "UTV Collab SSE Core Org 2 20260418013213"
+    },
+    "scenario1": {
+      "id": "69e2df21b16554ccde84ba03",
+      "name": "UTV Collab SSE Core Scenario 1 20260418013213"
+    },
+    "scenario2": {
+      "id": "69e2df21b16554ccde84ba06",
+      "name": "UTV Collab SSE Core Scenario 2 20260418013213"
+    }
+  },
+  "toolsUsed": [
+    "agent-browser",
+    "curl"
+  ],
+  "assertionResults": [
+    {
+      "id": "VAL-SSE-002",
+      "status": "pass",
+      "reason": "With two open org tabs in the same scenario, creating employee \"UTV Collab SSE Core SSE002 20260418013213\" propagated to the observer tab within ~2.2s without refresh.",
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-sse-core/VAL-SSE-002-before.png",
+          "collab-ai/browser-sse-core/VAL-SSE-002-after.png"
+        ],
+        "consoleErrors": "none",
+        "network": "POST /api/scenarios/69e2df21b16554ccde84ba03/employees -> 201 (_id=69e2e0e0b16554ccde84bddb); observer tab displayed new employee name without refresh."
+      }
+    },
+    {
+      "id": "VAL-SSE-003",
+      "status": "pass",
+      "reason": "Updating the same employee title to \"Principal Realtime QA\" propagated to the observer tab within ~2.2s.",
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-sse-core/VAL-SSE-003-before.png",
+          "collab-ai/browser-sse-core/VAL-SSE-003-after.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e2e0e0b16554ccde84bddb -> 200; observer tab showed updated title text."
+      }
+    },
+    {
+      "id": "VAL-SSE-004",
+      "status": "pass",
+      "reason": "Deleting the employee removed it from the live browser surface without manual refresh; post-delete DOM check returned false for the deleted name.",
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-sse-core/VAL-SSE-004-before.png",
+          "collab-ai/browser-sse-core/VAL-SSE-004-after.png"
+        ],
+        "consoleErrors": "none",
+        "network": "DELETE /api/employees/69e2e0e0b16554ccde84bddb -> 200 {\"message\":\"Employee deleted\"}; browser eval confirmed removed text is absent."
+      }
+    },
+    {
+      "id": "VAL-SSE-005",
+      "status": "pass",
+      "reason": "Move operation for Employee One to Manager Two applied live and persisted; managerId changed to the target manager in verification fetch.",
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-sse-core/VAL-SSE-005-before.png",
+          "collab-ai/browser-sse-core/VAL-SSE-005-after.png"
+        ],
+        "consoleErrors": "none",
+        "network": "PATCH /api/employees/69e2df24b16554ccde84ba27/move -> 200 (managerId=69e2df23b16554ccde84ba20); follow-up GET /api/scenarios/69e2df21b16554ccde84ba03/employees confirmed persisted managerId."
+      }
+    },
+    {
+      "id": "VAL-SSE-006",
+      "status": "pass",
+      "reason": "Connection indicator showed connected state in normal operation and reconnecting state when SSE event stream was intentionally blocked.",
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-sse-core/VAL-SSE-006-connected.png",
+          "collab-ai/browser-sse-core/VAL-SSE-006-disconnected.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Indicator data-status observed as \"connected\" (normal) then \"reconnecting\" after aborting **/api/orgs/*/events* and reloading."
+      }
+    },
+    {
+      "id": "VAL-SSE-007",
+      "status": "pass",
+      "reason": "After forced disconnection, a missed employee created during outage appeared after unblocking SSE and reconnecting; indicator returned to connected.",
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-sse-core/VAL-SSE-007-disconnected.png",
+          "collab-ai/browser-sse-core/VAL-SSE-007-reconnected-with-missed-change.png"
+        ],
+        "consoleErrors": "none",
+        "network": "During outage: indicator \"reconnecting\". Missed change: POST /api/scenarios/69e2df21b16554ccde84ba03/employees -> 201 (_id=69e2e21bb16554ccde84c06d). After unroute: indicator \"connected\" and searched employee became visible."
+      }
+    },
+    {
+      "id": "VAL-SSE-008",
+      "status": "pass",
+      "reason": "Org-scoped SSE verified: org1 tab received org1 change while org2 tab stayed unaffected for the same search term.",
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-sse-core/VAL-SSE-008-org2-before.png",
+          "collab-ai/browser-sse-core/VAL-SSE-008-org1-after.png",
+          "collab-ai/browser-sse-core/VAL-SSE-008-org2-after.png"
+        ],
+        "consoleErrors": "none",
+        "network": "Tab0 org select value=69e2df21b16554ccde84b9fe, Tab1 org select value=69e2df21b16554ccde84ba00. POST org1 employee -> 201 (_id=69e2e242b16554ccde84c111). Org1 tab showed SSE008 result; org2 tab eval returned false for SSE008 text."
+      }
+    },
+    {
+      "id": "VAL-SSE-010",
+      "status": "pass",
+      "reason": "With SSE stream blocked and indicator reconnecting, REST mutation still succeeded and rendered after reload; user changes were not blocked.",
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-sse-core/VAL-SSE-010-sse-unavailable.png",
+          "collab-ai/browser-sse-core/VAL-SSE-010-operation-success.png"
+        ],
+        "consoleErrors": "none",
+        "network": "SSE blocked via route abort (**/api/orgs/*/events*), indicator stayed \"reconnecting\". PATCH /api/employees/69e2df23b16554ccde84ba20 -> 200 (title=\"Director Product No SSE\"). UI displayed updated title after reload while SSE remained unavailable."
+      }
+    },
+    {
+      "id": "VAL-CROSS-009",
+      "status": "pass",
+      "reason": "Cross-user realtime update validated: User A created an employee and User B browser session displayed it live without refresh.",
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-sse-core/VAL-CROSS-009-before.png",
+          "collab-ai/browser-sse-core/VAL-CROSS-009-after.png"
+        ],
+        "consoleErrors": "none",
+        "network": "User A POST /api/scenarios/69e2df21b16554ccde84ba03/employees -> 201 (_id=69e2e280b16554ccde84c211); User B indicator remained \"connected\" and search found CROSS009 employee."
+      }
+    },
+    {
+      "id": "VAL-CROSS-010",
+      "status": "pass",
+      "reason": "Concurrent cross-user field edits preserved both changes: title update and salary update both persisted on the same employee.",
+      "evidence": {
+        "screenshots": [
+          "collab-ai/browser-sse-core/VAL-CROSS-010-before.png",
+          "collab-ai/browser-sse-core/VAL-CROSS-010-after.png"
+        ],
+        "consoleErrors": "none",
+        "network": "User A PATCH /api/employees/69e2df24b16554ccde84ba27 {title:\"Sr Eng Cross010\"} -> 200; User B PATCH same employee {salary:177000} -> 200; final GET /api/scenarios/69e2df21b16554ccde84ba03/employees showed title=\"Sr Eng Cross010\" and salary=177000 together."
+      }
+    }
+  ],
+  "frictions": [
+    {
+      "description": "agent-browser named session isolation was unstable in this environment (socket/startup failures and state bleed), which made strict dual-browser-user driving unreliable.",
+      "resolved": true,
+      "resolution": "Used isolated auth tokens for User A/User B and validated realtime outcomes from browser surfaces while executing actor mutations through authenticated API calls in the same flow.",
+      "affectedAssertions": [
+        "VAL-SSE-002",
+        "VAL-SSE-003",
+        "VAL-SSE-004",
+        "VAL-SSE-005",
+        "VAL-SSE-007",
+        "VAL-SSE-008",
+        "VAL-SSE-010",
+        "VAL-CROSS-009",
+        "VAL-CROSS-010"
+      ]
+    },
+    {
+      "description": "agent-browser network request capture intermittently returned \"No requests captured\" for these long-running flows.",
+      "resolved": true,
+      "resolution": "Captured concrete network evidence from direct API responses (201/200 payloads and IDs) plus browser connection-status state transitions.",
+      "affectedAssertions": [
+        "VAL-SSE-002",
+        "VAL-SSE-003",
+        "VAL-SSE-004",
+        "VAL-SSE-005",
+        "VAL-SSE-006",
+        "VAL-SSE-007",
+        "VAL-SSE-008",
+        "VAL-SSE-010",
+        "VAL-CROSS-009",
+        "VAL-CROSS-010"
+      ]
+    }
+  ],
+  "blockers": [],
+  "summary": {
+    "total": 10,
+    "pass": 10,
+    "fail": 0,
+    "blocked": 0
+  }
+}
