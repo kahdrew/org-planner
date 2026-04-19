@@ -11,11 +11,20 @@ import MongoStore from "connect-mongo";
  *
  * The session secret is read from `SESSION_SECRET`, falling back to the
  * legacy `JWT_SECRET` so existing deployments keep working during the
- * JWT → session cookie migration.
+ * JWT → session cookie migration. If neither is configured we fail fast
+ * at startup — a predictable/hardcoded signing secret would let attackers
+ * forge session cookies, so we refuse to boot rather than silently using
+ * an insecure default.
  */
 export function buildSessionMiddleware() {
-  const secret =
-    process.env.SESSION_SECRET || process.env.JWT_SECRET || "change-me";
+  const secret = process.env.SESSION_SECRET || process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error(
+      "SESSION_SECRET (or legacy JWT_SECRET) must be set. Refusing to start " +
+        "with a predictable/default signing secret — set SESSION_SECRET in " +
+        "the environment to a long random string.",
+    );
+  }
   const mongoUrl = process.env.MONGODB_URI;
 
   const options: SessionOptions = {
