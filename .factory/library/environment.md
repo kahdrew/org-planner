@@ -17,8 +17,9 @@ Server env file location: `packages/server/.env`.
 
 | Variable | Purpose | Default/Notes |
 |---|---|---|
-| `MONGODB_URI` | MongoDB connection string | Uses MongoDB Atlas in this mission (no local Mongo required). |
-| `JWT_SECRET` | JWT signing secret | Required for auth flows. |
+| `MONGODB_URI` | MongoDB connection string | Uses MongoDB Atlas in this mission (no local Mongo required). Also holds the express-session store. |
+| `SESSION_SECRET` | express-session signing secret | Primary auth secret (falls back to `JWT_SECRET` during migration). |
+| `JWT_SECRET` | Legacy JWT signing secret | Deprecated. Only read as a fallback when `SESSION_SECRET` is unset. Safe to remove once all environments set `SESSION_SECRET`. |
 | `PORT` | API server port | Defaults to `3001` in local development. |
 | `ANTHROPIC_API_KEY` | Anthropic API key | Required only for AI milestone features. |
 

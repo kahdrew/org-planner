@@ -1,23 +1,7 @@
 import type { Request, Response } from "express";
-import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { eventBus } from "../sse/eventBus";
 import { checkOrgMembership } from "../middleware/authorization";
-
-/**
- * Extract a JWT from either the Authorization header (Bearer <token>) or
- * an `?access_token=` query param. Browser EventSource cannot set custom
- * headers, so we support the query-param form specifically for SSE.
- */
-function extractToken(req: Request): string | null {
-  const header = req.headers.authorization;
-  if (header && header.startsWith("Bearer ")) {
-    return header.slice("Bearer ".length);
-  }
-  const raw = req.query.access_token;
-  if (typeof raw === "string" && raw.length > 0) return raw;
-  return null;
-}
 
 /**
  * Keepalive interval (ms). Some proxies drop idle HTTP connections at
@@ -32,25 +16,18 @@ const KEEPALIVE_MS = 25_000;
  * The client will receive org-scoped events (employee CRUD/move, scenario
  * changes) for the lifetime of the connection.
  *
- * Auth: accepts JWT via `Authorization: Bearer ...` or `?access_token=...`.
+ * Auth: session cookie. Browser EventSource sends cookies automatically on
+ * same-origin requests (and, when opened with `withCredentials: true`, on
+ * cross-origin requests as well).
  * Authz: user must be a member or owner of `orgId`.
  */
 export async function streamOrgEvents(req: Request, res: Response): Promise<void> {
   const orgId = req.params.orgId;
 
-  // 1. Authenticate: token must be present and valid.
-  const token = extractToken(req);
-  if (!token) {
-    res.status(401).json({ error: "No token provided" });
-    return;
-  }
-
-  let userId: string;
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string };
-    userId = decoded.userId;
-  } catch {
-    res.status(401).json({ error: "Invalid token" });
+  // 1. Authenticate via session cookie.
+  const userId = req.session?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
     return;
   }
 
@@ -126,25 +103,15 @@ export async function streamOrgEvents(req: Request, res: Response): Promise<void
  * hold a long-lived SSE connection. Returns a JSON array of buffered
  * events with `seq > since_seq` from the in-memory ring buffer.
  *
- * Auth: same as SSE endpoint — `Authorization: Bearer ...` or
- * `?access_token=...`.
+ * Auth: session cookie (same as SSE endpoint).
  * Authz: user must be a member or owner of `orgId`.
  */
 export async function pollOrgEvents(req: Request, res: Response): Promise<void> {
   const orgId = req.params.orgId;
 
-  const token = extractToken(req);
-  if (!token) {
-    res.status(401).json({ error: "No token provided" });
-    return;
-  }
-
-  let userId: string;
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string };
-    userId = decoded.userId;
-  } catch {
-    res.status(401).json({ error: "Invalid token" });
+  const userId = req.session?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
     return;
   }
 

@@ -11,7 +11,7 @@ GET /api/orgs/:orgId/events/poll?since_seq=<N>
 ```
 
 - Content-Type: `text/event-stream`
-- Auth: `Authorization: Bearer <jwt>` OR `?access_token=<jwt>` (EventSource can't send headers).
+- Auth: session cookie (`orgplanner.sid`). EventSource sends cookies automatically on same-origin requests. Legacy `Authorization: Bearer <jwt>` and `?access_token=<jwt>` have been removed.
 - Authz: user must be owner/member of `orgId`.
 - Keepalive: a `: keepalive <ts>` comment is sent every ~25s so proxies don't drop idle sockets.
 - Polling fallback response: JSON payload with monotonically increasing `seq` values:
@@ -74,8 +74,9 @@ orgStore mutations inside `sseStore#applyServerEvent`.
 
 ## Gotchas
 
-- EventSource cannot attach Authorization headers. Always include
-  `?access_token=...`.
+- EventSource cannot attach Authorization headers, but it does send cookies
+  on same-origin requests automatically. Auth is enforced via the
+  `orgplanner.sid` session cookie now — no `?access_token=` needed.
 - `app.ts` mounts `sseRoutes` BEFORE `orgRoutes` so the authenticated
   org router doesn't swallow `/orgs/:orgId/events`.
 - Long-lived SSE connections are not reliable on Vercel serverless due to

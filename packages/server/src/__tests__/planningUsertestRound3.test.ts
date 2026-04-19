@@ -4,7 +4,7 @@ import path from "path";
 
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
-import request from "supertest";
+import { registerAgent, type TestAgent } from "./helpers/authAgent";
 import mongoose from "mongoose";
 import app from "../app";
 import User from "../models/User";
@@ -17,10 +17,10 @@ import HeadcountRequest from "../models/HeadcountRequest";
 const TEST_PREFIX = `planning_usertest_round3_${Date.now()}`;
 const TEST_PASSWORD = ["round3", "tester", "pwd"].join("-") + Date.now();
 
-let ownerToken: string;
-let approverToken: string;
+let ownerAgent: TestAgent;
+let approverAgent: TestAgent;
 let approverUserId: string;
-let submitterToken: string;
+let submitterAgent: TestAgent;
 let submitterUserId: string;
 
 let orgId: string;
@@ -37,58 +37,53 @@ function creds(suffix: string) {
 
 async function registerUser(
   suffix: string,
-): Promise<{ token: string; id: string }> {
-  const res = await request(app).post("/api/auth/register").send(creds(suffix));
-  return { token: res.body.token, id: res.body.user.id };
+): Promise<{ agent: TestAgent; id: string }> {
+  const agent = await registerAgent(app, creds(suffix));
+  const me = await agent.get("/api/auth/me");
+  return { agent, id: me.body.user.id };
 }
 
 async function acceptInvite(
   email: string,
   role: "admin" | "viewer",
-  token: string,
+  inviteeAgent: TestAgent,
 ) {
-  const inviteRes = await request(app)
+  const inviteRes = await ownerAgent
     .post(`/api/orgs/${orgId}/invite`)
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({ email, role });
   const invitationId = inviteRes.body._id;
-  await request(app)
-    .post(`/api/invitations/${invitationId}/accept`)
-    .set("Authorization", `Bearer ${token}`);
+  await inviteeAgent.post(`/api/invitations/${invitationId}/accept`);
 }
 
 beforeAll(async () => {
   await mongoose.connect(process.env.MONGODB_URI!);
 
   const owner = await registerUser("owner");
-  ownerToken = owner.token;
+  ownerAgent = owner.agent;
 
   const approver = await registerUser("approver");
-  approverToken = approver.token;
+  approverAgent = approver.agent;
   approverUserId = approver.id;
 
   const submitter = await registerUser("submitter");
-  submitterToken = submitter.token;
+  submitterAgent = submitter.agent;
   submitterUserId = submitter.id;
 
-  const orgRes = await request(app)
+  const orgRes = await ownerAgent
     .post("/api/orgs")
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({ name: `${TEST_PREFIX} Org` });
   orgId = orgRes.body._id;
 
-  await acceptInvite(creds("approver").email, "admin", approverToken);
-  await acceptInvite(creds("submitter").email, "admin", submitterToken);
+  await acceptInvite(creds("approver").email, "admin", approverAgent);
+  await acceptInvite(creds("submitter").email, "admin", submitterAgent);
 
-  const scnRes = await request(app)
+  const scnRes = await ownerAgent
     .post(`/api/orgs/${orgId}/scenarios`)
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({ name: "Round3 Scenario" });
   scenarioId = scnRes.body._id;
 
-  const chainRes = await request(app)
+  const chainRes = await ownerAgent
     .post(`/api/orgs/${orgId}/approval-chains`)
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({
       name: `Round3 Chain ${Date.now()}`,
       isDefault: true,
@@ -110,9 +105,8 @@ afterAll(async () => {
 describe("Resubmit — editHistory captured in audit trail (VAL-APPROVAL-012)", () => {
   it("records per-field changes in the resubmit audit entry", async () => {
     // Submit
-    const submitRes = await request(app)
+    const submitRes = await submitterAgent
       .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-      .set("Authorization", `Bearer ${submitterToken}`)
       .send({
         chainId,
         employeeData: {
@@ -130,16 +124,14 @@ describe("Resubmit — editHistory captured in audit trail (VAL-APPROVAL-012)", 
     const reqId = submitRes.body._id;
 
     // Approver requests changes
-    const rcRes = await request(app)
+    const rcRes = await approverAgent
       .post(`/api/headcount-requests/${reqId}/request-changes`)
-      .set("Authorization", `Bearer ${approverToken}`)
       .send({ comment: "Please raise the level" });
     expect(rcRes.status).toBe(200);
 
     // Submitter resubmits with updated data (title + level + salary change)
-    const resubmit = await request(app)
+    const resubmit = await submitterAgent
       .post(`/api/headcount-requests/${reqId}/resubmit`)
-      .set("Authorization", `Bearer ${submitterToken}`)
       .send({
         employeeData: {
           name: "Edit Test Hire",
@@ -179,9 +171,8 @@ describe("Resubmit — editHistory captured in audit trail (VAL-APPROVAL-012)", 
 
   it("resubmit without changes still advances state and audit but omits changes array", async () => {
     // Submit
-    const submitRes = await request(app)
+    const submitRes = await submitterAgent
       .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-      .set("Authorization", `Bearer ${submitterToken}`)
       .send({
         chainId,
         employeeData: {
@@ -198,15 +189,13 @@ describe("Resubmit — editHistory captured in audit trail (VAL-APPROVAL-012)", 
     const reqId = submitRes.body._id;
 
     // Approver requests changes
-    await request(app)
+    await approverAgent
       .post(`/api/headcount-requests/${reqId}/request-changes`)
-      .set("Authorization", `Bearer ${approverToken}`)
       .send({ comment: "please retry" });
 
     // Submitter resubmits with NO body
-    const resubmit = await request(app)
+    const resubmit = await submitterAgent
       .post(`/api/headcount-requests/${reqId}/resubmit`)
-      .set("Authorization", `Bearer ${submitterToken}`)
       .send({});
     expect(resubmit.status).toBe(200);
     expect(resubmit.body.status).toBe("pending");

@@ -17,7 +17,7 @@ import path from "path";
 
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
-import request from "supertest";
+import { registerAgent, type TestAgent } from "./helpers/authAgent";
 import mongoose from "mongoose";
 import app from "../app";
 import User from "../models/User";
@@ -33,11 +33,11 @@ import { applyDueChangesForScenario } from "../controllers/scheduledChangeContro
 
 const TEST_PREFIX = `collab_ai_scrutiny_${Date.now()}`;
 
-let ownerToken: string;
+let ownerAgent: TestAgent;
 let ownerUserId: string;
-let managerToken: string;
+let managerAgent: TestAgent;
 let managerUserId: string;
-let vpToken: string;
+let vpAgent: TestAgent;
 let vpUserId: string;
 
 let orgId: string;
@@ -58,28 +58,25 @@ function testCreds(suffix: string) {
 
 async function registerUser(
   suffix: string,
-): Promise<{ token: string; id: string }> {
-  const res = await request(app).post("/api/auth/register").send(testCreds(suffix));
-  return { token: res.body.token, id: res.body.user.id };
+): Promise<{ agent: TestAgent; id: string }> {
+  const agent = await registerAgent(app, testCreds(suffix));
+  const me = await agent.get("/api/auth/me");
+  return { agent, id: me.body.user.id };
 }
 
-async function acceptInviteAsAdmin(email: string, token: string) {
-  const inv = await request(app)
+async function acceptInviteAsAdmin(email: string, inviteeAgent: TestAgent) {
+  const inv = await ownerAgent
     .post(`/api/orgs/${orgId}/invite`)
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({ email, role: "admin" });
-  await request(app)
-    .post(`/api/invitations/${inv.body._id}/accept`)
-    .set("Authorization", `Bearer ${token}`);
+  await inviteeAgent.post(`/api/invitations/${inv.body._id}/accept`);
 }
 
 async function createEmployee(
-  token: string,
+  actingAgent: TestAgent,
   overrides: Record<string, unknown> = {},
 ) {
-  const res = await request(app)
+  const res = await actingAgent
     .post(`/api/scenarios/${scenarioId}/employees`)
-    .set("Authorization", `Bearer ${token}`)
     .send({
       name: "Base Emp",
       title: "Engineer",
@@ -97,36 +94,33 @@ beforeAll(async () => {
   await mongoose.connect(process.env.MONGODB_URI!);
 
   const owner = await registerUser("owner");
-  ownerToken = owner.token;
+  ownerAgent = owner.agent;
   ownerUserId = owner.id;
 
   const manager = await registerUser("manager");
-  managerToken = manager.token;
+  managerAgent = manager.agent;
   managerUserId = manager.id;
 
   const vp = await registerUser("vp");
-  vpToken = vp.token;
+  vpAgent = vp.agent;
   vpUserId = vp.id;
 
-  const orgRes = await request(app)
+  const orgRes = await ownerAgent
     .post("/api/orgs")
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({ name: `${TEST_PREFIX} Org` });
   orgId = orgRes.body._id;
 
-  await acceptInviteAsAdmin(testCreds("manager").email, managerToken);
-  await acceptInviteAsAdmin(testCreds("vp").email, vpToken);
+  await acceptInviteAsAdmin(testCreds("manager").email, managerAgent);
+  await acceptInviteAsAdmin(testCreds("vp").email, vpAgent);
 
-  const scenarioRes = await request(app)
+  const scenarioRes = await ownerAgent
     .post(`/api/orgs/${orgId}/scenarios`)
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({ name: "Collab AI Scrutiny Scenario" });
   scenarioId = scenarioRes.body._id;
 
   // Simple 2-step default chain.
-  const chainRes = await request(app)
+  const chainRes = await ownerAgent
     .post(`/api/orgs/${orgId}/approval-chains`)
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({
       name: "Collab AI Chain",
       description: "Chain for collab-ai scrutiny tests",
@@ -173,9 +167,8 @@ beforeEach(() => {
 describe("Headcount approval materialization emits SSE events", () => {
   it("emits employee.created on final approval of a new_hire request", async () => {
     // Submit a new-hire request; the default 2-step chain routes it.
-    const submission = await request(app)
+    const submission = await ownerAgent
       .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-      .set("Authorization", `Bearer ${ownerToken}`)
       .send({
         employeeData: {
           name: "SSE Approved Hire",
@@ -191,9 +184,8 @@ describe("Headcount approval materialization emits SSE events", () => {
     const requestId = submission.body._id;
 
     // Step 1: manager approves — not the final step, no materialization.
-    const approveStep1 = await request(app)
+    const approveStep1 = await managerAgent
       .post(`/api/headcount-requests/${requestId}/approve`)
-      .set("Authorization", `Bearer ${managerToken}`)
       .send({});
     expect(approveStep1.status).toBe(200);
 
@@ -201,9 +193,8 @@ describe("Headcount approval materialization emits SSE events", () => {
     const capture = startCapture();
 
     // Step 2: VP approves (final step) — triggers materializeEmployee.
-    const approveStep2 = await request(app)
+    const approveStep2 = await vpAgent
       .post(`/api/headcount-requests/${requestId}/approve`)
-      .set("Authorization", `Bearer ${vpToken}`)
       .send({});
     expect(approveStep2.status).toBe(200);
     expect(approveStep2.body.status).toBe("approved");
@@ -223,16 +214,15 @@ describe("Headcount approval materialization emits SSE events", () => {
 
   it("emits employee.updated on final approval of a comp_change request", async () => {
     // Seed an existing employee to act as the comp-change target.
-    const emp = await createEmployee(ownerToken, {
+    const emp = await createEmployee(ownerAgent, {
       name: "CompChange Target",
       title: "Engineer",
       level: "IC3",
       salary: 130000,
     });
 
-    const submission = await request(app)
+    const submission = await ownerAgent
       .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-      .set("Authorization", `Bearer ${ownerToken}`)
       .send({
         requestType: "comp_change",
         targetEmployeeId: emp._id,
@@ -249,16 +239,14 @@ describe("Headcount approval materialization emits SSE events", () => {
     expect(submission.status).toBe(201);
     const requestId = submission.body._id;
 
-    await request(app)
+    await managerAgent
       .post(`/api/headcount-requests/${requestId}/approve`)
-      .set("Authorization", `Bearer ${managerToken}`)
       .send({});
 
     const capture = startCapture();
 
-    const final = await request(app)
+    const final = await vpAgent
       .post(`/api/headcount-requests/${requestId}/approve`)
-      .set("Authorization", `Bearer ${vpToken}`)
       .send({});
     expect(final.status).toBe(200);
     expect(final.body.status).toBe("approved");
@@ -280,15 +268,14 @@ describe("Headcount approval materialization emits SSE events", () => {
 
 describe("Scheduled change application emits SSE events", () => {
   it("emits employee.updated when apply-due applies a regular edit", async () => {
-    const emp = await createEmployee(ownerToken, {
+    const emp = await createEmployee(ownerAgent, {
       name: "SSE SchedUpdate",
       title: "Engineer",
       level: "IC2",
     });
 
-    await request(app)
+    await ownerAgent
       .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-      .set("Authorization", `Bearer ${ownerToken}`)
       .send({
         employeeId: emp._id,
         effectiveDate: todayIso(),
@@ -298,9 +285,8 @@ describe("Scheduled change application emits SSE events", () => {
 
     const capture = startCapture();
 
-    const applyRes = await request(app)
-      .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`)
-      .set("Authorization", `Bearer ${ownerToken}`);
+    const applyRes = await ownerAgent
+      .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`);
     expect(applyRes.status).toBe(200);
 
     const updatedEvents = capture.events.filter(
@@ -317,12 +303,11 @@ describe("Scheduled change application emits SSE events", () => {
   });
 
   it("emits employee.moved when apply-due applies a managerId change", async () => {
-    const manager = await createEmployee(ownerToken, { name: "SSE NewMgr" });
-    const reportee = await createEmployee(ownerToken, { name: "SSE Reportee" });
+    const manager = await createEmployee(ownerAgent, { name: "SSE NewMgr" });
+    const reportee = await createEmployee(ownerAgent, { name: "SSE Reportee" });
 
-    await request(app)
+    await ownerAgent
       .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-      .set("Authorization", `Bearer ${ownerToken}`)
       .send({
         employeeId: reportee._id,
         effectiveDate: todayIso(),
@@ -332,9 +317,8 @@ describe("Scheduled change application emits SSE events", () => {
 
     const capture = startCapture();
 
-    const applyRes = await request(app)
-      .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`)
-      .set("Authorization", `Bearer ${ownerToken}`);
+    const applyRes = await ownerAgent
+      .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`);
     expect(applyRes.status).toBe(200);
 
     const movedEvents = capture.events.filter(
@@ -351,14 +335,13 @@ describe("Scheduled change application emits SSE events", () => {
   });
 
   it("emits SSE events from applyDueChangesForScenario (internal/middleware path)", async () => {
-    const emp = await createEmployee(ownerToken, {
+    const emp = await createEmployee(ownerAgent, {
       name: "SSE InternalApply",
       title: "Coordinator",
     });
 
-    await request(app)
+    await ownerAgent
       .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-      .set("Authorization", `Bearer ${ownerToken}`)
       .send({
         employeeId: emp._id,
         effectiveDate: todayIso(),

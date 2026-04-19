@@ -30,6 +30,7 @@ vi.mock("../ai/anthropicClient", async () => {
 import http from "http";
 import { AddressInfo } from "net";
 import request from "supertest";
+import { registerAgent, type TestAgent } from "./helpers/authAgent";
 import mongoose from "mongoose";
 
 import app from "../app";
@@ -53,8 +54,8 @@ const TEST_PASSWORD =
 const userAEmail = `${TEST_PREFIX}_a@example.com`;
 const userBEmail = `${TEST_PREFIX}_b@example.com`;
 
-let tokenA: string;
-let tokenB: string;
+let agentA: TestAgent;
+let agentB: TestAgent;
 let orgAId: string;
 let orgBId: string;
 let scenarioAId: string;
@@ -112,48 +113,36 @@ beforeAll(async () => {
 
   // Two users, each with their own org + scenario, so we can exercise
   // cross-org isolation (403 for non-member).
-  const regA = await request(app)
-    .post("/api/auth/register")
-    .send({ email: userAEmail, password: TEST_PASSWORD, name: "AiUserA" });
-  tokenA = regA.body.token;
+  agentA = await registerAgent(app, { email: userAEmail, password: TEST_PASSWORD, name: "AiUserA" });
 
-  const regB = await request(app)
-    .post("/api/auth/register")
-    .send({ email: userBEmail, password: TEST_PASSWORD, name: "AiUserB" });
-  tokenB = regB.body.token;
+  agentB = await registerAgent(app, { email: userBEmail, password: TEST_PASSWORD, name: "AiUserB" });
 
-  const orgARes = await request(app)
+  const orgARes = await agentA
     .post("/api/orgs")
-    .set("Authorization", `Bearer ${tokenA}`)
     .send({ name: `${TEST_PREFIX}_orgA` });
   orgAId = orgARes.body._id;
 
-  const orgBRes = await request(app)
+  const orgBRes = await agentB
     .post("/api/orgs")
-    .set("Authorization", `Bearer ${tokenB}`)
     .send({ name: `${TEST_PREFIX}_orgB` });
   orgBId = orgBRes.body._id;
 
-  const scenARes = await request(app)
+  const scenARes = await agentA
     .post(`/api/orgs/${orgAId}/scenarios`)
-    .set("Authorization", `Bearer ${tokenA}`)
     .send({ name: `${TEST_PREFIX}_scenA` });
   scenarioAId = scenARes.body._id;
 
-  const scenBRes = await request(app)
+  const scenBRes = await agentB
     .post(`/api/orgs/${orgBId}/scenarios`)
-    .set("Authorization", `Bearer ${tokenB}`)
     .send({ name: `${TEST_PREFIX}_scenB` });
   scenarioBId = scenBRes.body._id;
 
   // Seed scenario A with a tiny org so the context block is non-trivial.
-  await request(app)
+  await agentA
     .post(`/api/scenarios/${scenarioAId}/employees`)
-    .set("Authorization", `Bearer ${tokenA}`)
     .send(employeePayload({ name: "Alice Manager", title: "Engineering Manager" }));
-  await request(app)
+  await agentA
     .post(`/api/scenarios/${scenarioAId}/employees`)
-    .set("Authorization", `Bearer ${tokenA}`)
     .send(employeePayload({ name: "Bob Report", department: "Engineering", salary: 150_000 }));
 
   server = http.createServer(app);
@@ -189,43 +178,39 @@ describe("POST /api/scenarios/:id/ai/query — auth & validation (VAL-AI-010)", 
     expect(messagesStreamMock).not.toHaveBeenCalled();
   });
 
-  it("rejects invalid tokens with 401", async () => {
+  it("rejects invalid/unknown session cookies with 401", async () => {
     const res = await request(app)
       .post(`/api/scenarios/${scenarioAId}/ai/query`)
-      .set("Authorization", "Bearer nope")
+      .set("Cookie", "orgplanner.sid=s%3Agarbage.signature")
       .send({ query: "test" });
     expect(res.status).toBe(401);
   });
 
   it("rejects malformed scenario IDs with 400", async () => {
-    const res = await request(app)
+    const res = await agentA
       .post("/api/scenarios/not-a-valid-id/ai/query")
-      .set("Authorization", `Bearer ${tokenA}`)
       .send({ query: "test" });
     expect(res.status).toBe(400);
   });
 
   it("rejects cross-org access with 403", async () => {
-    const res = await request(app)
+    const res = await agentB
       .post(`/api/scenarios/${scenarioAId}/ai/query`)
-      .set("Authorization", `Bearer ${tokenB}`)
       .send({ query: "test" });
     expect(res.status).toBe(403);
     expect(messagesStreamMock).not.toHaveBeenCalled();
   });
 
   it("rejects missing query field with 400", async () => {
-    const res = await request(app)
+    const res = await agentA
       .post(`/api/scenarios/${scenarioAId}/ai/query`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send({});
     expect(res.status).toBe(400);
   });
 
   it("rejects empty query string with 400", async () => {
-    const res = await request(app)
+    const res = await agentA
       .post(`/api/scenarios/${scenarioAId}/ai/query`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send({ query: "" });
     expect(res.status).toBe(400);
   });
@@ -234,9 +219,8 @@ describe("POST /api/scenarios/:id/ai/query — auth & validation (VAL-AI-010)", 
 describe("POST /api/scenarios/:id/ai/query — missing API key (VAL-AI-007)", () => {
   it("returns 503 with setup instructions when ANTHROPIC_API_KEY is unset", async () => {
     delete process.env.ANTHROPIC_API_KEY;
-    const res = await request(app)
+    const res = await agentA
       .post(`/api/scenarios/${scenarioAId}/ai/query`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send({ query: "How many employees are in Engineering?" });
     expect(res.status).toBe(503);
     expect(res.body).toMatchObject({
@@ -249,9 +233,8 @@ describe("POST /api/scenarios/:id/ai/query — missing API key (VAL-AI-007)", ()
 
   it("treats the placeholder value as unconfigured (503)", async () => {
     process.env.ANTHROPIC_API_KEY = "placeholder-key-for-development";
-    const res = await request(app)
+    const res = await agentA
       .post(`/api/scenarios/${scenarioAId}/ai/query`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send({ query: "test" });
     expect(res.status).toBe(503);
     expect(res.body.code).toBe("missing_api_key");
@@ -266,9 +249,8 @@ describe("POST /api/scenarios/:id/ai/query — streaming (VAL-AI-002, VAL-AI-003
       ),
     );
 
-    const res = await request(app)
+    const res = await agentA
       .post(`/api/scenarios/${scenarioAId}/ai/query`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send({ query: "Summarize the org." });
 
     expect(res.status).toBe(200);
@@ -293,9 +275,8 @@ describe("POST /api/scenarios/:id/ai/query — streaming (VAL-AI-002, VAL-AI-003
       Promise.resolve(fakeStreamFromChunks(["ok"])),
     );
 
-    await request(app)
+    await agentA
       .post(`/api/scenarios/${scenarioAId}/ai/query`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send({ query: "Who is Alice?" });
 
     expect(messagesStreamMock).toHaveBeenCalledTimes(1);
@@ -319,9 +300,8 @@ describe("POST /api/scenarios/:id/ai/query — streaming (VAL-AI-002, VAL-AI-003
       Promise.resolve(fakeStreamFromChunks(["ok"])),
     );
 
-    await request(app)
+    await agentA
       .post(`/api/scenarios/${scenarioAId}/ai/query`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send({
         query: "What about Sales?",
         history: [
@@ -348,9 +328,8 @@ describe("POST /api/scenarios/:id/ai/query — error classification (VAL-AI-007)
       return Promise.reject(err);
     });
 
-    const res = await request(app)
+    const res = await agentA
       .post(`/api/scenarios/${scenarioAId}/ai/query`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send({ query: "test" });
 
     expect(res.status).toBe(200);
@@ -365,9 +344,8 @@ describe("POST /api/scenarios/:id/ai/query — error classification (VAL-AI-007)
       return Promise.reject(err);
     });
 
-    const res = await request(app)
+    const res = await agentA
       .post(`/api/scenarios/${scenarioAId}/ai/query`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send({ query: "test" });
 
     expect(res.status).toBe(200);
@@ -378,9 +356,8 @@ describe("POST /api/scenarios/:id/ai/query — error classification (VAL-AI-007)
     messagesStreamMock.mockImplementation(() =>
       Promise.reject(new Error("boom")),
     );
-    const res = await request(app)
+    const res = await agentA
       .post(`/api/scenarios/${scenarioAId}/ai/query`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send({ query: "test" });
     expect(res.status).toBe(200);
     expect(res.text).toMatch(/"code":"model_error"/);
@@ -395,9 +372,8 @@ describe("POST /api/scenarios/:id/ai/query — read-only invariant", () => {
 
     const before = await Employee.find({ scenarioId: scenarioAId }).lean();
 
-    await request(app)
+    await agentA
       .post(`/api/scenarios/${scenarioAId}/ai/query`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send({
         query:
           "Please delete Bob Report and promote everyone in Engineering.",

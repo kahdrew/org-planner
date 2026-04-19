@@ -5,6 +5,7 @@ import path from "path";
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 import request from "supertest";
+import { registerAgent, type TestAgent } from "./helpers/authAgent";
 import mongoose from "mongoose";
 import app from "../app";
 import User from "../models/User";
@@ -17,15 +18,15 @@ import HeadcountRequest from "../models/HeadcountRequest";
 const TEST_PREFIX = `approval_test_${Date.now()}`;
 const TEST_PASSWORD = ["approval", "tester", "pwd"].join("-") + Date.now();
 
-let ownerToken: string;
+let ownerAgent: TestAgent;
 let ownerUserId: string;
-let vpToken: string;
+let vpAgent: TestAgent;
 let vpUserId: string;
-let financeToken: string;
+let financeAgent: TestAgent;
 let financeUserId: string;
-let managerToken: string;
+let managerAgent: TestAgent;
 let managerUserId: string;
-let outsiderToken: string;
+let outsiderAgent: TestAgent;
 
 let orgId: string;
 let scenarioId: string;
@@ -38,24 +39,24 @@ function testCreds(suffix: string) {
   };
 }
 
-async function registerUser(suffix: string): Promise<{ token: string; id: string }> {
-  const res = await request(app).post("/api/auth/register").send(testCreds(suffix));
-  return { token: res.body.token, id: res.body.user.id };
+async function registerUser(
+  suffix: string,
+): Promise<{ agent: TestAgent; id: string }> {
+  const agent = await registerAgent(app, testCreds(suffix));
+  const me = await agent.get("/api/auth/me");
+  return { agent, id: me.body.user.id };
 }
 
 async function acceptInviteForUser(
   email: string,
   role: "admin" | "viewer",
-  token: string,
+  inviteeAgent: TestAgent,
 ) {
-  const inviteRes = await request(app)
+  const inviteRes = await ownerAgent
     .post(`/api/orgs/${orgId}/invite`)
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({ email, role });
   const invitationId = inviteRes.body._id;
-  await request(app)
-    .post(`/api/invitations/${invitationId}/accept`)
-    .set("Authorization", `Bearer ${token}`);
+  await inviteeAgent.post(`/api/invitations/${invitationId}/accept`);
 }
 
 beforeAll(async () => {
@@ -63,40 +64,38 @@ beforeAll(async () => {
 
   // Register users
   const owner = await registerUser("owner");
-  ownerToken = owner.token;
+  ownerAgent = owner.agent;
   ownerUserId = owner.id;
 
   const vp = await registerUser("vp");
-  vpToken = vp.token;
+  vpAgent = vp.agent;
   vpUserId = vp.id;
 
   const finance = await registerUser("finance");
-  financeToken = finance.token;
+  financeAgent = finance.agent;
   financeUserId = finance.id;
 
   const manager = await registerUser("manager");
-  managerToken = manager.token;
+  managerAgent = manager.agent;
   managerUserId = manager.id;
 
   const outsider = await registerUser("outsider");
-  outsiderToken = outsider.token;
+  outsiderAgent = outsider.agent;
 
   // Create org with owner
-  const orgRes = await request(app)
+  const orgRes = await ownerAgent
     .post("/api/orgs")
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({ name: `${TEST_PREFIX} Org` });
   orgId = orgRes.body._id;
 
   // Invite and accept everyone else as admin
-  await acceptInviteForUser(testCreds("vp").email, "admin", vpToken);
-  await acceptInviteForUser(testCreds("finance").email, "admin", financeToken);
-  await acceptInviteForUser(testCreds("manager").email, "admin", managerToken);
+  await acceptInviteForUser(testCreds("vp").email, "admin", vpAgent);
+  await acceptInviteForUser(testCreds("finance").email, "admin", financeAgent);
+  await acceptInviteForUser(testCreds("manager").email, "admin", managerAgent);
 
   // Create scenario
-  const scenarioRes = await request(app)
+  const scenarioRes = await ownerAgent
     .post(`/api/orgs/${orgId}/scenarios`)
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({ name: "Approval Scenario" });
   scenarioId = scenarioRes.body._id;
 });
@@ -114,9 +113,8 @@ afterAll(async () => {
 describe("Approval Chain API", () => {
   describe("POST /api/orgs/:orgId/approval-chains", () => {
     it("owner can create a chain", async () => {
-      const res = await request(app)
+      const res = await ownerAgent
         .post(`/api/orgs/${orgId}/approval-chains`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           name: "Standard Chain",
           description: "Default chain",
@@ -133,9 +131,8 @@ describe("Approval Chain API", () => {
     });
 
     it("rejects duplicate chain name in the same org", async () => {
-      const res = await request(app)
+      const res = await ownerAgent
         .post(`/api/orgs/${orgId}/approval-chains`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           name: "Standard Chain",
           steps: [{ role: "Manager", approverIds: [managerUserId] }],
@@ -144,17 +141,15 @@ describe("Approval Chain API", () => {
     });
 
     it("rejects chain with no steps", async () => {
-      const res = await request(app)
+      const res = await ownerAgent
         .post(`/api/orgs/${orgId}/approval-chains`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({ name: "Empty Chain", steps: [] });
       expect(res.status).toBe(400);
     });
 
     it("rejects step with no approvers", async () => {
-      const res = await request(app)
+      const res = await ownerAgent
         .post(`/api/orgs/${orgId}/approval-chains`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           name: "Bad Approvers",
           steps: [{ role: "Manager", approverIds: [] }],
@@ -163,9 +158,8 @@ describe("Approval Chain API", () => {
     });
 
     it("outsider cannot create a chain (403)", async () => {
-      const res = await request(app)
+      const res = await outsiderAgent
         .post(`/api/orgs/${orgId}/approval-chains`)
-        .set("Authorization", `Bearer ${outsiderToken}`)
         .send({
           name: "Hacker Chain",
           steps: [{ role: "Any", approverIds: [ownerUserId] }],
@@ -181,9 +175,8 @@ describe("Approval Chain API", () => {
     });
 
     it("creates a high-cost chain with conditions", async () => {
-      const res = await request(app)
+      const res = await ownerAgent
         .post(`/api/orgs/${orgId}/approval-chains`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           name: "Executive Chain",
           description: "For high-cost or Director-level roles",
@@ -205,9 +198,8 @@ describe("Approval Chain API", () => {
 
   describe("GET /api/orgs/:orgId/approval-chains", () => {
     it("lists chains for the org sorted by priority desc", async () => {
-      const res = await request(app)
-        .get(`/api/orgs/${orgId}/approval-chains`)
-        .set("Authorization", `Bearer ${ownerToken}`);
+      const res = await ownerAgent
+        .get(`/api/orgs/${orgId}/approval-chains`);
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.length).toBeGreaterThanOrEqual(2);
@@ -216,9 +208,8 @@ describe("Approval Chain API", () => {
     });
 
     it("outsider cannot list chains (403)", async () => {
-      const res = await request(app)
-        .get(`/api/orgs/${orgId}/approval-chains`)
-        .set("Authorization", `Bearer ${outsiderToken}`);
+      const res = await outsiderAgent
+        .get(`/api/orgs/${orgId}/approval-chains`);
       expect(res.status).toBe(403);
     });
   });
@@ -231,9 +222,8 @@ describe("Approval Chain API", () => {
     });
 
     it("owner can update description", async () => {
-      const res = await request(app)
+      const res = await ownerAgent
         .patch(`/api/orgs/${orgId}/approval-chains/${chainId}`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({ description: "Updated description" });
       expect(res.status).toBe(200);
       expect(res.body.description).toBe("Updated description");
@@ -241,9 +231,8 @@ describe("Approval Chain API", () => {
 
     it("returns 404 for non-existent chain", async () => {
       const fakeId = new mongoose.Types.ObjectId().toString();
-      const res = await request(app)
+      const res = await ownerAgent
         .patch(`/api/orgs/${orgId}/approval-chains/${fakeId}`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({ description: "x" });
       expect(res.status).toBe(404);
     });
@@ -252,9 +241,8 @@ describe("Approval Chain API", () => {
 
 describe("Headcount Request Submission and Routing", () => {
   it("submits a new_hire request; selects default (Standard) chain for low-cost IC role", async () => {
-    const res = await request(app)
+    const res = await managerAgent
       .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-      .set("Authorization", `Bearer ${managerToken}`)
       .send({
         employeeData: {
           name: "Low Cost Hire",
@@ -280,9 +268,8 @@ describe("Headcount Request Submission and Routing", () => {
   });
 
   it("submits a high-cost hire → selects Executive Chain (4 steps)", async () => {
-    const res = await request(app)
+    const res = await managerAgent
       .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-      .set("Authorization", `Bearer ${managerToken}`)
       .send({
         employeeData: {
           name: "Director Hire",
@@ -301,17 +288,15 @@ describe("Headcount Request Submission and Routing", () => {
   });
 
   it("rejects submission with invalid employeeData", async () => {
-    const res = await request(app)
+    const res = await managerAgent
       .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-      .set("Authorization", `Bearer ${managerToken}`)
       .send({ employeeData: { name: "" } });
     expect(res.status).toBe(400);
   });
 
   it("outsider cannot submit a request (403)", async () => {
-    const res = await request(app)
+    const res = await outsiderAgent
       .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-      .set("Authorization", `Bearer ${outsiderToken}`)
       .send({
         employeeData: {
           name: "Bad Hire",
@@ -327,9 +312,8 @@ describe("Headcount Request Submission and Routing", () => {
 
   it("returns 404 for non-existent scenario", async () => {
     const fakeId = new mongoose.Types.ObjectId().toString();
-    const res = await request(app)
+    const res = await managerAgent
       .post(`/api/scenarios/${fakeId}/headcount-requests`)
-      .set("Authorization", `Bearer ${managerToken}`)
       .send({ employeeData: { name: "X" } });
     // requireScenarioRole returns 403 for non-existent scenarios
     expect([403, 404]).toContain(res.status);
@@ -342,9 +326,8 @@ describe("Approval Actions", () => {
 
   beforeAll(async () => {
     // Fresh request through Standard Chain (2 steps)
-    const res = await request(app)
+    const res = await managerAgent
       .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-      .set("Authorization", `Bearer ${managerToken}`)
       .send({
         employeeData: {
           name: "Standard Flow Hire",
@@ -361,9 +344,8 @@ describe("Approval Actions", () => {
     requestId = res.body._id;
 
     // A separate high-cost request using Executive Chain (4 steps)
-    const execRes = await request(app)
+    const execRes = await managerAgent
       .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-      .set("Authorization", `Bearer ${managerToken}`)
       .send({
         employeeData: {
           name: "Executive Flow Hire",
@@ -382,9 +364,8 @@ describe("Approval Actions", () => {
 
   describe("Self-approval prevention (VAL-APPROVAL-013)", () => {
     it("the submitter cannot approve their own request", async () => {
-      const res = await request(app)
+      const res = await managerAgent
         .post(`/api/headcount-requests/${requestId}/approve`)
-        .set("Authorization", `Bearer ${managerToken}`)
         .send({ comment: "self-approve" });
       expect(res.status).toBe(403);
       expect(res.body.error).toMatch(/own request/i);
@@ -393,18 +374,16 @@ describe("Approval Actions", () => {
 
   describe("Pending approvals visibility (VAL-APPROVAL-005)", () => {
     it("manager (submitter) does not see their own request in pending queue", async () => {
-      const res = await request(app)
-        .get(`/api/orgs/${orgId}/headcount-requests/pending`)
-        .set("Authorization", `Bearer ${managerToken}`);
+      const res = await managerAgent
+        .get(`/api/orgs/${orgId}/headcount-requests/pending`);
       expect(res.status).toBe(200);
       const ids = res.body.map((r: { _id: string }) => r._id);
       expect(ids).not.toContain(requestId);
     });
 
     it("VP (not the first approver) does NOT see request at step 0", async () => {
-      const res = await request(app)
-        .get(`/api/orgs/${orgId}/headcount-requests/pending`)
-        .set("Authorization", `Bearer ${vpToken}`);
+      const res = await vpAgent
+        .get(`/api/orgs/${orgId}/headcount-requests/pending`);
       expect(res.status).toBe(200);
       const ids = res.body.map((r: { _id: string }) => r._id);
       // The Standard Chain's step 0 approver is manager, so VP shouldn't see it.
@@ -416,9 +395,8 @@ describe("Approval Actions", () => {
     it("manager user (chain step 0 = 'Manager' approver) sees requests at step 0", async () => {
       // Need a submitter OTHER than manager to see requests in manager's queue.
       // Use VP as submitter.
-      const vpSubmitRes = await request(app)
+      const vpSubmitRes = await vpAgent
         .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-        .set("Authorization", `Bearer ${vpToken}`)
         .send({
           employeeData: {
             name: "VP Submitted Hire",
@@ -434,9 +412,8 @@ describe("Approval Actions", () => {
       expect(vpSubmitRes.status).toBe(201);
       const vpRequestId = vpSubmitRes.body._id;
 
-      const res = await request(app)
-        .get(`/api/orgs/${orgId}/headcount-requests/pending`)
-        .set("Authorization", `Bearer ${managerToken}`);
+      const res = await managerAgent
+        .get(`/api/orgs/${orgId}/headcount-requests/pending`);
       expect(res.status).toBe(200);
       const ids = res.body.map((r: { _id: string }) => r._id);
       expect(ids).toContain(vpRequestId);
@@ -449,9 +426,8 @@ describe("Approval Actions", () => {
   describe("Approve action advances the request (VAL-APPROVAL-007)", () => {
     it("non-approver cannot approve a request", async () => {
       // Finance is not an approver for Standard Chain (only Manager + VP)
-      const res = await request(app)
+      const res = await financeAgent
         .post(`/api/headcount-requests/${requestId}/approve`)
-        .set("Authorization", `Bearer ${financeToken}`)
         .send({ comment: "nope" });
       expect(res.status).toBe(403);
     });
@@ -464,9 +440,8 @@ describe("Approval Actions", () => {
       // Instead, let's re-seed: delete request, VP submits, manager approves.
       await HeadcountRequest.findByIdAndDelete(requestId);
 
-      const vpSubmit = await request(app)
+      const vpSubmit = await vpAgent
         .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-        .set("Authorization", `Bearer ${vpToken}`)
         .send({
           employeeData: {
             name: "Flow Target",
@@ -483,9 +458,8 @@ describe("Approval Actions", () => {
       requestId = vpSubmit.body._id;
 
       // Manager approves step 0
-      const approve1 = await request(app)
+      const approve1 = await managerAgent
         .post(`/api/headcount-requests/${requestId}/approve`)
-        .set("Authorization", `Bearer ${managerToken}`)
         .send({ comment: "Looks good" });
       expect(approve1.status).toBe(200);
       expect(approve1.body.currentStep).toBe(1);
@@ -497,17 +471,15 @@ describe("Approval Actions", () => {
     });
 
     it("manager cannot approve step 1 (not the approver)", async () => {
-      const res = await request(app)
+      const res = await managerAgent
         .post(`/api/headcount-requests/${requestId}/approve`)
-        .set("Authorization", `Bearer ${managerToken}`)
         .send({});
       expect(res.status).toBe(403);
     });
 
     it("VP (VP is submitter) cannot approve step 1 (self-approval blocked)", async () => {
-      const res = await request(app)
+      const res = await vpAgent
         .post(`/api/headcount-requests/${requestId}/approve`)
-        .set("Authorization", `Bearer ${vpToken}`)
         .send({});
       expect(res.status).toBe(403);
       expect(res.body.error).toMatch(/own request/i);
@@ -518,9 +490,8 @@ describe("Approval Actions", () => {
     it("last-step approval creates an Employee record in the scenario", async () => {
       // Need a fresh scenario flow where submitter is manager, step-1 approver
       // is VP; VP must not be the submitter.
-      const freshSubmit = await request(app)
+      const freshSubmit = await managerAgent
         .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-        .set("Authorization", `Bearer ${managerToken}`)
         .send({
           employeeData: {
             name: "Materialize Me",
@@ -542,9 +513,8 @@ describe("Approval Actions", () => {
       // setup. Re-configure: update Standard Chain so step 0 approver is VP
       // and step 1 is owner.
       const chains = await ApprovalChain.find({ orgId, name: "Standard Chain" });
-      await request(app)
+      await ownerAgent
         .patch(`/api/orgs/${orgId}/approval-chains/${chains[0]._id}`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           steps: [
             { role: "Manager", approverIds: [vpUserId] },
@@ -553,17 +523,15 @@ describe("Approval Actions", () => {
         });
 
       // VP approves step 0
-      const a1 = await request(app)
+      const a1 = await vpAgent
         .post(`/api/headcount-requests/${freshId}/approve`)
-        .set("Authorization", `Bearer ${vpToken}`)
         .send({ comment: "ok step 0" });
       expect(a1.status).toBe(200);
       expect(a1.body.currentStep).toBe(1);
 
       // Owner approves step 1 (final)
-      const a2 = await request(app)
+      const a2 = await ownerAgent
         .post(`/api/headcount-requests/${freshId}/approve`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({ comment: "final" });
       expect(a2.status).toBe(200);
       expect(a2.body.status).toBe("approved");
@@ -582,9 +550,8 @@ describe("Approval Actions", () => {
         scenarioId,
         status: "approved",
       });
-      const res = await request(app)
+      const res = await ownerAgent
         .post(`/api/headcount-requests/${approved!._id}/approve`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({});
       expect(res.status).toBe(400);
     });
@@ -592,9 +559,8 @@ describe("Approval Actions", () => {
 
   describe("Reject action (VAL-APPROVAL-008)", () => {
     it("rejection terminates the chain and records audit", async () => {
-      const submit = await request(app)
+      const submit = await managerAgent
         .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-        .set("Authorization", `Bearer ${managerToken}`)
         .send({
           employeeData: {
             name: "Reject Target",
@@ -610,9 +576,8 @@ describe("Approval Actions", () => {
       const rId = submit.body._id;
 
       // VP is step-0 approver in the updated Standard Chain
-      const res = await request(app)
+      const res = await vpAgent
         .post(`/api/headcount-requests/${rId}/reject`)
-        .set("Authorization", `Bearer ${vpToken}`)
         .send({ comment: "Budget constraints" });
       expect(res.status).toBe(200);
       expect(res.body.status).toBe("rejected");
@@ -634,9 +599,8 @@ describe("Approval Actions", () => {
   describe("Request changes + resubmit (VAL-APPROVAL-009)", () => {
     let rId: string;
     it("approver can request changes; status becomes changes_requested", async () => {
-      const submit = await request(app)
+      const submit = await managerAgent
         .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-        .set("Authorization", `Bearer ${managerToken}`)
         .send({
           employeeData: {
             name: "Change Me",
@@ -651,9 +615,8 @@ describe("Approval Actions", () => {
         });
       rId = submit.body._id;
 
-      const res = await request(app)
+      const res = await vpAgent
         .post(`/api/headcount-requests/${rId}/request-changes`)
-        .set("Authorization", `Bearer ${vpToken}`)
         .send({ comment: "Please adjust salary" });
       expect(res.status).toBe(200);
       expect(res.body.status).toBe("changes_requested");
@@ -661,15 +624,13 @@ describe("Approval Actions", () => {
 
     it("only submitter can resubmit; status returns to pending at step 0", async () => {
       // Non-submitter cannot resubmit
-      const badRes = await request(app)
+      const badRes = await ownerAgent
         .post(`/api/headcount-requests/${rId}/resubmit`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({});
       expect(badRes.status).toBe(403);
 
-      const res = await request(app)
+      const res = await managerAgent
         .post(`/api/headcount-requests/${rId}/resubmit`)
-        .set("Authorization", `Bearer ${managerToken}`)
         .send({
           employeeData: {
             name: "Change Me",
@@ -694,9 +655,8 @@ describe("Audit trail (VAL-APPROVAL-012)", () => {
   it("GET /api/headcount-requests/:id returns full audit history", async () => {
     const r = await HeadcountRequest.findOne({ scenarioId });
     if (!r) throw new Error("Expected at least one request");
-    const res = await request(app)
-      .get(`/api/headcount-requests/${r._id}`)
-      .set("Authorization", `Bearer ${ownerToken}`);
+    const res = await ownerAgent
+      .get(`/api/headcount-requests/${r._id}`);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.audit)).toBe(true);
     expect(res.body.audit.length).toBeGreaterThan(0);
@@ -710,9 +670,8 @@ describe("Audit trail (VAL-APPROVAL-012)", () => {
 
   it("outsider cannot access a request detail (403)", async () => {
     const r = await HeadcountRequest.findOne({ scenarioId });
-    const res = await request(app)
-      .get(`/api/headcount-requests/${r!._id}`)
-      .set("Authorization", `Bearer ${outsiderToken}`);
+    const res = await outsiderAgent
+      .get(`/api/headcount-requests/${r!._id}`);
     expect(res.status).toBe(403);
   });
 });
@@ -723,9 +682,8 @@ describe("Bulk approve / reject (VAL-APPROVAL-011)", () => {
   beforeAll(async () => {
     bulkIds = [];
     for (let i = 0; i < 3; i++) {
-      const r = await request(app)
+      const r = await managerAgent
         .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-        .set("Authorization", `Bearer ${managerToken}`)
         .send({
           employeeData: {
             name: `Bulk Hire ${i}`,
@@ -743,9 +701,8 @@ describe("Bulk approve / reject (VAL-APPROVAL-011)", () => {
   });
 
   it("bulk-approve advances all approvable requests", async () => {
-    const res = await request(app)
+    const res = await vpAgent
       .post(`/api/headcount-requests/bulk-approve`)
-      .set("Authorization", `Bearer ${vpToken}`)
       .send({ requestIds: bulkIds, comment: "Batch approve" });
     expect(res.status).toBe(200);
     expect(res.body.results.length).toBe(bulkIds.length);
@@ -759,9 +716,8 @@ describe("Bulk approve / reject (VAL-APPROVAL-011)", () => {
     // Create 2 more requests
     const ids: string[] = [];
     for (let i = 0; i < 2; i++) {
-      const r = await request(app)
+      const r = await managerAgent
         .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-        .set("Authorization", `Bearer ${managerToken}`)
         .send({
           employeeData: {
             name: `Bulk Reject ${i}`,
@@ -777,9 +733,8 @@ describe("Bulk approve / reject (VAL-APPROVAL-011)", () => {
       ids.push(r.body._id);
     }
 
-    const res = await request(app)
+    const res = await vpAgent
       .post(`/api/headcount-requests/bulk-reject`)
-      .set("Authorization", `Bearer ${vpToken}`)
       .send({ requestIds: ids, comment: "Budget cuts" });
     expect(res.status).toBe(200);
     for (const r of res.body.results) {
@@ -800,9 +755,8 @@ describe("Bulk approve / reject (VAL-APPROVAL-011)", () => {
     // should result in all being skipped.
     const submitted: string[] = [];
     for (let i = 0; i < 2; i++) {
-      const r = await request(app)
+      const r = await managerAgent
         .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-        .set("Authorization", `Bearer ${managerToken}`)
         .send({
           employeeData: {
             name: `Self ${i}`,
@@ -818,9 +772,8 @@ describe("Bulk approve / reject (VAL-APPROVAL-011)", () => {
       submitted.push(r.body._id);
     }
 
-    const res = await request(app)
+    const res = await managerAgent
       .post(`/api/headcount-requests/bulk-approve`)
-      .set("Authorization", `Bearer ${managerToken}`)
       .send({ requestIds: submitted });
     expect(res.status).toBe(200);
     for (const r of res.body.results) {
@@ -831,9 +784,8 @@ describe("Bulk approve / reject (VAL-APPROVAL-011)", () => {
 
 describe("List and filter requests", () => {
   it("GET /api/scenarios/:id/headcount-requests?status=rejected returns only rejected", async () => {
-    const res = await request(app)
-      .get(`/api/scenarios/${scenarioId}/headcount-requests?status=rejected`)
-      .set("Authorization", `Bearer ${ownerToken}`);
+    const res = await ownerAgent
+      .get(`/api/scenarios/${scenarioId}/headcount-requests?status=rejected`);
     expect(res.status).toBe(200);
     for (const r of res.body) {
       expect(r.status).toBe("rejected");
@@ -842,17 +794,15 @@ describe("List and filter requests", () => {
   });
 
   it("GET /api/orgs/:orgId/headcount-requests returns requests across scenarios", async () => {
-    const res = await request(app)
-      .get(`/api/orgs/${orgId}/headcount-requests`)
-      .set("Authorization", `Bearer ${ownerToken}`);
+    const res = await ownerAgent
+      .get(`/api/orgs/${orgId}/headcount-requests`);
     expect(res.status).toBe(200);
     expect(res.body.length).toBeGreaterThan(0);
   });
 
   it("outsider cannot list org requests (403)", async () => {
-    const res = await request(app)
-      .get(`/api/orgs/${orgId}/headcount-requests`)
-      .set("Authorization", `Bearer ${outsiderToken}`);
+    const res = await outsiderAgent
+      .get(`/api/orgs/${orgId}/headcount-requests`);
     expect(res.status).toBe(403);
   });
 });

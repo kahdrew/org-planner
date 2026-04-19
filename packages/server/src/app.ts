@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import { buildSessionMiddleware } from "./middleware/session";
 import authRoutes from "./routes/authRoutes";
 import orgRoutes from "./routes/orgRoutes";
 import scenarioRoutes from "./routes/scenarioRoutes";
@@ -14,8 +15,21 @@ import aiRoutes from "./routes/aiRoutes";
 
 const app = express();
 
-app.use(cors());
+// Vercel (and any other reverse proxy) terminates TLS before Express. Trust the
+// first proxy so `secure` cookies are emitted when `req.secure` reflects the
+// forwarded protocol.
+app.set("trust proxy", 1);
+
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  }),
+);
 app.use(express.json());
+
+// Session middleware MUST come before any route that reads req.session.
+app.use(buildSessionMiddleware());
 
 app.use("/api/auth", authRoutes);
 // SSE must be mounted before the default orgRoutes so the event-stream

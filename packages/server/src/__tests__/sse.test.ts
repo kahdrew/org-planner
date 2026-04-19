@@ -7,8 +7,11 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 import http from "http";
 import { AddressInfo } from "net";
 import request from "supertest";
+import {
+  registerAndGetCookie,
+  type TestAgent,
+} from "./helpers/authAgent";
 import mongoose from "mongoose";
-import jwt from "jsonwebtoken";
 
 import app from "../app";
 import User from "../models/User";
@@ -21,6 +24,10 @@ import { eventBus } from "../sse/eventBus";
  * End-to-end SSE tests. These tests spin up an ephemeral HTTP server
  * wrapping the Express app so we can hold open a real socket and read
  * the event-stream chunked response.
+ *
+ * Auth: the server now uses express-session cookies, so each user's
+ * supertest agent is captured along with its `Cookie` header value so we
+ * can forward it to raw http.get() calls that bypass supertest.
  */
 
 const TEST_PREFIX = `sse_test_${Date.now()}`;
@@ -34,8 +41,10 @@ const userAName = "SseUserA";
 const userBEmail = `${TEST_PREFIX}_b@example.com`;
 const userBName = "SseUserB";
 
-let tokenA: string;
-let tokenB: string;
+let agentA: TestAgent;
+let agentB: TestAgent;
+let cookieA: string;
+let cookieB: string;
 let orgAId: string;
 let orgBId: string;
 let scenarioAId: string;
@@ -65,11 +74,14 @@ interface SseEventFrame {
 /**
  * Open an SSE stream, collect parsed events, and return a handle that
  * lets the test close the connection and inspect received events.
+ *
+ * `cookie` is the raw `Cookie:` header value (e.g. `"orgplanner.sid=..."`).
+ * When omitted, the request goes out without any session cookie so the
+ * server rejects with 401, exercising the unauthenticated path.
  */
 function openSseStream(opts: {
   orgId: string;
-  token?: string;
-  tokenInQuery?: boolean;
+  cookie?: string;
 }): Promise<{
   statusCode: number;
   headers: http.IncomingHttpHeaders;
@@ -78,17 +90,11 @@ function openSseStream(opts: {
   close: () => void;
 }> {
   return new Promise((resolve, reject) => {
-    const { orgId, token, tokenInQuery } = opts;
+    const { orgId, cookie } = opts;
     const url = new URL(`${baseUrl}/api/orgs/${orgId}/events`);
-    if (token && tokenInQuery) {
-      url.searchParams.set("access_token", token);
-    }
 
     const req = http.get(url, {
-      headers:
-        token && !tokenInQuery
-          ? { Authorization: `Bearer ${token}` }
-          : {},
+      headers: cookie ? { Cookie: cookie } : {},
     });
 
     const events: SseEventFrame[] = [];
@@ -179,37 +185,39 @@ beforeAll(async () => {
   await mongoose.connect(process.env.MONGODB_URI!);
 
   // Register two users, each with their own org + scenario.
-  const regA = await request(app)
-    .post("/api/auth/register")
-    .send({ email: userAEmail, password: TEST_PASSWORD, name: userAName });
-  tokenA = regA.body.token;
+  const a = await registerAndGetCookie(app, {
+    email: userAEmail,
+    password: TEST_PASSWORD,
+    name: userAName,
+  });
+  agentA = a.agent;
+  cookieA = a.cookie;
 
-  const regB = await request(app)
-    .post("/api/auth/register")
-    .send({ email: userBEmail, password: TEST_PASSWORD, name: userBName });
-  tokenB = regB.body.token;
+  const b = await registerAndGetCookie(app, {
+    email: userBEmail,
+    password: TEST_PASSWORD,
+    name: userBName,
+  });
+  agentB = b.agent;
+  cookieB = b.cookie;
 
-  const orgARes = await request(app)
+  const orgARes = await agentA
     .post("/api/orgs")
-    .set("Authorization", `Bearer ${tokenA}`)
     .send({ name: `${TEST_PREFIX}_orgA` });
   orgAId = orgARes.body._id;
 
-  const orgBRes = await request(app)
+  const orgBRes = await agentB
     .post("/api/orgs")
-    .set("Authorization", `Bearer ${tokenB}`)
     .send({ name: `${TEST_PREFIX}_orgB` });
   orgBId = orgBRes.body._id;
 
-  const scenAR = await request(app)
+  const scenAR = await agentA
     .post(`/api/orgs/${orgAId}/scenarios`)
-    .set("Authorization", `Bearer ${tokenA}`)
     .send({ name: `${TEST_PREFIX}_scenarioA` });
   scenarioAId = scenAR.body._id;
 
-  const scenBR = await request(app)
+  const scenBR = await agentB
     .post(`/api/orgs/${orgBId}/scenarios`)
-    .set("Authorization", `Bearer ${tokenB}`)
     .send({ name: `${TEST_PREFIX}_scenarioB` });
   scenarioBId = scenBR.body._id;
 
@@ -234,7 +242,7 @@ afterAll(async () => {
 });
 
 describe("SSE endpoint auth (VAL-SSE-009)", () => {
-  it("rejects connections without a token (401)", async () => {
+  it("rejects connections without a session cookie (401)", async () => {
     const stream = await openSseStream({ orgId: orgAId });
     try {
       expect(stream.statusCode).toBe(401);
@@ -243,27 +251,10 @@ describe("SSE endpoint auth (VAL-SSE-009)", () => {
     }
   });
 
-  it("rejects connections with an invalid token (401)", async () => {
+  it("rejects connections with a garbled session cookie (401)", async () => {
     const stream = await openSseStream({
       orgId: orgAId,
-      token: "not-a-real-jwt",
-      tokenInQuery: true,
-    });
-    try {
-      expect(stream.statusCode).toBe(401);
-    } finally {
-      stream.close();
-    }
-  });
-
-  it("rejects connections with an expired token (401)", async () => {
-    const expired = jwt.sign({ userId: "fakeuserid" }, process.env.JWT_SECRET!, {
-      expiresIn: "0s",
-    });
-    const stream = await openSseStream({
-      orgId: orgAId,
-      token: expired,
-      tokenInQuery: true,
+      cookie: "orgplanner.sid=s%3Agarbage.signature",
     });
     try {
       expect(stream.statusCode).toBe(401);
@@ -275,8 +266,7 @@ describe("SSE endpoint auth (VAL-SSE-009)", () => {
   it("rejects connections for malformed org IDs (400)", async () => {
     const stream = await openSseStream({
       orgId: "not-valid-id",
-      token: tokenA,
-      tokenInQuery: true,
+      cookie: cookieA,
     });
     try {
       expect(stream.statusCode).toBe(400);
@@ -290,8 +280,7 @@ describe("SSE authorization — org membership (VAL-SSE-008)", () => {
   it("rejects non-members of the org (403)", async () => {
     const stream = await openSseStream({
       orgId: orgAId,
-      token: tokenB,
-      tokenInQuery: true,
+      cookie: cookieB,
     });
     try {
       expect(stream.statusCode).toBe(403);
@@ -305,8 +294,7 @@ describe("SSE endpoint stream headers & hello (VAL-SSE-001)", () => {
   it("returns the correct text/event-stream headers", async () => {
     const stream = await openSseStream({
       orgId: orgAId,
-      token: tokenA,
-      tokenInQuery: true,
+      cookie: cookieA,
     });
     try {
       expect(stream.statusCode).toBe(200);
@@ -322,37 +310,19 @@ describe("SSE endpoint stream headers & hello (VAL-SSE-001)", () => {
       stream.close();
     }
   });
-
-  it("accepts a token supplied via the Authorization header", async () => {
-    const stream = await openSseStream({
-      orgId: orgAId,
-      token: tokenA,
-      tokenInQuery: false,
-    });
-    try {
-      expect(stream.statusCode).toBe(200);
-      expect(String(stream.headers["content-type"])).toContain(
-        "text/event-stream",
-      );
-    } finally {
-      stream.close();
-    }
-  });
 });
 
 describe("SSE event fan-out — employee mutations (VAL-SSE-002..005)", () => {
   it("delivers employee.created events to connected clients", async () => {
     const stream = await openSseStream({
       orgId: orgAId,
-      token: tokenA,
-      tokenInQuery: true,
+      cookie: cookieA,
     });
     try {
       await stream.waitFor("connected");
 
-      const res = await request(app)
+      const res = await agentA
         .post(`/api/scenarios/${scenarioAId}/employees`)
-        .set("Authorization", `Bearer ${tokenA}`)
         .send(employeePayload({ name: "SSE CreateTarget" }));
       expect(res.status).toBe(201);
 
@@ -369,23 +339,20 @@ describe("SSE event fan-out — employee mutations (VAL-SSE-002..005)", () => {
 
   it("delivers employee.updated events to connected clients", async () => {
     // Seed an employee to update
-    const seed = await request(app)
+    const seed = await agentA
       .post(`/api/scenarios/${scenarioAId}/employees`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send(employeePayload({ name: "SSE UpdateTarget" }));
     const employeeId = seed.body._id;
 
     const stream = await openSseStream({
       orgId: orgAId,
-      token: tokenA,
-      tokenInQuery: true,
+      cookie: cookieA,
     });
     try {
       await stream.waitFor("connected");
 
-      const res = await request(app)
+      const res = await agentA
         .patch(`/api/employees/${employeeId}`)
-        .set("Authorization", `Bearer ${tokenA}`)
         .send({ title: "Senior Engineer" });
       expect(res.status).toBe(200);
 
@@ -399,26 +366,22 @@ describe("SSE event fan-out — employee mutations (VAL-SSE-002..005)", () => {
   });
 
   it("delivers employee.moved events with previous manager info", async () => {
-    const manager = await request(app)
+    const manager = await agentA
       .post(`/api/scenarios/${scenarioAId}/employees`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send(employeePayload({ name: "SSE Manager" }));
-    const target = await request(app)
+    const target = await agentA
       .post(`/api/scenarios/${scenarioAId}/employees`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send(employeePayload({ name: "SSE MoveTarget" }));
 
     const stream = await openSseStream({
       orgId: orgAId,
-      token: tokenA,
-      tokenInQuery: true,
+      cookie: cookieA,
     });
     try {
       await stream.waitFor("connected");
 
-      const res = await request(app)
+      const res = await agentA
         .patch(`/api/employees/${target.body._id}/move`)
-        .set("Authorization", `Bearer ${tokenA}`)
         .send({ managerId: manager.body._id, order: 0 });
       expect(res.status).toBe(200);
 
@@ -433,23 +396,19 @@ describe("SSE event fan-out — employee mutations (VAL-SSE-002..005)", () => {
   });
 
   it("delivers employee.deleted events to connected clients", async () => {
-    const seed = await request(app)
+    const seed = await agentA
       .post(`/api/scenarios/${scenarioAId}/employees`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send(employeePayload({ name: "SSE DeleteTarget" }));
     const employeeId = seed.body._id;
 
     const stream = await openSseStream({
       orgId: orgAId,
-      token: tokenA,
-      tokenInQuery: true,
+      cookie: cookieA,
     });
     try {
       await stream.waitFor("connected");
 
-      const res = await request(app)
-        .delete(`/api/employees/${employeeId}`)
-        .set("Authorization", `Bearer ${tokenA}`);
+      const res = await agentA.delete(`/api/employees/${employeeId}`);
       expect(res.status).toBe(200);
 
       const frame = await stream.waitFor("employee.deleted", 3000);
@@ -466,21 +425,18 @@ describe("SSE multi-session fan-out (VAL-CROSS-009)", () => {
   it("delivers the same mutation to multiple connected sessions", async () => {
     const tab1 = await openSseStream({
       orgId: orgAId,
-      token: tokenA,
-      tokenInQuery: true,
+      cookie: cookieA,
     });
     const tab2 = await openSseStream({
       orgId: orgAId,
-      token: tokenA,
-      tokenInQuery: true,
+      cookie: cookieA,
     });
     try {
       await tab1.waitFor("connected");
       await tab2.waitFor("connected");
 
-      const res = await request(app)
+      const res = await agentA
         .post(`/api/scenarios/${scenarioAId}/employees`)
-        .set("Authorization", `Bearer ${tokenA}`)
         .send(employeePayload({ name: "SSE MultiTabTarget" }));
       expect(res.status).toBe(201);
 
@@ -503,21 +459,18 @@ describe("SSE org isolation (VAL-SSE-008)", () => {
   it("does not deliver org A events to clients watching org B", async () => {
     const tabA = await openSseStream({
       orgId: orgAId,
-      token: tokenA,
-      tokenInQuery: true,
+      cookie: cookieA,
     });
     const tabB = await openSseStream({
       orgId: orgBId,
-      token: tokenB,
-      tokenInQuery: true,
+      cookie: cookieB,
     });
     try {
       await tabA.waitFor("connected");
       await tabB.waitFor("connected");
 
-      const res = await request(app)
+      const res = await agentA
         .post(`/api/scenarios/${scenarioAId}/employees`)
-        .set("Authorization", `Bearer ${tokenA}`)
         .send(employeePayload({ name: "SSE OrgIsolationTarget" }));
       expect(res.status).toBe(201);
 
@@ -536,53 +489,30 @@ describe("SSE org isolation (VAL-SSE-008)", () => {
 });
 
 describe("Polling fallback endpoint /events/poll", () => {
-  it("rejects requests without a token (401)", async () => {
+  it("rejects requests without a session cookie (401)", async () => {
     const res = await request(app).get(`/api/orgs/${orgAId}/events/poll`);
     expect(res.status).toBe(401);
   });
 
-  it("rejects requests with an invalid token (401)", async () => {
-    const res = await request(app)
-      .get(`/api/orgs/${orgAId}/events/poll`)
-      .query({ access_token: "not-a-real-jwt" });
-    expect(res.status).toBe(401);
-  });
-
   it("rejects malformed org IDs (400)", async () => {
-    const res = await request(app)
-      .get(`/api/orgs/not-valid/events/poll`)
-      .set("Authorization", `Bearer ${tokenA}`);
+    const res = await agentA.get(`/api/orgs/not-valid/events/poll`);
     expect(res.status).toBe(400);
   });
 
   it("rejects non-members (403)", async () => {
-    const res = await request(app)
-      .get(`/api/orgs/${orgAId}/events/poll`)
-      .set("Authorization", `Bearer ${tokenB}`);
+    const res = await agentB.get(`/api/orgs/${orgAId}/events/poll`);
     expect(res.status).toBe(403);
   });
 
-  it("accepts token via Authorization header and returns a JSON array", async () => {
-    const res = await request(app)
-      .get(`/api/orgs/${orgAId}/events/poll`)
-      .set("Authorization", `Bearer ${tokenA}`);
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-  });
-
-  it("accepts token via ?access_token= query param", async () => {
-    const res = await request(app)
-      .get(`/api/orgs/${orgAId}/events/poll`)
-      .query({ access_token: tokenA });
+  it("accepts the session cookie and returns a JSON array", async () => {
+    const res = await agentA.get(`/api/orgs/${orgAId}/events/poll`);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
 
   it("returns buffered events emitted after the employee is created", async () => {
     // Capture baseline seq before the mutation so we only read the new event.
-    const before = await request(app)
-      .get(`/api/orgs/${orgAId}/events/poll`)
-      .set("Authorization", `Bearer ${tokenA}`);
+    const before = await agentA.get(`/api/orgs/${orgAId}/events/poll`);
     const baselineMaxSeq = Array.isArray(before.body)
       ? before.body.reduce(
           (max: number, e: { seq?: number }) => Math.max(max, e.seq ?? 0),
@@ -590,9 +520,8 @@ describe("Polling fallback endpoint /events/poll", () => {
         )
       : 0;
 
-    const created = await request(app)
+    const created = await agentA
       .post(`/api/scenarios/${scenarioAId}/employees`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send(employeePayload({ name: "Poll CreateTarget" }));
     expect(created.status).toBe(201);
 
@@ -600,10 +529,9 @@ describe("Polling fallback endpoint /events/poll", () => {
     // push the event into the ring buffer.
     await new Promise((r) => setTimeout(r, 200));
 
-    const res = await request(app)
+    const res = await agentA
       .get(`/api/orgs/${orgAId}/events/poll`)
-      .query({ since_seq: String(baselineMaxSeq) })
-      .set("Authorization", `Bearer ${tokenA}`);
+      .query({ since_seq: String(baselineMaxSeq) });
 
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
@@ -621,19 +549,14 @@ describe("Polling fallback endpoint /events/poll", () => {
   });
 
   it("returns events scoped to the requested org only", async () => {
-    // Create an employee in orgA's scenario and verify orgB's pollfeed
-    // does not contain it (no cross-org leakage).
-    const created = await request(app)
+    const created = await agentA
       .post(`/api/scenarios/${scenarioAId}/employees`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send(employeePayload({ name: "Poll OrgIsolationTarget" }));
     expect(created.status).toBe(201);
 
     await new Promise((r) => setTimeout(r, 200));
 
-    const res = await request(app)
-      .get(`/api/orgs/${orgBId}/events/poll`)
-      .set("Authorization", `Bearer ${tokenB}`);
+    const res = await agentB.get(`/api/orgs/${orgBId}/events/poll`);
 
     expect(res.status).toBe(200);
     const leaked = res.body.find(
@@ -644,25 +567,20 @@ describe("Polling fallback endpoint /events/poll", () => {
   });
 
   it("filters out events with seq <= since_seq", async () => {
-    // Emit an event, then ask for events since max-seq; should be empty.
-    await request(app)
+    await agentA
       .post(`/api/scenarios/${scenarioAId}/employees`)
-      .set("Authorization", `Bearer ${tokenA}`)
       .send(employeePayload({ name: "Poll FilterSeqTarget" }));
     await new Promise((r) => setTimeout(r, 200));
 
-    const first = await request(app)
-      .get(`/api/orgs/${orgAId}/events/poll`)
-      .set("Authorization", `Bearer ${tokenA}`);
+    const first = await agentA.get(`/api/orgs/${orgAId}/events/poll`);
     const maxSeq = first.body.reduce(
       (max: number, e: { seq?: number }) => Math.max(max, e.seq ?? 0),
       0,
     );
 
-    const second = await request(app)
+    const second = await agentA
       .get(`/api/orgs/${orgAId}/events/poll`)
-      .query({ since_seq: String(maxSeq) })
-      .set("Authorization", `Bearer ${tokenA}`);
+      .query({ since_seq: String(maxSeq) });
     expect(second.status).toBe(200);
     expect(second.body).toEqual([]);
   });
@@ -672,8 +590,7 @@ describe("SSE client cleanup (VAL-SSE-007)", () => {
   it("removes a client from the bus when the stream is closed", async () => {
     const stream = await openSseStream({
       orgId: orgAId,
-      token: tokenA,
-      tokenInQuery: true,
+      cookie: cookieA,
     });
     await stream.waitFor("connected");
     expect(eventBus.clientCount(orgAId)).toBeGreaterThanOrEqual(1);
@@ -682,8 +599,6 @@ describe("SSE client cleanup (VAL-SSE-007)", () => {
     await new Promise((r) => setTimeout(r, 300));
     const after = eventBus.clientCount(orgAId);
     // It should be strictly less than before after the close propagates.
-    // Not asserting exact 0 because other parallel test streams may
-    // remain connected, but we confirm the count dropped.
     expect(after).toBeLessThan(2);
   });
 });

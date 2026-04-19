@@ -8,7 +8,7 @@ import path from "path";
 
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
-import request from "supertest";
+import { registerAgent, type TestAgent } from "./helpers/authAgent";
 import mongoose from "mongoose";
 import app from "../app";
 import User from "../models/User";
@@ -18,7 +18,7 @@ import Employee from "../models/Employee";
 
 const TEST_PREFIX = `mgr_cascade_${Date.now()}`;
 
-let token: string;
+let agent: TestAgent;
 let orgId: string;
 let scenarioId: string;
 
@@ -26,22 +26,19 @@ beforeAll(async () => {
   await mongoose.connect(process.env.MONGODB_URI!);
 
   const testPassword = ["cascade", "tester", "pwd"].join("-") + Date.now();
-  const regRes = await request(app).post("/api/auth/register").send({
+  agent = await registerAgent(app, {
     email: `${TEST_PREFIX}@example.com`,
     password: testPassword,
     name: `${TEST_PREFIX} User`,
   });
-  token = regRes.body.token;
 
-  const orgRes = await request(app)
+  const orgRes = await agent
     .post("/api/orgs")
-    .set("Authorization", `Bearer ${token}`)
     .send({ name: `${TEST_PREFIX} Org` });
   orgId = orgRes.body._id;
 
-  const scnRes = await request(app)
+  const scnRes = await agent
     .post(`/api/orgs/${orgId}/scenarios`)
-    .set("Authorization", `Bearer ${token}`)
     .send({ name: "Cascade Scenario" });
   scenarioId = scnRes.body._id;
 });
@@ -57,9 +54,8 @@ afterAll(async () => {
 async function createEmployee(
   payload: Partial<Record<string, unknown>>,
 ): Promise<string> {
-  const res = await request(app)
+  const res = await agent
     .post(`/api/scenarios/${scenarioId}/employees`)
-    .set("Authorization", `Bearer ${token}`)
     .send({
       name: "Test",
       title: "Engineer",
@@ -89,9 +85,8 @@ describe("Manager deletion cascade (VAL-CROSS-019)", () => {
       before.every((e) => e.managerId?.toString() === managerId),
     ).toBe(true);
 
-    const delRes = await request(app)
-      .delete(`/api/employees/${managerId}`)
-      .set("Authorization", `Bearer ${token}`);
+    const delRes = await agent
+      .delete(`/api/employees/${managerId}`);
     expect(delRes.status).toBe(200);
     expect(delRes.body.message).toBe("Employee deleted");
     // Response reports which reports were orphaned/cleared
@@ -121,9 +116,8 @@ describe("Manager deletion cascade (VAL-CROSS-019)", () => {
       department: "Sales",
     });
 
-    const delRes = await request(app)
-      .delete(`/api/employees/${managerId}`)
-      .set("Authorization", `Bearer ${token}`);
+    const delRes = await agent
+      .delete(`/api/employees/${managerId}`);
     expect(delRes.status).toBe(200);
     expect(delRes.body.affectedReportIds).toEqual([reportId]);
 
@@ -137,9 +131,8 @@ describe("Manager deletion cascade (VAL-CROSS-019)", () => {
 
   it("returns an empty affectedReportIds array when the employee has no reports", async () => {
     const leafId = await createEmployee({ name: "Leaf" });
-    const delRes = await request(app)
-      .delete(`/api/employees/${leafId}`)
-      .set("Authorization", `Bearer ${token}`);
+    const delRes = await agent
+      .delete(`/api/employees/${leafId}`);
     expect(delRes.status).toBe(200);
     expect(delRes.body.affectedReportIds).toEqual([]);
   });

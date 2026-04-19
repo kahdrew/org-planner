@@ -4,7 +4,7 @@ import path from "path";
 
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
-import request from "supertest";
+import { registerAgent, type TestAgent } from "./helpers/authAgent";
 import mongoose from "mongoose";
 import app from "../app";
 import User from "../models/User";
@@ -18,12 +18,12 @@ import HeadcountRequest from "../models/HeadcountRequest";
 const TEST_PREFIX = `planning_scrutiny_${Date.now()}`;
 const TEST_PASSWORD = ["scrutiny", "tester", "pwd"].join("-") + Date.now();
 
-let ownerToken: string;
+let ownerAgent: TestAgent;
 let ownerUserId: string;
-let approverToken: string;
+let approverAgent: TestAgent;
 let approverUserId: string;
-let submitterToken: string;
-let outsiderToken: string;
+let submitterAgent: TestAgent;
+let outsiderAgent: TestAgent;
 let outsiderUserId: string;
 
 let orgId: string;
@@ -39,59 +39,55 @@ function creds(suffix: string) {
 
 async function registerUser(
   suffix: string,
-): Promise<{ token: string; id: string }> {
-  const res = await request(app).post("/api/auth/register").send(creds(suffix));
-  return { token: res.body.token, id: res.body.user.id };
+): Promise<{ agent: TestAgent; id: string }> {
+  const agent = await registerAgent(app, creds(suffix));
+  const me = await agent.get("/api/auth/me");
+  return { agent, id: me.body.user.id };
 }
 
 async function acceptInvite(
   email: string,
   role: "admin" | "viewer",
-  token: string,
+  inviteeAgent: TestAgent,
 ) {
-  const inviteRes = await request(app)
+  const inviteRes = await ownerAgent
     .post(`/api/orgs/${orgId}/invite`)
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({ email, role });
   const invitationId = inviteRes.body._id;
-  await request(app)
-    .post(`/api/invitations/${invitationId}/accept`)
-    .set("Authorization", `Bearer ${token}`);
+  await inviteeAgent.post(`/api/invitations/${invitationId}/accept`);
 }
 
 beforeAll(async () => {
   await mongoose.connect(process.env.MONGODB_URI!);
 
   const owner = await registerUser("owner");
-  ownerToken = owner.token;
+  ownerAgent = owner.agent;
   ownerUserId = owner.id;
 
   const approver = await registerUser("approver");
-  approverToken = approver.token;
+  approverAgent = approver.agent;
   approverUserId = approver.id;
 
   const submitter = await registerUser("submitter");
-  submitterToken = submitter.token;
+  submitterAgent = submitter.agent;
 
   const outsider = await registerUser("outsider");
-  outsiderToken = outsider.token;
+  outsiderAgent = outsider.agent;
   outsiderUserId = outsider.id;
 
   // Org with owner; invite approver and submitter as admins (so they can
   // submit and be designated approvers).
-  const orgRes = await request(app)
+  const orgRes = await ownerAgent
     .post("/api/orgs")
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({ name: `${TEST_PREFIX} Org` });
   orgId = orgRes.body._id;
 
-  await acceptInvite(creds("approver").email, "admin", approverToken);
-  await acceptInvite(creds("submitter").email, "admin", submitterToken);
+  await acceptInvite(creds("approver").email, "admin", approverAgent);
+  await acceptInvite(creds("submitter").email, "admin", submitterAgent);
 
   // Scenario
-  const scnRes = await request(app)
+  const scnRes = await ownerAgent
     .post(`/api/orgs/${orgId}/scenarios`)
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({ name: "Scrutiny Scenario" });
   scenarioId = scnRes.body._id;
 });
@@ -150,9 +146,8 @@ describe("Budget summary — department key normalization (Fix 1)", () => {
       createdBy: ownerUserId,
     });
 
-    const res = await request(app)
-      .get(`/api/scenarios/${scenarioId}/budgets/summary`)
-      .set("Authorization", `Bearer ${ownerToken}`);
+    const res = await ownerAgent
+      .get(`/api/scenarios/${scenarioId}/budgets/summary`);
     expect(res.status).toBe(200);
 
     const normRows = res.body.departments.filter(
@@ -169,9 +164,8 @@ describe("Budget summary — department key normalization (Fix 1)", () => {
   });
 
   it("trims department input on create so stored values are canonical", async () => {
-    const res = await request(app)
+    const res = await ownerAgent
       .post(`/api/scenarios/${scenarioId}/budgets`)
-      .set("Authorization", `Bearer ${ownerToken}`)
       .send({
         department: "  TrimDept  ",
         totalBudget: 10_000,
@@ -194,16 +188,14 @@ describe("Budget summary — department key normalization (Fix 1)", () => {
 describe("deleteScenario — BudgetEnvelope cascade cleanup (Fix 5)", () => {
   it("deletes budget envelopes when their scenario is deleted", async () => {
     // Create a fresh scenario
-    const scnRes = await request(app)
+    const scnRes = await ownerAgent
       .post(`/api/orgs/${orgId}/scenarios`)
-      .set("Authorization", `Bearer ${ownerToken}`)
       .send({ name: "ToBeDeleted" });
     const localScenarioId = scnRes.body._id;
 
     // Attach an envelope to it
-    const envRes = await request(app)
+    const envRes = await ownerAgent
       .post(`/api/scenarios/${localScenarioId}/budgets`)
-      .set("Authorization", `Bearer ${ownerToken}`)
       .send({
         department: "CleanupDept",
         totalBudget: 10_000,
@@ -213,9 +205,8 @@ describe("deleteScenario — BudgetEnvelope cascade cleanup (Fix 5)", () => {
     const envelopeId = envRes.body._id;
 
     // Delete the scenario
-    const delRes = await request(app)
-      .delete(`/api/scenarios/${localScenarioId}`)
-      .set("Authorization", `Bearer ${ownerToken}`);
+    const delRes = await ownerAgent
+      .delete(`/api/scenarios/${localScenarioId}`);
     expect(delRes.status).toBe(200);
 
     // Envelope must be gone
@@ -235,9 +226,8 @@ describe("deleteScenario — BudgetEnvelope cascade cleanup (Fix 5)", () => {
 
 describe("Approval chain — approver membership validation (Fix 4)", () => {
   it("rejects chain creation when an approverId is not a member of the org", async () => {
-    const res = await request(app)
+    const res = await ownerAgent
       .post(`/api/orgs/${orgId}/approval-chains`)
-      .set("Authorization", `Bearer ${ownerToken}`)
       .send({
         name: `BadApprovers ${Date.now()}`,
         steps: [
@@ -253,9 +243,8 @@ describe("Approval chain — approver membership validation (Fix 4)", () => {
   });
 
   it("allows chain creation when all approvers are org members/owner", async () => {
-    const res = await request(app)
+    const res = await ownerAgent
       .post(`/api/orgs/${orgId}/approval-chains`)
-      .set("Authorization", `Bearer ${ownerToken}`)
       .send({
         name: `GoodChain ${Date.now()}`,
         steps: [
@@ -269,9 +258,8 @@ describe("Approval chain — approver membership validation (Fix 4)", () => {
 
   it("rejects chain update that introduces a non-member approver", async () => {
     // Create a valid chain first
-    const createRes = await request(app)
+    const createRes = await ownerAgent
       .post(`/api/orgs/${orgId}/approval-chains`)
-      .set("Authorization", `Bearer ${ownerToken}`)
       .send({
         name: `UpdateTest ${Date.now()}`,
         steps: [{ role: "Manager", approverIds: [approverUserId] }],
@@ -280,9 +268,8 @@ describe("Approval chain — approver membership validation (Fix 4)", () => {
     const chainId = createRes.body._id;
 
     // Try to replace with an outsider as approver
-    const patchRes = await request(app)
+    const patchRes = await ownerAgent
       .patch(`/api/orgs/${orgId}/approval-chains/${chainId}`)
-      .set("Authorization", `Bearer ${ownerToken}`)
       .send({
         steps: [{ role: "Manager", approverIds: [outsiderUserId] }],
       });
@@ -301,9 +288,8 @@ describe("Approval actions — org membership check (Fix 4)", () => {
 
   beforeAll(async () => {
     // Create a chain where the outsider is NOT an approver
-    const chainRes = await request(app)
+    const chainRes = await ownerAgent
       .post(`/api/orgs/${orgId}/approval-chains`)
-      .set("Authorization", `Bearer ${ownerToken}`)
       .send({
         name: `MembershipCheck ${Date.now()}`,
         isDefault: true,
@@ -313,9 +299,8 @@ describe("Approval actions — org membership check (Fix 4)", () => {
     chainId = chainRes.body._id;
 
     // Submitter submits a request; approver will be the designated approver
-    const subRes = await request(app)
+    const subRes = await submitterAgent
       .post(`/api/scenarios/${scenarioId}/headcount-requests`)
-      .set("Authorization", `Bearer ${submitterToken}`)
       .send({
         employeeData: {
           name: "Membership Test Hire",
@@ -334,33 +319,29 @@ describe("Approval actions — org membership check (Fix 4)", () => {
   });
 
   it("outsider (non-member) cannot approve a request — returns 403", async () => {
-    const res = await request(app)
+    const res = await outsiderAgent
       .post(`/api/headcount-requests/${requestId}/approve`)
-      .set("Authorization", `Bearer ${outsiderToken}`)
       .send({ comment: "nope" });
     expect(res.status).toBe(403);
   });
 
   it("outsider (non-member) cannot reject a request — returns 403", async () => {
-    const res = await request(app)
+    const res = await outsiderAgent
       .post(`/api/headcount-requests/${requestId}/reject`)
-      .set("Authorization", `Bearer ${outsiderToken}`)
       .send({ comment: "nope" });
     expect(res.status).toBe(403);
   });
 
   it("outsider (non-member) cannot request-changes on a request — returns 403", async () => {
-    const res = await request(app)
+    const res = await outsiderAgent
       .post(`/api/headcount-requests/${requestId}/request-changes`)
-      .set("Authorization", `Bearer ${outsiderToken}`)
       .send({ comment: "changes" });
     expect(res.status).toBe(403);
   });
 
   it("org member who IS an approver can still act (sanity check)", async () => {
-    const res = await request(app)
+    const res = await approverAgent
       .post(`/api/headcount-requests/${requestId}/approve`)
-      .set("Authorization", `Bearer ${approverToken}`)
       .send({ comment: "ok" });
     // This is a single-step chain so approval will finalize the request.
     expect(res.status).toBe(200);

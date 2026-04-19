@@ -4,6 +4,7 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
+import { buildSessionMiddleware } from "../packages/server/src/middleware/session";
 import authRoutes from "../packages/server/src/routes/authRoutes";
 import orgRoutes from "../packages/server/src/routes/orgRoutes";
 import scenarioRoutes from "../packages/server/src/routes/scenarioRoutes";
@@ -18,8 +19,20 @@ import aiRoutes from "../packages/server/src/routes/aiRoutes";
 
 const app = express();
 
-app.use(cors());
+// Vercel terminates TLS upstream; trust the first proxy hop so `secure`
+// session cookies are emitted based on X-Forwarded-Proto.
+app.set("trust proxy", 1);
+
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  }),
+);
 app.use(express.json());
+
+// Session middleware MUST come before any route that reads req.session.
+app.use(buildSessionMiddleware());
 
 app.use("/api/auth", authRoutes);
 // SSE must be mounted before the default orgRoutes so the event-stream

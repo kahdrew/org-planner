@@ -5,6 +5,7 @@ import path from "path";
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 import request from "supertest";
+import { registerAgent, type TestAgent } from "./helpers/authAgent";
 import mongoose from "mongoose";
 import app from "../app";
 import User from "../models/User";
@@ -17,7 +18,7 @@ const testEmail = `${TEST_PREFIX}@example.com`;
 const testPassword = "TestPass123!";
 const testName = "BugfixTestUser";
 
-let token: string;
+let agent: TestAgent;
 let orgId: string;
 let scenarioAId: string;
 let scenarioBId: string;
@@ -26,45 +27,42 @@ beforeAll(async () => {
   // Connect to MongoDB
   await mongoose.connect(process.env.MONGODB_URI!);
 
-  // Register a test user
-  const regRes = await request(app)
-    .post("/api/auth/register")
-    .send({ email: testEmail, password: testPassword, name: testName });
-
-  if (regRes.status === 409) {
-    // User already exists, login instead
-    const loginRes = await request(app)
-      .post("/api/auth/login")
-      .send({ email: testEmail, password: testPassword });
-    token = loginRes.body.token;
-  } else {
-    token = regRes.body.token;
+  // Register a test user (log in via helper instead if already exists)
+  try {
+    agent = await registerAgent(app, {
+      email: testEmail,
+      password: testPassword,
+      name: testName,
+    });
+  } catch {
+    // Fall back to login if the user happened to exist already
+    const { loginAgent } = await import("./helpers/authAgent");
+    agent = await loginAgent(app, {
+      email: testEmail,
+      password: testPassword,
+    });
   }
 
   // Create a test org
-  const orgRes = await request(app)
+  const orgRes = await agent
     .post("/api/orgs")
-    .set("Authorization", `Bearer ${token}`)
     .send({ name: `${TEST_PREFIX}_org` });
   orgId = orgRes.body._id;
 
   // Create two scenarios for diffing
-  const scenarioARes = await request(app)
+  const scenarioARes = await agent
     .post(`/api/orgs/${orgId}/scenarios`)
-    .set("Authorization", `Bearer ${token}`)
     .send({ name: `${TEST_PREFIX}_scenarioA` });
   scenarioAId = scenarioARes.body._id;
 
-  const scenarioBRes = await request(app)
+  const scenarioBRes = await agent
     .post(`/api/orgs/${orgId}/scenarios`)
-    .set("Authorization", `Bearer ${token}`)
     .send({ name: `${TEST_PREFIX}_scenarioB` });
   scenarioBId = scenarioBRes.body._id;
 
   // Add employees to scenario A
-  await request(app)
+  await agent
     .post(`/api/scenarios/${scenarioAId}/employees`)
-    .set("Authorization", `Bearer ${token}`)
     .send({
       name: "Alice A",
       title: "Engineer",
@@ -75,9 +73,8 @@ beforeAll(async () => {
       status: "Active",
     });
 
-  await request(app)
+  await agent
     .post(`/api/scenarios/${scenarioAId}/employees`)
-    .set("Authorization", `Bearer ${token}`)
     .send({
       name: "Bob B",
       title: "Designer",
@@ -89,9 +86,8 @@ beforeAll(async () => {
     });
 
   // Add employees to scenario B (different set)
-  await request(app)
+  await agent
     .post(`/api/scenarios/${scenarioBId}/employees`)
-    .set("Authorization", `Bearer ${token}`)
     .send({
       name: "Alice A",
       title: "Engineer",
@@ -102,9 +98,8 @@ beforeAll(async () => {
       status: "Active",
     });
 
-  await request(app)
+  await agent
     .post(`/api/scenarios/${scenarioBId}/employees`)
-    .set("Authorization", `Bearer ${token}`)
     .send({
       name: "Charlie C",
       title: "PM",
@@ -127,9 +122,8 @@ afterAll(async () => {
 
 describe("Bug #1: Scenario diff uses path params GET /scenarios/:a/diff/:b", () => {
   it("returns diff with correct structure using path params", async () => {
-    const res = await request(app)
-      .get(`/api/scenarios/${scenarioAId}/diff/${scenarioBId}`)
-      .set("Authorization", `Bearer ${token}`);
+    const res = await agent
+      .get(`/api/scenarios/${scenarioAId}/diff/${scenarioBId}`);
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty("added");
@@ -143,9 +137,8 @@ describe("Bug #1: Scenario diff uses path params GET /scenarios/:a/diff/:b", () 
   });
 
   it("correctly identifies added and removed employees", async () => {
-    const res = await request(app)
-      .get(`/api/scenarios/${scenarioAId}/diff/${scenarioBId}`)
-      .set("Authorization", `Bearer ${token}`);
+    const res = await agent
+      .get(`/api/scenarios/${scenarioAId}/diff/${scenarioBId}`);
 
     expect(res.status).toBe(200);
 
@@ -166,9 +159,8 @@ describe("Bug #1: Scenario diff uses path params GET /scenarios/:a/diff/:b", () 
     const fakeId1 = new mongoose.Types.ObjectId().toString();
     const fakeId2 = new mongoose.Types.ObjectId().toString();
 
-    const res = await request(app)
-      .get(`/api/scenarios/${fakeId1}/diff/${fakeId2}`)
-      .set("Authorization", `Bearer ${token}`);
+    const res = await agent
+      .get(`/api/scenarios/${fakeId1}/diff/${fakeId2}`);
 
     expect(res.status).toBe(404);
     expect(res.body).toHaveProperty("error");
@@ -179,17 +171,15 @@ describe("Bug #1: Scenario diff uses path params GET /scenarios/:a/diff/:b", () 
     const fakeId = new mongoose.Types.ObjectId().toString();
 
     // First scenario exists, second doesn't
-    const res1 = await request(app)
-      .get(`/api/scenarios/${scenarioAId}/diff/${fakeId}`)
-      .set("Authorization", `Bearer ${token}`);
+    const res1 = await agent
+      .get(`/api/scenarios/${scenarioAId}/diff/${fakeId}`);
 
     expect(res1.status).toBe(404);
     expect(res1.body.error).toBe("Scenario not found");
 
     // First doesn't exist, second does
-    const res2 = await request(app)
-      .get(`/api/scenarios/${fakeId}/diff/${scenarioBId}`)
-      .set("Authorization", `Bearer ${token}`);
+    const res2 = await agent
+      .get(`/api/scenarios/${fakeId}/diff/${scenarioBId}`);
 
     expect(res2.status).toBe(404);
     expect(res2.body.error).toBe("Scenario not found");
@@ -219,9 +209,8 @@ describe("Bug #2: Bulk create expects raw array", () => {
       },
     ];
 
-    const res = await request(app)
+    const res = await agent
       .post(`/api/scenarios/${scenarioAId}/employees/bulk`)
-      .set("Authorization", `Bearer ${token}`)
       .send(employees);
 
     expect(res.status).toBe(201);
@@ -237,9 +226,8 @@ describe("Bug #2: Bulk create expects raw array", () => {
   });
 
   it("rejects wrapped {employees:[...]} object with 400", async () => {
-    const res = await request(app)
+    const res = await agent
       .post(`/api/scenarios/${scenarioAId}/employees/bulk`)
-      .set("Authorization", `Bearer ${token}`)
       .send({
         employees: [
           {
@@ -259,9 +247,8 @@ describe("Bug #2: Bulk create expects raw array", () => {
   });
 
   it("validates each employee in the array", async () => {
-    const res = await request(app)
+    const res = await agent
       .post(`/api/scenarios/${scenarioAId}/employees/bulk`)
-      .set("Authorization", `Bearer ${token}`)
       .send([{ name: "" }]);
 
     expect(res.status).toBe(400);

@@ -4,7 +4,7 @@ import path from "path";
 
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
-import request from "supertest";
+import { registerAgent, type TestAgent } from "./helpers/authAgent";
 import mongoose from "mongoose";
 import app from "../app";
 import User from "../models/User";
@@ -18,7 +18,7 @@ const testEmail = `${TEST_PREFIX}@example.com`;
 const testPassword = "changeme-" + Date.now();
 const testName = "DiffCloneTestUser";
 
-let token: string;
+let agent: TestAgent;
 let orgId: string;
 let scenarioAId: string;
 let scenarioBId: string;
@@ -30,35 +30,33 @@ let carolAId: string;
 beforeAll(async () => {
   await mongoose.connect(process.env.MONGODB_URI!);
 
-  const regRes = await request(app)
-    .post("/api/auth/register")
-    .send({ email: testEmail, password: testPassword, name: testName });
-
-  if (regRes.status === 409) {
-    const loginRes = await request(app)
-      .post("/api/auth/login")
-      .send({ email: testEmail, password: testPassword });
-    token = loginRes.body.token;
-  } else {
-    token = regRes.body.token;
+  try {
+    agent = await registerAgent(app, {
+      email: testEmail,
+      password: testPassword,
+      name: testName,
+    });
+  } catch {
+    const { loginAgent } = await import("./helpers/authAgent");
+    agent = await loginAgent(app, {
+      email: testEmail,
+      password: testPassword,
+    });
   }
 
-  const orgRes = await request(app)
+  const orgRes = await agent
     .post("/api/orgs")
-    .set("Authorization", `Bearer ${token}`)
     .send({ name: `${TEST_PREFIX}_org` });
   orgId = orgRes.body._id;
 
-  const scenARes = await request(app)
+  const scenARes = await agent
     .post(`/api/orgs/${orgId}/scenarios`)
-    .set("Authorization", `Bearer ${token}`)
     .send({ name: `${TEST_PREFIX}_A` });
   scenarioAId = scenARes.body._id;
 
   // Seed scenario A: Alice manages Bob and Carol.
-  const aliceRes = await request(app)
+  const aliceRes = await agent
     .post(`/api/scenarios/${scenarioAId}/employees`)
-    .set("Authorization", `Bearer ${token}`)
     .send({
       name: "Alice Manager",
       title: "Director",
@@ -71,9 +69,8 @@ beforeAll(async () => {
     });
   aliceAId = aliceRes.body._id;
 
-  const bobRes = await request(app)
+  const bobRes = await agent
     .post(`/api/scenarios/${scenarioAId}/employees`)
-    .set("Authorization", `Bearer ${token}`)
     .send({
       name: "Bob Engineer",
       title: "Engineer",
@@ -87,9 +84,8 @@ beforeAll(async () => {
     });
   bobAId = bobRes.body._id;
 
-  const carolRes = await request(app)
+  const carolRes = await agent
     .post(`/api/scenarios/${scenarioAId}/employees`)
-    .set("Authorization", `Bearer ${token}`)
     .send({
       name: "Carol Engineer",
       title: "Engineer",
@@ -104,9 +100,8 @@ beforeAll(async () => {
   carolAId = carolRes.body._id;
 
   // Clone scenario A into B (server remaps all IDs, preserves hierarchy).
-  const cloneRes = await request(app)
+  const cloneRes = await agent
     .post(`/api/scenarios/${scenarioAId}/clone`)
-    .set("Authorization", `Bearer ${token}`)
     .send({});
   scenarioBId = cloneRes.body._id;
 
@@ -120,19 +115,16 @@ beforeAll(async () => {
   const bBob = bEmployees.find((e) => e.name === "Bob Engineer");
   if (!bCarol || !bBob) throw new Error("Clone did not produce expected employees");
 
-  await request(app)
+  await agent
     .patch(`/api/employees/${bCarol._id.toString()}`)
-    .set("Authorization", `Bearer ${token}`)
     .send({ salary: 180_000 });
 
-  await request(app)
+  await agent
     .patch(`/api/employees/${bBob._id.toString()}/move`)
-    .set("Authorization", `Bearer ${token}`)
     .send({ managerId: null, order: 0 });
 
-  await request(app)
+  await agent
     .post(`/api/scenarios/${scenarioBId}/employees`)
-    .set("Authorization", `Bearer ${token}`)
     .send({
       name: "Dave NewHire",
       title: "Engineer",
@@ -144,9 +136,8 @@ beforeAll(async () => {
       salary: 120_000,
     });
 
-  await request(app)
+  await agent
     .post(`/api/scenarios/${scenarioBId}/employees`)
-    .set("Authorization", `Bearer ${token}`)
     .send({
       name: "Eve NewHire",
       title: "PM",
@@ -173,9 +164,8 @@ afterAll(async () => {
 
 describe("VAL-CROSS-015: Cloned-scenario diff reports only deliberate changes", () => {
   it("does not flag employees as moved purely because of cloned manager ID remap", async () => {
-    const res = await request(app)
-      .get(`/api/scenarios/${scenarioAId}/diff/${scenarioBId}`)
-      .set("Authorization", `Bearer ${token}`);
+    const res = await agent
+      .get(`/api/scenarios/${scenarioAId}/diff/${scenarioBId}`);
 
     expect(res.status).toBe(200);
     const { added, removed, moved, changed, unchanged } = res.body as {
@@ -215,9 +205,8 @@ describe("VAL-CROSS-015: Cloned-scenario diff reports only deliberate changes", 
   });
 
   it("still treats a true manager change as moved after a clone", async () => {
-    const res = await request(app)
-      .get(`/api/scenarios/${scenarioAId}/diff/${scenarioBId}`)
-      .set("Authorization", `Bearer ${token}`);
+    const res = await agent
+      .get(`/api/scenarios/${scenarioAId}/diff/${scenarioBId}`);
 
     expect(res.status).toBe(200);
     const moved = res.body.moved as Array<{

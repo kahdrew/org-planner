@@ -5,6 +5,7 @@ import path from "path";
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 import request from "supertest";
+import { registerAgent, type TestAgent } from "./helpers/authAgent";
 import mongoose from "mongoose";
 import app from "../app";
 import User from "../models/User";
@@ -14,8 +15,8 @@ import Employee from "../models/Employee";
 import ScheduledChange from "../models/ScheduledChange";
 
 const TEST_PREFIX = `sched_test_${Date.now()}`;
-let ownerToken: string;
-let outsiderToken: string;
+let ownerAgent: TestAgent;
+let outsiderAgent: TestAgent;
 let orgId: string;
 let scenarioId: string;
 let employeeId: string;
@@ -45,35 +46,26 @@ beforeAll(async () => {
   await mongoose.connect(process.env.MONGODB_URI!);
 
   // Register owner
-  const ownerRes = await request(app)
-    .post("/api/auth/register")
-    .send(testCreds("owner"));
-  ownerToken = ownerRes.body.token;
+  ownerAgent = await registerAgent(app, testCreds("owner"));
 
   // Register outsider (not a member of the org)
-  const outsiderRes = await request(app)
-    .post("/api/auth/register")
-    .send(testCreds("outsider"));
-  outsiderToken = outsiderRes.body.token;
+  outsiderAgent = await registerAgent(app, testCreds("outsider"));
 
   // Create org
-  const orgRes = await request(app)
+  const orgRes = await ownerAgent
     .post("/api/orgs")
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({ name: `${TEST_PREFIX} Org` });
   orgId = orgRes.body._id;
 
   // Create scenario
-  const scenarioRes = await request(app)
+  const scenarioRes = await ownerAgent
     .post(`/api/orgs/${orgId}/scenarios`)
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({ name: "Test Scenario" });
   scenarioId = scenarioRes.body._id;
 
   // Create employee
-  const empRes = await request(app)
+  const empRes = await ownerAgent
     .post(`/api/scenarios/${scenarioId}/employees`)
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({
       name: "Jane Doe",
       title: "Engineer",
@@ -100,9 +92,8 @@ describe("Scheduled Changes API", () => {
 
   describe("POST /api/scenarios/:id/scheduled-changes", () => {
     it("creates a scheduled change with a future date", async () => {
-      const res = await request(app)
+      const res = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId,
           effectiveDate: futureDate(7),
@@ -120,9 +111,8 @@ describe("Scheduled Changes API", () => {
     });
 
     it("rejects past dates", async () => {
-      const res = await request(app)
+      const res = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId,
           effectiveDate: pastDate(5),
@@ -135,9 +125,8 @@ describe("Scheduled Changes API", () => {
     });
 
     it("rejects invalid employee ID", async () => {
-      const res = await request(app)
+      const res = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId: "invalid-id",
           effectiveDate: futureDate(7),
@@ -151,9 +140,8 @@ describe("Scheduled Changes API", () => {
 
     it("rejects employee not in scenario", async () => {
       const fakeId = new mongoose.Types.ObjectId().toString();
-      const res = await request(app)
+      const res = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId: fakeId,
           effectiveDate: futureDate(7),
@@ -166,18 +154,16 @@ describe("Scheduled Changes API", () => {
     });
 
     it("rejects missing required fields", async () => {
-      const res = await request(app)
+      const res = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({});
 
       expect(res.status).toBe(400);
     });
 
     it("creates a transfer scheduled change", async () => {
-      const res = await request(app)
+      const res = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId,
           effectiveDate: futureDate(14),
@@ -190,9 +176,8 @@ describe("Scheduled Changes API", () => {
     });
 
     it("creates a departure scheduled change", async () => {
-      const res = await request(app)
+      const res = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId,
           effectiveDate: futureDate(30),
@@ -207,9 +192,8 @@ describe("Scheduled Changes API", () => {
 
   describe("GET /api/scenarios/:id/scheduled-changes", () => {
     it("lists all scheduled changes for a scenario", async () => {
-      const res = await request(app)
-        .get(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`);
+      const res = await ownerAgent
+        .get(`/api/scenarios/${scenarioId}/scheduled-changes`);
 
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
@@ -217,9 +201,8 @@ describe("Scheduled Changes API", () => {
     });
 
     it("filters by status", async () => {
-      const res = await request(app)
-        .get(`/api/scenarios/${scenarioId}/scheduled-changes?status=pending`)
-        .set("Authorization", `Bearer ${ownerToken}`);
+      const res = await ownerAgent
+        .get(`/api/scenarios/${scenarioId}/scheduled-changes?status=pending`);
 
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
@@ -232,9 +215,8 @@ describe("Scheduled Changes API", () => {
   describe("PATCH /api/scheduled-changes/:id", () => {
     it("updates a pending scheduled change", async () => {
       const newDate = futureDate(21);
-      const res = await request(app)
+      const res = await ownerAgent
         .patch(`/api/scheduled-changes/${scheduledChangeId}`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           effectiveDate: newDate,
           changeData: { title: "Staff Engineer", level: "IC5" },
@@ -245,9 +227,8 @@ describe("Scheduled Changes API", () => {
     });
 
     it("rejects updating to a past date", async () => {
-      const res = await request(app)
+      const res = await ownerAgent
         .patch(`/api/scheduled-changes/${scheduledChangeId}`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({ effectiveDate: pastDate(3) });
 
       expect(res.status).toBe(400);
@@ -256,18 +237,16 @@ describe("Scheduled Changes API", () => {
 
     it("rejects updating a non-existent change", async () => {
       const fakeId = new mongoose.Types.ObjectId().toString();
-      const res = await request(app)
+      const res = await ownerAgent
         .patch(`/api/scheduled-changes/${fakeId}`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({ changeData: { title: "Test" } });
 
       expect(res.status).toBe(404);
     });
 
     it("rejects invalid change ID", async () => {
-      const res = await request(app)
+      const res = await ownerAgent
         .patch(`/api/scheduled-changes/bad-id`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({ changeData: { title: "Test" } });
 
       expect(res.status).toBe(400);
@@ -276,18 +255,16 @@ describe("Scheduled Changes API", () => {
 
   describe("DELETE /api/scheduled-changes/:id", () => {
     it("cancels a pending scheduled change", async () => {
-      const res = await request(app)
-        .delete(`/api/scheduled-changes/${scheduledChangeId}`)
-        .set("Authorization", `Bearer ${ownerToken}`);
+      const res = await ownerAgent
+        .delete(`/api/scheduled-changes/${scheduledChangeId}`);
 
       expect(res.status).toBe(200);
       expect(res.body.status).toBe("cancelled");
     });
 
     it("rejects cancelling an already cancelled change", async () => {
-      const res = await request(app)
-        .delete(`/api/scheduled-changes/${scheduledChangeId}`)
-        .set("Authorization", `Bearer ${ownerToken}`);
+      const res = await ownerAgent
+        .delete(`/api/scheduled-changes/${scheduledChangeId}`);
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe("Can only cancel pending scheduled changes");
@@ -295,9 +272,8 @@ describe("Scheduled Changes API", () => {
 
     it("rejects non-existent change", async () => {
       const fakeId = new mongoose.Types.ObjectId().toString();
-      const res = await request(app)
-        .delete(`/api/scheduled-changes/${fakeId}`)
-        .set("Authorization", `Bearer ${ownerToken}`);
+      const res = await ownerAgent
+        .delete(`/api/scheduled-changes/${fakeId}`);
 
       expect(res.status).toBe(404);
     });
@@ -309,9 +285,8 @@ describe("Scheduled Changes API", () => {
 
     it("applies changes with past/current effective dates", async () => {
       // Create a separate employee for this test
-      const empRes = await request(app)
+      const empRes = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/employees`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           name: "Apply Test",
           title: "Junior Engineer",
@@ -325,9 +300,8 @@ describe("Scheduled Changes API", () => {
 
       // Create a change with today's date (should be applied)
       const today = new Date().toISOString().split("T")[0];
-      const changeRes = await request(app)
+      const changeRes = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId: applyEmployeeId,
           effectiveDate: today,
@@ -337,9 +311,8 @@ describe("Scheduled Changes API", () => {
       applyChangeId = changeRes.body._id;
 
       // Apply due changes — now scenario-scoped
-      const res = await request(app)
-        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`)
-        .set("Authorization", `Bearer ${ownerToken}`);
+      const res = await ownerAgent
+        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`);
 
       expect(res.status).toBe(200);
       expect(res.body.count).toBeGreaterThanOrEqual(1);
@@ -353,9 +326,8 @@ describe("Scheduled Changes API", () => {
 
     it("does not apply future changes", async () => {
       // Create a change with future date
-      const futChangeRes = await request(app)
+      const futChangeRes = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId: applyEmployeeId,
           effectiveDate: futureDate(90),
@@ -363,9 +335,8 @@ describe("Scheduled Changes API", () => {
           changeData: { title: "Principal Engineer" },
         });
 
-      const res = await request(app)
-        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`)
-        .set("Authorization", `Bearer ${ownerToken}`);
+      const res = await ownerAgent
+        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`);
 
       expect(res.status).toBe(200);
       // The future change should NOT be in the applied list
@@ -377,9 +348,8 @@ describe("Scheduled Changes API", () => {
     });
 
     it("rejects unauthorized user (non-member)", async () => {
-      const res = await request(app)
-        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`)
-        .set("Authorization", `Bearer ${outsiderToken}`);
+      const res = await outsiderAgent
+        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`);
 
       expect(res.status).toBe(403);
     });
@@ -393,15 +363,13 @@ describe("Scheduled Changes API", () => {
 
     it("only applies changes for the specified scenario", async () => {
       // Create a second scenario with its own employee and scheduled change
-      const scenario2Res = await request(app)
+      const scenario2Res = await ownerAgent
         .post(`/api/orgs/${orgId}/scenarios`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({ name: "Isolated Scenario" });
       const scenario2Id = scenario2Res.body._id;
 
-      const emp2Res = await request(app)
+      const emp2Res = await ownerAgent
         .post(`/api/scenarios/${scenario2Id}/employees`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           name: "Isolated Employee",
           title: "Analyst",
@@ -414,9 +382,8 @@ describe("Scheduled Changes API", () => {
       const emp2Id = emp2Res.body._id;
 
       const today = new Date().toISOString().split("T")[0];
-      await request(app)
+      await ownerAgent
         .post(`/api/scenarios/${scenario2Id}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId: emp2Id,
           effectiveDate: today,
@@ -425,9 +392,8 @@ describe("Scheduled Changes API", () => {
         });
 
       // Apply due changes only for the FIRST scenario
-      const res = await request(app)
-        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`)
-        .set("Authorization", `Bearer ${ownerToken}`);
+      const res = await ownerAgent
+        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`);
 
       expect(res.status).toBe(200);
 
@@ -445,9 +411,8 @@ describe("Scheduled Changes API", () => {
   describe("Auto-apply middleware", () => {
     it("auto-applies due changes when listing employees", async () => {
       // Create a new employee
-      const empRes = await request(app)
+      const empRes = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/employees`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           name: "Auto Apply Test",
           title: "Intern",
@@ -461,9 +426,8 @@ describe("Scheduled Changes API", () => {
 
       // Create a due change (today's date)
       const today = new Date().toISOString().split("T")[0];
-      const changeRes = await request(app)
+      const changeRes = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId: autoEmpId,
           effectiveDate: today,
@@ -472,9 +436,8 @@ describe("Scheduled Changes API", () => {
         });
 
       // GET employees — should trigger auto-apply middleware
-      const res = await request(app)
-        .get(`/api/scenarios/${scenarioId}/employees`)
-        .set("Authorization", `Bearer ${ownerToken}`);
+      const res = await ownerAgent
+        .get(`/api/scenarios/${scenarioId}/employees`);
 
       expect(res.status).toBe(200);
 
@@ -490,9 +453,8 @@ describe("Scheduled Changes API", () => {
 
     it("auto-applies due changes when listing scheduled changes", async () => {
       // Create a new employee
-      const empRes = await request(app)
+      const empRes = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/employees`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           name: "Auto Apply SC Test",
           title: "Designer",
@@ -506,9 +468,8 @@ describe("Scheduled Changes API", () => {
 
       // Create a due change
       const today = new Date().toISOString().split("T")[0];
-      const changeRes = await request(app)
+      const changeRes = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId: autoEmpId,
           effectiveDate: today,
@@ -517,9 +478,8 @@ describe("Scheduled Changes API", () => {
         });
 
       // GET scheduled changes — should trigger auto-apply middleware
-      const res = await request(app)
-        .get(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`);
+      const res = await ownerAgent
+        .get(`/api/scenarios/${scenarioId}/scheduled-changes`);
 
       expect(res.status).toBe(200);
 

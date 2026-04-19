@@ -15,7 +15,7 @@ import path from "path";
 
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
-import request from "supertest";
+import { registerAgent, type TestAgent } from "./helpers/authAgent";
 import mongoose from "mongoose";
 import app from "../app";
 import User from "../models/User";
@@ -26,7 +26,7 @@ import ScheduledChange from "../models/ScheduledChange";
 import AuditLog from "../models/AuditLog";
 
 const TEST_PREFIX = `analytics_scrutiny_${Date.now()}`;
-let ownerToken: string;
+let ownerAgent: TestAgent;
 let orgId: string;
 let scenarioId: string;
 
@@ -43,13 +43,12 @@ function todayIso(): string {
 }
 
 async function createEmployee(
-  token: string,
+  actingAgent: TestAgent,
   scenId: string,
   overrides: Record<string, unknown> = {},
 ) {
-  const res = await request(app)
+  const res = await actingAgent
     .post(`/api/scenarios/${scenId}/employees`)
-    .set("Authorization", `Bearer ${token}`)
     .send({
       name: "Base Emp",
       title: "Engineer",
@@ -66,20 +65,15 @@ async function createEmployee(
 beforeAll(async () => {
   await mongoose.connect(process.env.MONGODB_URI!);
 
-  const ownerRes = await request(app)
-    .post("/api/auth/register")
-    .send(testCreds("owner"));
-  ownerToken = ownerRes.body.token;
+  ownerAgent = await registerAgent(app, testCreds("owner"));
 
-  const orgRes = await request(app)
+  const orgRes = await ownerAgent
     .post("/api/orgs")
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({ name: `${TEST_PREFIX} Org` });
   orgId = orgRes.body._id;
 
-  const scenarioRes = await request(app)
+  const scenarioRes = await ownerAgent
     .post(`/api/orgs/${orgId}/scenarios`)
-    .set("Authorization", `Bearer ${ownerToken}`)
     .send({ name: "Analytics Scrutiny Scenario" });
   scenarioId = scenarioRes.body._id;
 });
@@ -98,7 +92,7 @@ describe("Analytics scrutiny fixes (server)", () => {
   describe("Fix #1: GET /history projects pending scheduled changes", () => {
     it("applies a scheduled change to history when the scrub date is past its effectiveDate", async () => {
       // Create employee and record its original title in an audit log
-      const emp = await createEmployee(ownerToken, scenarioId, {
+      const emp = await createEmployee(ownerAgent, scenarioId, {
         name: "ScrubTarget",
         title: "Engineer",
       });
@@ -107,9 +101,8 @@ describe("Analytics scrutiny fixes (server)", () => {
       futureEffective.setDate(futureEffective.getDate() + 30);
       const futureEffectiveStr = futureEffective.toISOString().split("T")[0];
 
-      const schedRes = await request(app)
+      const schedRes = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId: emp._id,
           effectiveDate: futureEffectiveStr,
@@ -121,11 +114,10 @@ describe("Analytics scrutiny fixes (server)", () => {
       // Scrub past the effective date: scheduled change should project
       const scrubDate = new Date();
       scrubDate.setDate(scrubDate.getDate() + 60);
-      const histRes = await request(app)
+      const histRes = await ownerAgent
         .get(
           `/api/scenarios/${scenarioId}/history?date=${encodeURIComponent(scrubDate.toISOString())}`,
-        )
-        .set("Authorization", `Bearer ${ownerToken}`);
+        );
 
       expect(histRes.status).toBe(200);
       const projected = (histRes.body as Array<Record<string, unknown>>).find(
@@ -141,7 +133,7 @@ describe("Analytics scrutiny fixes (server)", () => {
     });
 
     it("does NOT apply a scheduled change when the scrub date is before its effectiveDate", async () => {
-      const emp = await createEmployee(ownerToken, scenarioId, {
+      const emp = await createEmployee(ownerAgent, scenarioId, {
         name: "EarlyScrub",
         title: "Analyst",
       });
@@ -150,9 +142,8 @@ describe("Analytics scrutiny fixes (server)", () => {
       futureEffective.setDate(futureEffective.getDate() + 40);
       const futureEffectiveStr = futureEffective.toISOString().split("T")[0];
 
-      await request(app)
+      await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId: emp._id,
           effectiveDate: futureEffectiveStr,
@@ -163,11 +154,10 @@ describe("Analytics scrutiny fixes (server)", () => {
       // Scrub to a date BEFORE the effective date — no projection
       const scrubDate = new Date();
       scrubDate.setDate(scrubDate.getDate() + 10);
-      const histRes = await request(app)
+      const histRes = await ownerAgent
         .get(
           `/api/scenarios/${scenarioId}/history?date=${encodeURIComponent(scrubDate.toISOString())}`,
-        )
-        .set("Authorization", `Bearer ${ownerToken}`);
+        );
 
       expect(histRes.status).toBe(200);
       const projected = (histRes.body as Array<Record<string, unknown>>).find(
@@ -178,7 +168,7 @@ describe("Analytics scrutiny fixes (server)", () => {
     });
 
     it("projects only pending changes (not cancelled ones)", async () => {
-      const emp = await createEmployee(ownerToken, scenarioId, {
+      const emp = await createEmployee(ownerAgent, scenarioId, {
         name: "CancelTarget",
         title: "Designer",
       });
@@ -187,9 +177,8 @@ describe("Analytics scrutiny fixes (server)", () => {
       futureEffective.setDate(futureEffective.getDate() + 15);
       const futureEffectiveStr = futureEffective.toISOString().split("T")[0];
 
-      const schedRes = await request(app)
+      const schedRes = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId: emp._id,
           effectiveDate: futureEffectiveStr,
@@ -199,18 +188,16 @@ describe("Analytics scrutiny fixes (server)", () => {
       expect(schedRes.status).toBe(201);
 
       // Cancel the change
-      await request(app)
-        .delete(`/api/scheduled-changes/${schedRes.body._id}`)
-        .set("Authorization", `Bearer ${ownerToken}`);
+      await ownerAgent
+        .delete(`/api/scheduled-changes/${schedRes.body._id}`);
 
       // Scrub past the original effective date: cancelled change is NOT projected
       const scrubDate = new Date();
       scrubDate.setDate(scrubDate.getDate() + 30);
-      const histRes = await request(app)
+      const histRes = await ownerAgent
         .get(
           `/api/scenarios/${scenarioId}/history?date=${encodeURIComponent(scrubDate.toISOString())}`,
-        )
-        .set("Authorization", `Bearer ${ownerToken}`);
+        );
 
       expect(histRes.status).toBe(200);
       const projected = (histRes.body as Array<Record<string, unknown>>).find(
@@ -222,7 +209,7 @@ describe("Analytics scrutiny fixes (server)", () => {
 
   describe("Fix #2: applyDueChanges writes AuditLog entries", () => {
     it("writes an audit log entry when a due scheduled change is applied", async () => {
-      const emp = await createEmployee(ownerToken, scenarioId, {
+      const emp = await createEmployee(ownerAgent, scenarioId, {
         name: "AuditTarget",
         title: "Engineer",
         level: "IC2",
@@ -234,9 +221,8 @@ describe("Analytics scrutiny fixes (server)", () => {
         employeeId: emp._id,
       });
 
-      const schedRes = await request(app)
+      const schedRes = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId: emp._id,
           effectiveDate: todayIso(),
@@ -245,9 +231,8 @@ describe("Analytics scrutiny fixes (server)", () => {
         });
       expect(schedRes.status).toBe(201);
 
-      const applyRes = await request(app)
-        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`)
-        .set("Authorization", `Bearer ${ownerToken}`);
+      const applyRes = await ownerAgent
+        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`);
       expect(applyRes.status).toBe(200);
       expect(applyRes.body.applied).toContain(schedRes.body._id);
 
@@ -268,16 +253,15 @@ describe("Analytics scrutiny fixes (server)", () => {
     });
 
     it("records a move action when the applied change modifies managerId", async () => {
-      const manager = await createEmployee(ownerToken, scenarioId, {
+      const manager = await createEmployee(ownerAgent, scenarioId, {
         name: "ManagerA",
       });
-      const reportee = await createEmployee(ownerToken, scenarioId, {
+      const reportee = await createEmployee(ownerAgent, scenarioId, {
         name: "Reportee",
       });
 
-      const schedRes = await request(app)
+      const schedRes = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId: reportee._id,
           effectiveDate: todayIso(),
@@ -286,9 +270,8 @@ describe("Analytics scrutiny fixes (server)", () => {
         });
       expect(schedRes.status).toBe(201);
 
-      const applyRes = await request(app)
-        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`)
-        .set("Authorization", `Bearer ${ownerToken}`);
+      const applyRes = await ownerAgent
+        .post(`/api/scenarios/${scenarioId}/scheduled-changes/apply-due`);
       expect(applyRes.status).toBe(200);
 
       const moveLog = await AuditLog.findOne({
@@ -303,14 +286,13 @@ describe("Analytics scrutiny fixes (server)", () => {
     });
 
     it("auto-apply middleware writes audit log entries too", async () => {
-      const emp = await createEmployee(ownerToken, scenarioId, {
+      const emp = await createEmployee(ownerAgent, scenarioId, {
         name: "AutoApplyAudit",
         title: "Coordinator",
       });
 
-      const schedRes = await request(app)
+      const schedRes = await ownerAgent
         .post(`/api/scenarios/${scenarioId}/scheduled-changes`)
-        .set("Authorization", `Bearer ${ownerToken}`)
         .send({
           employeeId: emp._id,
           effectiveDate: todayIso(),
@@ -320,9 +302,8 @@ describe("Analytics scrutiny fixes (server)", () => {
       expect(schedRes.status).toBe(201);
 
       // Accessing the employees list triggers the auto-apply middleware
-      const listRes = await request(app)
-        .get(`/api/scenarios/${scenarioId}/employees`)
-        .set("Authorization", `Bearer ${ownerToken}`);
+      const listRes = await ownerAgent
+        .get(`/api/scenarios/${scenarioId}/employees`);
       expect(listRes.status).toBe(200);
 
       const updateLog = await AuditLog.findOne({
