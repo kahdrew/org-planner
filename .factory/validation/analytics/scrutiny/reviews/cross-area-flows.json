@@ -1,0 +1,39 @@
+{
+  "featureId": "cross-area-flows",
+  "reviewedAt": "2026-04-19T00:46:27Z",
+  "commitId": "849b4dca9775aaacabc06772f071d3562cdd9b43",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "Most backend/web additions are coherent, but the Chrome-extension-to-intro flow is not wired end-to-end: the extension still posts to the generic contacts endpoint instead of the new extension capture endpoint. I also found a concrete URL-deduplication edge case in the new extension capture service.",
+    "issues": [
+      {
+        "file": "packages/chrome-extension/src/background/linkedinService.ts",
+        "line": 114,
+        "severity": "blocking",
+        "description": "The live extension quick-capture path still calls `POST /api/contacts` (`path: '/api/contacts'`) rather than the newly introduced `POST /api/extension/capture`. This means the feature requirement/description path ('create contact via extension API endpoint -> view in web app -> request intro') is not actually integrated in the extension runtime flow. A repo-wide search under `packages/chrome-extension/src` finds no usage of `/api/extension/capture`."
+      },
+      {
+        "file": "packages/api/src/services/extensionService.ts",
+        "line": 58,
+        "severity": "non_blocking",
+        "description": "LinkedIn URL dedupe claims trailing-slash-insensitive matching, but only normalizes the incoming URL (`replace(/\\/+$/, '')`). The stored value side is only lowercased (`$toLower` on `$linkedInUrl`) and not slash-normalized, so existing `.../alice/` and incoming `.../alice` can fail to match and create duplicates."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The `implementation-worker` skill is org-planner-specific and conflicts with this Relay mission's boundaries, forcing worker-level deviations.",
+      "evidence": "Skill file states org-planner paths/ports and mandatory agent-browser at 5173 (`/Users/andy/Documents/GitHub/org-planner/.factory/skills/implementation-worker/SKILL.md`: lines 3, 10, 18, 63-65), while mission AGENTS requires Relay paths/ports (`/Users/andy/.factory/missions/e9b0e43e-24b4-4baa-87be-b21f151a466c/AGENTS.md`: lines 5, 7-9, 15, 75-76). Handoff skillFeedback also records this deviation."
+    },
+    {
+      "area": "conventions",
+      "observation": "Route-level validation conventions are ambiguous in practice: AGENTS says all routes should use Zod middleware, but the new global-search endpoint performs manual inline query validation.",
+      "evidence": "Mission AGENTS says 'Zod validation middleware on all routes for request body/params/query' (AGENTS.md line 30), while `searchController.ts` explicitly documents inline validation (lines 21-23) and `search.ts` wires `searchRouter.get('/', controller.search)` without validation middleware (line 10)."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Review failed due to one blocking integration gap: the Chrome extension runtime does not consume the new `/api/extension/capture` endpoint, so the extension-specific cross-area flow is not actually wired end-to-end. Also noted a non-blocking dedupe edge case in URL normalization and two shared-state observations (skill mismatch and validation-convention drift)."
+}

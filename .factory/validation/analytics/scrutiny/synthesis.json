@@ -1,38 +1,70 @@
 {
   "milestone": "analytics",
-  "round": 2,
-  "status": "pass",
+  "round": 3,
+  "status": "fail",
   "validatorsRun": {
     "test": {
       "passed": true,
-      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run test",
+      "command": "cd /Users/andy/Documents/GitHub/relay && npm run test",
       "exitCode": 0
     },
     "typecheck": {
       "passed": true,
-      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run typecheck",
+      "command": "cd /Users/andy/Documents/GitHub/relay && npm run typecheck",
       "exitCode": 0
     },
     "lint": {
       "passed": true,
-      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run lint",
+      "command": "cd /Users/andy/Documents/GitHub/relay && npm run lint",
       "exitCode": 0
     }
   },
   "reviewsSummary": {
-    "total": 1,
-    "passed": 1,
-    "failed": 0,
-    "failedFeatures": []
+    "total": 2,
+    "passed": 0,
+    "failed": 2,
+    "failedFeatures": [
+      "analytics-dashboard",
+      "cross-area-flows"
+    ]
   },
-  "blockingIssues": [],
-  "appliedUpdates": [],
-  "suggestedGuidanceUpdates": [],
-  "rejectedObservations": [
+  "blockingIssues": [
     {
-      "observation": "Implementation-worker skill strictness concern from fix-analytics-scrutiny review",
-      "reason": "already-documented in prior analytics scrutiny synthesis guidance updates."
+      "featureId": "analytics-dashboard",
+      "severity": "blocking",
+      "description": "Team metric introsApproved is attributed to intro.requester instead of intro.connector, violating per-connector semantics in VAL-ANALYTICS-008."
+    },
+    {
+      "featureId": "analytics-dashboard",
+      "severity": "blocking",
+      "description": "Team metric searchesPerformed assigns one global saved-search total to every user row instead of per-user values, violating team breakdown requirements."
+    },
+    {
+      "featureId": "cross-area-flows",
+      "severity": "blocking",
+      "description": "Chrome extension quick-capture runtime still posts to /api/contacts and does not consume /api/extension/capture, so the extension-endpoint cross-area flow is not wired end-to-end."
     }
   ],
-  "previousRound": ".factory/validation/analytics/scrutiny/synthesis.round1.json"
+  "appliedUpdates": [],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "skills",
+      "suggestion": "Align implementation-worker skill instructions with Relay mission boundaries (paths, ports, package names, and validation surfaces) to avoid forced worker deviations.",
+      "evidence": "Both analytics-dashboard and cross-area-flows reviews reported the same mismatch between implementation-worker skill guidance and mission AGENTS.md boundaries.",
+      "isSystemic": true
+    },
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Clarify whether query validation must always use shared Zod middleware or if controller-level inline validation is acceptable, and update conventions accordingly.",
+      "evidence": "Both reviews flagged route-validation convention drift: AGENTS states Zod middleware on query/params/body, while recent implementations use direct/inline query parsing on analytics and global search routes.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "Add relay/.factory/library/architecture.md because some worker procedures reference architecture docs.",
+      "reason": "ambiguous and non-blocking for scrutiny; no concrete defect pattern tied to milestone failures."
+    }
+  ],
+  "previousRound": ".factory/validation/analytics/scrutiny/synthesis.round2.json"
 }

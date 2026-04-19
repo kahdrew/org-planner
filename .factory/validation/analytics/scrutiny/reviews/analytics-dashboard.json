@@ -1,33 +1,50 @@
 {
   "featureId": "analytics-dashboard",
-  "reviewedAt": "2026-04-17T17:48:50Z",
-  "commitId": "c43108016496f81fdd3b2c85383f974a900c2688",
+  "reviewedAt": "2026-04-19T00:45:48Z",
+  "commitId": "18f8208c325d64da204eee45166b46f75206fd8f",
   "transcriptSkeletonReviewed": true,
   "diffReviewed": true,
   "status": "fail",
   "codeReview": {
-    "summary": "The /dashboard route, auth protection, sidebar entry, and widget set are implemented and well-tested, but there is a blocking data-accuracy gap in headcount trend computation for future-dated hires.",
+    "summary": "The feature ships substantial backend/frontend analytics functionality and test coverage, but the team breakdown implementation has blocking semantic errors against the contract and one additional date-range correctness gap.",
     "issues": [
       {
-        "file": "packages/client/src/utils/dashboardMetrics.ts",
-        "line": 119,
+        "file": "packages/api/src/services/analyticsService.ts",
+        "line": 351,
         "severity": "blocking",
-        "description": "computeHeadcountTrend counts an employee only when startDate < bucketEnd. Employees with future startDate values are excluded from the latest point, so the trend's latest headcount can be lower than HeadcountSummary total. This violates the feature requirement that dashboard numbers match HeadcountSummary/BudgetPanel in scenario data that includes future-dated hires. Fix by ensuring the latest point aligns with roster total (e.g., include future-dated employees in the latest bucket per product definition), and add a regression test for employees with startDate after the current month."
+        "description": "VAL-ANALYTICS-008 requires \"Intros Approved (as connector)\", but getTeamActivity increments introsApproved by intro.requester, not intro.connector. This misattributes approvals to requesters and produces incorrect per-user team metrics."
+      },
+      {
+        "file": "packages/api/src/services/analyticsService.ts",
+        "line": 363,
+        "severity": "blocking",
+        "description": "searchesPerformed is set to the same global saved-search total for every user row (totalSearches), so the team table is not a true per-user breakdown for that metric as required by VAL-ANALYTICS-008."
+      },
+      {
+        "file": "packages/api/src/services/analyticsService.ts",
+        "line": 396,
+        "severity": "non_blocking",
+        "description": "getRelationshipHealth only filters by createdAt <= endDate and ignores range.startDate, so historical relationships before the selected window are still included; this weakens date-range filtering consistency for the relationship-health chart."
       }
     ]
   },
   "sharedStateObservations": [
     {
       "area": "skills",
-      "observation": "The implementation-worker skill requires tests-first (TDD), but this transcript created implementation files before test files while handoff.skillFeedback.followedProcedure was marked true.",
-      "evidence": "worker-transcripts.jsonl skeleton for session 865a49e2-815e-41a6-9edf-c90e06c24553 shows Create dashboardMetrics.ts and Create DashboardView.tsx before Create dashboardMetrics.test.ts and Create DashboardView.test.tsx."
+      "observation": "The implementation-worker skill content appears out of sync with this Relay mission context.",
+      "evidence": "Mission AGENTS.md line 5 requires work in /Users/andy/Documents/GitHub/relay on ports 3100/3101, while .factory/skills/implementation-worker/SKILL.md lines 10, 18, 32-41, 51, and 65 instruct org-planner paths, packages/server|packages/client, and port 5173."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Relay shared library docs are missing architecture guidance referenced by worker procedure.",
+      "evidence": "LS of /Users/andy/Documents/GitHub/relay/.factory/library shows only user-testing.md; there is no architecture.md even though worker procedure requires architecture review."
     },
     {
       "area": "conventions",
-      "observation": "Mission shared state is inconsistent about known failing tests.",
-      "evidence": "Mission AGENTS.md says 'Known Pre-Existing Issues: None yet' (lines 73-75), while .factory/skills/implementation-worker/SKILL.md states there are 4 known pre-existing failures in scheduledChanges.test.ts (line 57)."
+      "observation": "Analytics query handling bypasses the stated Zod query-validation convention.",
+      "evidence": "AGENTS.md line 30 says routes should use Zod validation for request body/params/query, but packages/api/src/routes/analytics.ts lines 10-23 register handlers directly without validate middleware for query params."
     }
   ],
   "addressesFailureFrom": null,
-  "summary": "Reviewed commit c431080 for analytics-dashboard and found one blocking correctness issue: headcount trend can undercount latest headcount when employees have future start dates. Feature otherwise implements the required route, auth gating, and five widgets with substantial test coverage."
+  "summary": "Reviewed analytics-dashboard commit 18f8208c325d64da204eee45166b46f75206fd8f and found blocking team-breakdown correctness issues: introsApproved is attributed to requesters instead of connectors, and searchesPerformed is duplicated from a global total for every user row. Relationship-health date filtering also ignores startDate. Marking this review as fail."
 }
