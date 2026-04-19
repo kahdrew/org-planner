@@ -52,4 +52,12 @@ describe('<ConnectionStatusIndicator />', () => {
     expect(el).toHaveAttribute('data-status', 'connecting');
     expect(el.textContent?.toLowerCase()).toContain('connecting');
   });
+
+  it('renders the polling badge when status is polling', () => {
+    useSseStore.setState({ status: 'polling' });
+    const { getByTestId } = render(<ConnectionStatusIndicator />);
+    const el = getByTestId('sse-connection-indicator');
+    expect(el).toHaveAttribute('data-status', 'polling');
+    expect(el.textContent?.toLowerCase()).toContain('polling');
+  });
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useOrgStore } from '@/stores/orgStore';
 import { useSseStore } from '@/stores/sseStore';
 import type { Employee, Organization, Scenario } from '@/types';
@@ -240,6 +240,11 @@ describe('sseStore connection status transitions', () => {
     expect(useSseStore.getState().status).toBe('reconnecting');
   });
 
+  it('supports the polling status value', () => {
+    useSseStore.getState()._setStatus('polling');
+    expect(useSseStore.getState().status).toBe('polling');
+  });
+
   it('disconnect() resets the full state', () => {
     useSseStore.setState({
       status: 'connected',
@@ -255,5 +260,102 @@ describe('sseStore connection status transitions', () => {
     expect(s.retryCount).toBe(0);
     expect(s.lastEventTs).toBeNull();
     expect(s.lastSeq).toBeNull();
+  });
+});
+
+/**
+ * Polling fallback: after three consecutive failed EventSource
+ * connection attempts we stop opening streams and poll /events/poll.
+ * These tests inject a fake EventSource that always errors so we can
+ * exercise the fallback path deterministically.
+ */
+describe('sseStore polling fallback', () => {
+  const originalEventSource = (globalThis as { EventSource?: unknown })
+    .EventSource;
+  const originalFetch = (globalThis as { fetch?: unknown }).fetch;
+  const instances: FakeEventSource[] = [];
+
+  class FakeEventSource {
+    url: string;
+    onopen: ((ev: Event) => void) | null = null;
+    onerror: ((ev: Event) => void) | null = null;
+    onmessage: ((ev: MessageEvent) => void) | null = null;
+    readyState = 0;
+    closed = false;
+    constructor(url: string) {
+      this.url = url;
+      instances.push(this);
+      // Schedule the error synchronously on the next microtask so the
+      // test can deterministically drive the store through each retry.
+      queueMicrotask(() => {
+        if (this.closed) return;
+        this.onerror?.(new Event('error'));
+      });
+    }
+    addEventListener(_: string, __: (ev: MessageEvent) => void) {
+      /* not invoked in this test */
+    }
+    close() {
+      this.closed = true;
+      this.readyState = 2;
+    }
+  }
+
+  beforeEach(() => {
+    resetStores();
+    instances.length = 0;
+    localStorage.setItem('token', 'fake-jwt');
+    (globalThis as { EventSource?: unknown }).EventSource =
+      FakeEventSource as unknown;
+    (globalThis as { fetch?: unknown }).fetch = vi
+      .fn()
+      .mockResolvedValue({
+        ok: true,
+        json: async () => [],
+      });
+  });
+
+  afterEach(() => {
+    useSseStore.getState().disconnect();
+    localStorage.removeItem('token');
+    (globalThis as { EventSource?: unknown }).EventSource =
+      originalEventSource as unknown;
+    (globalThis as { fetch?: unknown }).fetch = originalFetch as unknown;
+  });
+
+  it('transitions to polling after 3 consecutive SSE failures and issues a poll request', async () => {
+    vi.useFakeTimers();
+    try {
+      useSseStore.getState().connect(ORG_ID);
+
+      // Drive three consecutive onerror firings. The store schedules a
+      // reconnect via setTimeout after each failure.
+      for (let i = 0; i < 3; i += 1) {
+        // Let the current microtask queue run so onerror fires for the
+        // most-recently-opened FakeEventSource.
+        await Promise.resolve();
+        await Promise.resolve();
+        // Advance the reconnect timer so a new EventSource is created.
+        vi.advanceTimersByTime(60_000);
+      }
+      // Allow any trailing microtasks (e.g., the final onerror) to run.
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(useSseStore.getState().status).toBe('polling');
+      expect(useSseStore.getState().retryCount).toBeGreaterThanOrEqual(3);
+
+      const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
+      // The initial poll is kicked off immediately when startPolling runs.
+      // Flush any pending promises before asserting.
+      await Promise.resolve();
+      expect(fetchMock).toHaveBeenCalled();
+      const firstCall = fetchMock.mock.calls[0][0] as string;
+      expect(firstCall).toContain('/api/orgs/');
+      expect(firstCall).toContain('/events/poll');
+      expect(firstCall).toContain('since_seq=');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

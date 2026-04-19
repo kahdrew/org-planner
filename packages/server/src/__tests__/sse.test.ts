@@ -535,6 +535,139 @@ describe("SSE org isolation (VAL-SSE-008)", () => {
   });
 });
 
+describe("Polling fallback endpoint /events/poll", () => {
+  it("rejects requests without a token (401)", async () => {
+    const res = await request(app).get(`/api/orgs/${orgAId}/events/poll`);
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects requests with an invalid token (401)", async () => {
+    const res = await request(app)
+      .get(`/api/orgs/${orgAId}/events/poll`)
+      .query({ access_token: "not-a-real-jwt" });
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects malformed org IDs (400)", async () => {
+    const res = await request(app)
+      .get(`/api/orgs/not-valid/events/poll`)
+      .set("Authorization", `Bearer ${tokenA}`);
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects non-members (403)", async () => {
+    const res = await request(app)
+      .get(`/api/orgs/${orgAId}/events/poll`)
+      .set("Authorization", `Bearer ${tokenB}`);
+    expect(res.status).toBe(403);
+  });
+
+  it("accepts token via Authorization header and returns a JSON array", async () => {
+    const res = await request(app)
+      .get(`/api/orgs/${orgAId}/events/poll`)
+      .set("Authorization", `Bearer ${tokenA}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it("accepts token via ?access_token= query param", async () => {
+    const res = await request(app)
+      .get(`/api/orgs/${orgAId}/events/poll`)
+      .query({ access_token: tokenA });
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it("returns buffered events emitted after the employee is created", async () => {
+    // Capture baseline seq before the mutation so we only read the new event.
+    const before = await request(app)
+      .get(`/api/orgs/${orgAId}/events/poll`)
+      .set("Authorization", `Bearer ${tokenA}`);
+    const baselineMaxSeq = Array.isArray(before.body)
+      ? before.body.reduce(
+          (max: number, e: { seq?: number }) => Math.max(max, e.seq ?? 0),
+          0,
+        )
+      : 0;
+
+    const created = await request(app)
+      .post(`/api/scenarios/${scenarioAId}/employees`)
+      .set("Authorization", `Bearer ${tokenA}`)
+      .send(employeePayload({ name: "Poll CreateTarget" }));
+    expect(created.status).toBe(201);
+
+    // Give the async emit helper a moment to resolve the org lookup and
+    // push the event into the ring buffer.
+    await new Promise((r) => setTimeout(r, 200));
+
+    const res = await request(app)
+      .get(`/api/orgs/${orgAId}/events/poll`)
+      .query({ since_seq: String(baselineMaxSeq) })
+      .set("Authorization", `Bearer ${tokenA}`);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    const createdEvents = res.body.filter(
+      (e: { type: string }) => e.type === "employee.created",
+    );
+    expect(createdEvents.length).toBeGreaterThan(0);
+    const match = createdEvents.find(
+      (e: { payload?: { employee?: { _id?: string } } }) =>
+        e.payload?.employee?._id === created.body._id,
+    );
+    expect(match).toBeDefined();
+    expect(typeof match.seq).toBe("number");
+    expect(match.seq).toBeGreaterThan(baselineMaxSeq);
+  });
+
+  it("returns events scoped to the requested org only", async () => {
+    // Create an employee in orgA's scenario and verify orgB's pollfeed
+    // does not contain it (no cross-org leakage).
+    const created = await request(app)
+      .post(`/api/scenarios/${scenarioAId}/employees`)
+      .set("Authorization", `Bearer ${tokenA}`)
+      .send(employeePayload({ name: "Poll OrgIsolationTarget" }));
+    expect(created.status).toBe(201);
+
+    await new Promise((r) => setTimeout(r, 200));
+
+    const res = await request(app)
+      .get(`/api/orgs/${orgBId}/events/poll`)
+      .set("Authorization", `Bearer ${tokenB}`);
+
+    expect(res.status).toBe(200);
+    const leaked = res.body.find(
+      (e: { payload?: { employee?: { _id?: string } } }) =>
+        e.payload?.employee?._id === created.body._id,
+    );
+    expect(leaked).toBeUndefined();
+  });
+
+  it("filters out events with seq <= since_seq", async () => {
+    // Emit an event, then ask for events since max-seq; should be empty.
+    await request(app)
+      .post(`/api/scenarios/${scenarioAId}/employees`)
+      .set("Authorization", `Bearer ${tokenA}`)
+      .send(employeePayload({ name: "Poll FilterSeqTarget" }));
+    await new Promise((r) => setTimeout(r, 200));
+
+    const first = await request(app)
+      .get(`/api/orgs/${orgAId}/events/poll`)
+      .set("Authorization", `Bearer ${tokenA}`);
+    const maxSeq = first.body.reduce(
+      (max: number, e: { seq?: number }) => Math.max(max, e.seq ?? 0),
+      0,
+    );
+
+    const second = await request(app)
+      .get(`/api/orgs/${orgAId}/events/poll`)
+      .query({ since_seq: String(maxSeq) })
+      .set("Authorization", `Bearer ${tokenA}`);
+    expect(second.status).toBe(200);
+    expect(second.body).toEqual([]);
+  });
+});
+
 describe("SSE client cleanup (VAL-SSE-007)", () => {
   it("removes a client from the bus when the stream is closed", async () => {
     const stream = await openSseStream({

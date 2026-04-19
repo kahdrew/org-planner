@@ -118,3 +118,54 @@ export async function streamOrgEvents(req: Request, res: Response): Promise<void
   req.on("aborted", cleanup);
   res.on("close", cleanup);
 }
+
+/**
+ * GET /api/orgs/:orgId/events/poll?since_seq=N
+ *
+ * Polling fallback for environments (e.g., Vercel serverless) that cannot
+ * hold a long-lived SSE connection. Returns a JSON array of buffered
+ * events with `seq > since_seq` from the in-memory ring buffer.
+ *
+ * Auth: same as SSE endpoint — `Authorization: Bearer ...` or
+ * `?access_token=...`.
+ * Authz: user must be a member or owner of `orgId`.
+ */
+export async function pollOrgEvents(req: Request, res: Response): Promise<void> {
+  const orgId = req.params.orgId;
+
+  const token = extractToken(req);
+  if (!token) {
+    res.status(401).json({ error: "No token provided" });
+    return;
+  }
+
+  let userId: string;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string };
+    userId = decoded.userId;
+  } catch {
+    res.status(401).json({ error: "Invalid token" });
+    return;
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(orgId)) {
+    res.status(400).json({ error: "Invalid organization ID" });
+    return;
+  }
+
+  const isMember = await checkOrgMembership(orgId, userId);
+  if (!isMember) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const rawSince = req.query.since_seq;
+  const parsedSince =
+    typeof rawSince === "string" && rawSince.length > 0
+      ? Number(rawSince)
+      : 0;
+  const sinceSeq = Number.isFinite(parsedSince) ? parsedSince : 0;
+
+  const events = eventBus.getEventsSince(orgId, sinceSeq);
+  res.status(200).json(events);
+}

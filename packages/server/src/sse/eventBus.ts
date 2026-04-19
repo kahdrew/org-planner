@@ -42,9 +42,20 @@ export interface SseClient {
   orgId: string;
 }
 
+/** Maximum number of events retained in the ring buffer per org. */
+const RING_BUFFER_SIZE = 100;
+
 class EventBus {
   /** Map from orgId → Set of active clients. */
   private clients = new Map<string, Set<SseClient>>();
+
+  /**
+   * Ring buffer of the last `RING_BUFFER_SIZE` events emitted per org.
+   * Backs the polling fallback endpoint so clients that cannot hold a
+   * long-lived SSE connection (e.g., Vercel serverless) can still catch
+   * up on recent mutations.
+   */
+  private buffer = new Map<string, SseEvent[]>();
 
   /** Monotonic event counter to aid debugging/ordering. */
   private seq = 0;
@@ -78,18 +89,29 @@ class EventBus {
   }
 
   /**
-   * Emit an event to every client connected to the specified org.
+   * Emit an event to every client connected to the specified org and
+   * retain it in the per-org ring buffer for the polling fallback.
    * Clients on other orgs are unaffected.
    */
   emit(orgId: string, event: SseEvent): void {
-    const set = this.clients.get(orgId);
-    if (!set || set.size === 0) return;
-
     const enriched: SseEvent = {
       ...event,
       seq: ++this.seq,
       ts: event.ts ?? Date.now(),
     };
+
+    // Buffer the event first so pollers can recover it even when no live
+    // SSE clients are connected (the common case on Vercel serverless).
+    const buf = this.buffer.get(orgId) ?? [];
+    buf.push(enriched);
+    if (buf.length > RING_BUFFER_SIZE) {
+      buf.splice(0, buf.length - RING_BUFFER_SIZE);
+    }
+    this.buffer.set(orgId, buf);
+
+    const set = this.clients.get(orgId);
+    if (!set || set.size === 0) return;
+
     const payload = `event: ${enriched.type}\ndata: ${JSON.stringify(enriched)}\n\n`;
 
     for (const client of set) {
@@ -101,6 +123,24 @@ class EventBus {
         this.removeClient(client);
       }
     }
+  }
+
+  /**
+   * Return buffered events for an org with `seq > sinceSeq`, in
+   * chronological order. Used by the polling fallback endpoint.
+   */
+  getEventsSince(orgId: string, sinceSeq: number): SseEvent[] {
+    const buf = this.buffer.get(orgId);
+    if (!buf || buf.length === 0) return [];
+    const threshold = Number.isFinite(sinceSeq) ? sinceSeq : 0;
+    return buf.filter((e) => (e.seq ?? 0) > threshold);
+  }
+
+  /**
+   * Test/diagnostic helper — current size of the org's ring buffer.
+   */
+  bufferSize(orgId: string): number {
+    return this.buffer.get(orgId)?.length ?? 0;
   }
 
   /**
@@ -126,6 +166,7 @@ class EventBus {
       }
     }
     this.clients.clear();
+    this.buffer.clear();
     this.seq = 0;
   }
 }

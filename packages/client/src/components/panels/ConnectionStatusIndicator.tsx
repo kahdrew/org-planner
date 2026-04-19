@@ -1,4 +1,4 @@
-import { Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { Wifi, WifiOff, Loader2, RefreshCw } from 'lucide-react';
 import { useSseStore } from '@/stores/sseStore';
 import { cn } from '@/utils/cn';
 
@@ -38,6 +38,15 @@ export default function ConnectionStatusIndicator() {
           title: 'Connection dropped — reconnecting',
           tone: 'bg-amber-100 text-amber-700 border-amber-200',
           dot: 'bg-amber-500',
+        };
+      case 'polling':
+        return {
+          icon: <RefreshCw size={14} />,
+          label: 'Polling',
+          title:
+            'Realtime stream unavailable — polling the server every few seconds',
+          tone: 'bg-sky-100 text-sky-700 border-sky-200',
+          dot: 'bg-sky-500',
         };
       case 'disconnected':
       default:

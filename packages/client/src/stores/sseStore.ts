@@ -11,13 +11,22 @@ import { useOrgStore } from './orgStore';
  *          └── disconnect() ────┐             │
  *                                ▼            ▼
  *                          disconnected ◀─ reconnecting
+ *                                              │
+ *                                              │ ≥ 3 failures
+ *                                              ▼
+ *                                           polling
+ *
+ * `polling` is the Vercel-compatible fallback. After three consecutive
+ * failed SSE connection attempts we give up on the stream and poll the
+ * events endpoint every 5 seconds instead.
  */
 export type SseConnectionStatus =
   | 'idle'
   | 'connecting'
   | 'connected'
   | 'reconnecting'
-  | 'disconnected';
+  | 'disconnected'
+  | 'polling';
 
 /** Messages the server may emit. Mirrors `SseEventType` in the server. */
 export type SseServerEventType =
@@ -70,12 +79,17 @@ interface SseState {
  */
 let eventSource: EventSource | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let pollTimer: ReturnType<typeof setInterval> | null = null;
 let currentOrgId: string | null = null;
 
 /** Maximum reconnect delay (ms). */
 const MAX_RECONNECT_MS = 30_000;
 /** Initial reconnect delay (ms). */
 const BASE_RECONNECT_MS = 500;
+/** Number of consecutive SSE failures before switching to polling. */
+const POLLING_FALLBACK_THRESHOLD = 3;
+/** Polling interval (ms) once SSE has been given up on. */
+const POLL_INTERVAL_MS = 5_000;
 
 function computeBackoff(retryCount: number): number {
   return Math.min(MAX_RECONNECT_MS, BASE_RECONNECT_MS * 2 ** retryCount);
@@ -296,12 +310,94 @@ function openConnection(orgId: string): void {
     }
     if (eventSource === es) eventSource = null;
     if (!stillCurrent) return;
-    useSseStore.setState((s) => ({
+
+    const nextRetryCount = useSseStore.getState().retryCount + 1;
+
+    // After N consecutive failed SSE connection attempts, give up and
+    // fall back to polling the /events/poll endpoint. This is the
+    // Vercel-compatible mode (serverless functions cannot hold an open
+    // event-stream response).
+    if (nextRetryCount >= POLLING_FALLBACK_THRESHOLD) {
+      useSseStore.setState({
+        status: 'polling',
+        retryCount: nextRetryCount,
+      });
+      startPolling(orgId);
+      return;
+    }
+
+    useSseStore.setState({
       status: 'reconnecting',
-      retryCount: s.retryCount + 1,
-    }));
+      retryCount: nextRetryCount,
+    });
     scheduleReconnect(orgId);
   };
+}
+
+/**
+ * Poll the server once for events with `seq > lastSeq` and apply them
+ * through the same pipeline the live SSE stream uses.
+ */
+async function pollOnce(orgId: string): Promise<void> {
+  if (typeof fetch === 'undefined') return;
+  const token = resolveAccessToken();
+  if (!token) return;
+  const sinceSeq = useSseStore.getState().lastSeq ?? 0;
+  const url =
+    `/api/orgs/${encodeURIComponent(orgId)}/events/poll` +
+    `?since_seq=${encodeURIComponent(String(sinceSeq))}` +
+    `&access_token=${encodeURIComponent(token)}`;
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+    const raw = (await res.json()) as unknown;
+    const events: SseServerEvent[] = Array.isArray(raw)
+      ? (raw as SseServerEvent[])
+      : Array.isArray((raw as { events?: unknown }).events)
+        ? ((raw as { events: SseServerEvent[] }).events)
+        : [];
+    if (events.length === 0) return;
+    let maxSeq = useSseStore.getState().lastSeq ?? 0;
+    let lastTs: number | null = useSseStore.getState().lastEventTs;
+    for (const ev of events) {
+      applyServerEvent(ev);
+      if (typeof ev.seq === 'number' && ev.seq > maxSeq) maxSeq = ev.seq;
+      if (typeof ev.ts === 'number') lastTs = ev.ts;
+    }
+    useSseStore.setState({
+      lastSeq: maxSeq,
+      lastEventTs: lastTs ?? Date.now(),
+    });
+  } catch {
+    /* swallow — next tick will retry */
+  }
+}
+
+/**
+ * Begin polling the /events/poll endpoint every POLL_INTERVAL_MS. Safe to
+ * call multiple times; a previous poll timer is replaced.
+ */
+function startPolling(orgId: string): void {
+  stopPolling();
+  // Fire an immediate catch-up poll, then settle into the interval.
+  void pollOnce(orgId);
+  pollTimer = setInterval(() => {
+    if (currentOrgId !== orgId) {
+      stopPolling();
+      return;
+    }
+    void pollOnce(orgId);
+  }, POLL_INTERVAL_MS);
+}
+
+/** Cancel the polling loop if it is running. */
+function stopPolling(): void {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
 }
 
 function scheduleReconnect(orgId: string): void {
@@ -326,7 +422,7 @@ export const useSseStore = create<SseState>((set) => ({
   connect: (orgId: string) => {
     if (!orgId) return;
     // If we're already connected to the same org, do nothing.
-    if (currentOrgId === orgId && eventSource) return;
+    if (currentOrgId === orgId && (eventSource || pollTimer)) return;
     // Tear down any existing connection before opening a new one.
     if (eventSource) {
       try {
@@ -340,6 +436,7 @@ export const useSseStore = create<SseState>((set) => ({
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
     }
+    stopPolling();
     currentOrgId = orgId;
     set({ orgId, retryCount: 0, lastSeq: null });
     openConnection(orgId);
@@ -359,6 +456,7 @@ export const useSseStore = create<SseState>((set) => ({
       }
       eventSource = null;
     }
+    stopPolling();
     set({
       status: 'idle',
       orgId: null,
