@@ -1,0 +1,31 @@
+{
+  "featureId": "session-cookie-client",
+  "reviewedAt": "2026-04-19T16:57:12Z",
+  "commitId": "7d6559b",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Implementation matches the session-cookie-client requirements: JWT/localStorage token usage was removed from client auth paths, cookie credentials are included for axios/fetch/EventSource, auth store now hydrates via /api/auth/me, and related tests were updated accordingly.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Mission AGENTS auth bootstrap guidance is internally inconsistent after session-auth migration: it still says login returns a JWT token.",
+      "evidence": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a/AGENTS.md:72 says login returns a JWT token, while lines 79+ document session-cookie auth migration."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Shared architecture doc is stale on auth transport and backend auth mechanism, which can mislead future workers during the session-cookie milestone.",
+      "evidence": "/Users/andy/Documents/GitHub/org-planner/.factory/library/architecture.md:21 says 'Axios with JWT interceptor'; line 26 says backend auth uses jsonwebtoken/JWT."
+    },
+    {
+      "area": "skills",
+      "observation": "implementation-worker procedure requires agent-browser verification and explicit TDD red-phase commands, but this worker transcript did not show those steps while handoff still marked followedProcedure=true.",
+      "evidence": "Skill requirements at /Users/andy/Documents/GitHub/org-planner/.factory/skills/implementation-worker/SKILL.md lines 18, 30, 34; transcript skeleton for workerSessionId 9ac2e67e-e207-4f95-81c4-de761b431672 shows no agent-browser invocation and no 'npx vitest run ... --reporter=verbose' entries; handoff marks followedProcedure true at .../handoffs/2026-04-19T16-52-45-522Z__session-cookie-client__9ac2e67e-e207-4f95-81c4-de761b431672.json:53-54."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "PASS. The feature correctly migrates the client from JWT localStorage auth to session-cookie auth with appropriate API/store/SSE updates and aligned tests. No blocking or non-blocking code defects were identified in this diff; shared-state documentation/skill-procedure consistency gaps were observed."
+}

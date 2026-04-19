@@ -1,0 +1,71 @@
+{
+  "milestone": "session-auth",
+  "round": 1,
+  "status": "fail",
+  "validatorsRun": {
+    "test": {
+      "passed": true,
+      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run test",
+      "exitCode": 0
+    },
+    "typecheck": {
+      "passed": true,
+      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run typecheck",
+      "exitCode": 0
+    },
+    "lint": {
+      "passed": true,
+      "command": "cd /Users/andy/Documents/GitHub/org-planner && npm run lint",
+      "exitCode": 0
+    }
+  },
+  "reviewsSummary": {
+    "total": 2,
+    "passed": 1,
+    "failed": 1,
+    "failedFeatures": [
+      "session-cookie-server"
+    ]
+  },
+  "blockingIssues": [
+    {
+      "featureId": "session-cookie-server",
+      "file": "packages/server/src/middleware/session.ts",
+      "line": 18,
+      "severity": "blocking",
+      "description": "Session signing secret falls back to hardcoded \"change-me\" when SESSION_SECRET and JWT_SECRET are unset. Replace with fail-fast env validation to avoid predictable signing secret."
+    }
+  ],
+  "appliedUpdates": [
+    {
+      "target": "library",
+      "description": "Updated .factory/library/architecture.md auth transport/auth mechanism to reflect session cookies (withCredentials + express-session/connect-mongo) instead of JWT.",
+      "sourceFeature": "session-cookie-server/session-cookie-client"
+    }
+  ],
+  "suggestedGuidanceUpdates": [
+    {
+      "target": "AGENTS.md",
+      "suggestion": "Update auth bootstrap guidance to remove JWT token login wording and describe session-cookie bootstrap flow consistently.",
+      "evidence": "Both session-auth reviews flagged AGENTS.md inconsistency: auth bootstrap still says login returns JWT while Session Cookie Auth Migration section documents cookie sessions.",
+      "isSystemic": true
+    },
+    {
+      "target": "skills",
+      "suggestion": "Refresh implementation-worker skill guidance: remove outdated known-failing scheduledChanges test note and tighten procedure compliance expectations/reporting (agent-browser/TDD red phase).",
+      "evidence": "session-cookie-server review found stale known-failure guidance; session-cookie-client review found transcript lacking required procedure steps while handoff marked followedProcedure=true.",
+      "isSystemic": true
+    }
+  ],
+  "rejectedObservations": [
+    {
+      "observation": "Mission AGENTS auth bootstrap inconsistency (duplicated by both reviews).",
+      "reason": "duplicate"
+    },
+    {
+      "observation": "Architecture doc stale JWT wording (duplicated by both reviews).",
+      "reason": "duplicate"
+    }
+  ],
+  "previousRound": null
+}

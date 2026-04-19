@@ -18,12 +18,12 @@ A full-stack org chart and headcount planning application. Users create organiza
 - **Data Grid**: AG Grid Community for spreadsheet view
 - **Drag-and-Drop**: @dnd-kit for hierarchy and kanban reordering
 - **Styling**: Tailwind CSS v4 + clsx + tailwind-merge
-- **HTTP**: Axios with JWT interceptor (auto-attaches token, redirects on 401)
+- **HTTP**: Axios with `withCredentials: true` for session cookies and 401 redirect handling
 
 ### Backend (packages/server)
 - **Framework**: Express 4 on Node.js
 - **Database**: MongoDB Atlas via Mongoose 8
-- **Auth**: bcryptjs for password hashing, jsonwebtoken for JWT (7-day expiry)
+- **Auth**: bcryptjs for password hashing, express-session + connect-mongo for server-stored session cookies (`SESSION_SECRET`, 7-day cookie maxAge)
 - **Validation**: Zod schemas on request bodies
 - **Architecture**: Controllers → Routes → Models pattern
 - **Authorization**: Role-based (owner/admin/viewer) with org membership middleware

@@ -1,0 +1,38 @@
+{
+  "featureId": "session-cookie-server",
+  "reviewedAt": "2026-04-19T16:57:51Z",
+  "commitId": "1b13d4e",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "fail",
+  "codeReview": {
+    "summary": "The migration from JWT to session-cookie auth is broadly implemented across app/api middleware, auth endpoints, SSE auth, and server tests. However, one security-critical issue remains in session secret handling.",
+    "issues": [
+      {
+        "file": "packages/server/src/middleware/session.ts",
+        "line": 18,
+        "severity": "blocking",
+        "description": "Session signing secret falls back to a hardcoded constant (\"change-me\") when SESSION_SECRET and JWT_SECRET are unset. This can allow predictable cookie signing in misconfigured environments. The feature spec requires env-based secrets (SESSION_SECRET with JWT_SECRET migration fallback), so this should fail fast instead of using a known default."
+      }
+    ]
+  },
+  "sharedStateObservations": [
+    {
+      "area": "conventions",
+      "observation": "Mission AGENTS auth bootstrap guidance is internally inconsistent after the session-auth migration.",
+      "evidence": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a/AGENTS.md:72 still says login returns a JWT token, while the same file also documents session-cookie auth in the Session Cookie Auth Migration section."
+    },
+    {
+      "area": "skills",
+      "observation": "implementation-worker skill contains outdated validator guidance about known failing scheduledChanges tests.",
+      "evidence": "/Users/andy/Documents/GitHub/org-planner/.factory/skills/implementation-worker/SKILL.md:57 says there are 4 pre-existing scheduledChanges failures, but the worker verification reports those tests passing."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Architecture library doc still describes backend auth as JWT/jsonwebtoken, which no longer matches the current session-cookie server architecture.",
+      "evidence": "/Users/andy/Documents/GitHub/org-planner/.factory/library/architecture.md:26"
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "Review result: fail. Session-cookie migration coverage is strong, but a blocking security issue exists due to hardcoded session-secret fallback. Also noted shared-state documentation/skill drift around JWT-vs-session guidance."
+}
