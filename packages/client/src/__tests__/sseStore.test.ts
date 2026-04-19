@@ -277,13 +277,15 @@ describe('sseStore polling fallback', () => {
 
   class FakeEventSource {
     url: string;
+    withCredentials: boolean;
     onopen: ((ev: Event) => void) | null = null;
     onerror: ((ev: Event) => void) | null = null;
     onmessage: ((ev: MessageEvent) => void) | null = null;
     readyState = 0;
     closed = false;
-    constructor(url: string) {
+    constructor(url: string, init?: EventSourceInit) {
       this.url = url;
+      this.withCredentials = init?.withCredentials ?? false;
       instances.push(this);
       // Schedule the error synchronously on the next microtask so the
       // test can deterministically drive the store through each retry.
@@ -304,7 +306,6 @@ describe('sseStore polling fallback', () => {
   beforeEach(() => {
     resetStores();
     instances.length = 0;
-    localStorage.setItem('token', 'fake-jwt');
     (globalThis as { EventSource?: unknown }).EventSource =
       FakeEventSource as unknown;
     (globalThis as { fetch?: unknown }).fetch = vi
@@ -317,7 +318,6 @@ describe('sseStore polling fallback', () => {
 
   afterEach(() => {
     useSseStore.getState().disconnect();
-    localStorage.removeItem('token');
     (globalThis as { EventSource?: unknown }).EventSource =
       originalEventSource as unknown;
     (globalThis as { fetch?: unknown }).fetch = originalFetch as unknown;

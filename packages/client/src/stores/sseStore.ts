@@ -95,11 +95,6 @@ function computeBackoff(retryCount: number): number {
   return Math.min(MAX_RECONNECT_MS, BASE_RECONNECT_MS * 2 ** retryCount);
 }
 
-function resolveAccessToken(): string | null {
-  if (typeof localStorage === 'undefined') return null;
-  return localStorage.getItem('token');
-}
-
 function parseEventData(raw: string): SseServerEvent | null {
   try {
     const parsed = JSON.parse(raw) as SseServerEvent;
@@ -232,15 +227,11 @@ async function syncMissedChanges(): Promise<void> {
 
 function openConnection(orgId: string): void {
   if (typeof window === 'undefined') return;
-  const token = resolveAccessToken();
-  if (!token) {
-    useSseStore.setState({ status: 'disconnected', orgId });
-    return;
-  }
 
-  // Browser EventSource cannot send Authorization headers, so we pass the
-  // JWT as a query-string parameter. The server accepts either form.
-  const url = `/api/orgs/${encodeURIComponent(orgId)}/events?access_token=${encodeURIComponent(token)}`;
+  // Same-origin SSE endpoint. Authentication is carried by the httpOnly
+  // session cookie set at login; `withCredentials: true` tells the
+  // browser to include that cookie on the EventSource request.
+  const url = `/api/orgs/${encodeURIComponent(orgId)}/events`;
 
   const prior = useSseStore.getState();
   useSseStore.setState({
@@ -250,7 +241,7 @@ function openConnection(orgId: string): void {
 
   let es: EventSource;
   try {
-    es = new EventSource(url);
+    es = new EventSource(url, { withCredentials: true });
   } catch {
     useSseStore.setState({ status: 'disconnected', orgId });
     scheduleReconnect(orgId);
@@ -340,17 +331,13 @@ function openConnection(orgId: string): void {
  */
 async function pollOnce(orgId: string): Promise<void> {
   if (typeof fetch === 'undefined') return;
-  const token = resolveAccessToken();
-  if (!token) return;
   const sinceSeq = useSseStore.getState().lastSeq ?? 0;
   const url =
     `/api/orgs/${encodeURIComponent(orgId)}/events/poll` +
-    `?since_seq=${encodeURIComponent(String(sinceSeq))}` +
-    `&access_token=${encodeURIComponent(token)}`;
+    `?since_seq=${encodeURIComponent(String(sinceSeq))}`;
   try {
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    // Session cookie is sent automatically with credentials: 'include'.
+    const res = await fetch(url, { credentials: 'include' });
     if (!res.ok) return;
     const raw = (await res.json()) as unknown;
     const events: SseServerEvent[] = Array.isArray(raw)

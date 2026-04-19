@@ -85,17 +85,14 @@ export async function streamAiQuery(
   history: AiChatMessage[],
   callbacks: AiStreamCallbacks,
 ): Promise<void> {
-  const token =
-    typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
-
   let response: Response;
   try {
     response = await fetch(`/api/scenarios/${encodeURIComponent(scenarioId)}/ai/query`, {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'text/event-stream',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({ query, history }),
       signal: callbacks.signal,

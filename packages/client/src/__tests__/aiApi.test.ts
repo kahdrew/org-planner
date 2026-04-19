@@ -41,13 +41,8 @@ function mockErrorJson(status: number, body: unknown) {
   ) as unknown as typeof fetch;
 }
 
-beforeEach(() => {
-  localStorage.setItem('token', 'tok-123');
-});
-
 afterEach(() => {
   globalThis.fetch = originalFetch;
-  localStorage.clear();
 });
 
 describe('streamAiQuery — SSE parsing', () => {
@@ -150,7 +145,7 @@ describe('streamAiQuery — SSE parsing', () => {
     );
   });
 
-  it('sends the Authorization header and JSON body with query+history', async () => {
+  it('sends credentials: include and JSON body with query+history', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         streamFromStrings(['event: done\ndata: {"type":"done"}\n\n']),
@@ -174,8 +169,10 @@ describe('streamAiQuery — SSE parsing', () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/api/scenarios/scen1/ai/query');
     expect(init.method).toBe('POST');
+    expect(init.credentials).toBe('include');
     const headers = init.headers as Record<string, string>;
-    expect(headers.Authorization).toBe('Bearer tok-123');
+    // No Authorization header — auth is carried by the session cookie.
+    expect(headers.Authorization).toBeUndefined();
     expect(headers['Content-Type']).toBe('application/json');
     const body = JSON.parse(init.body as string) as {
       query: string;
