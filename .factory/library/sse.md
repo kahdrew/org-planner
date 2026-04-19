@@ -7,12 +7,15 @@ Reference for workers touching the realtime subsystem added in the
 
 ```
 GET /api/orgs/:orgId/events
+GET /api/orgs/:orgId/events/poll?since_seq=<N>
 ```
 
 - Content-Type: `text/event-stream`
 - Auth: `Authorization: Bearer <jwt>` OR `?access_token=<jwt>` (EventSource can't send headers).
 - Authz: user must be owner/member of `orgId`.
 - Keepalive: a `: keepalive <ts>` comment is sent every ~25s so proxies don't drop idle sockets.
+- Polling fallback response: JSON payload with monotonically increasing `seq` values:
+  `{ "events": [{ "seq": number, "ts": string, "type": string, "orgId": string, "payload": object }] }`
 
 ## Event types (`SseEventType`)
 
@@ -51,9 +54,13 @@ EventSource alive that follows `currentOrg`. Events are translated into
 orgStore mutations inside `sseStore#applyServerEvent`.
 
 - Status badge: `<ConnectionStatusIndicator />` renders from `useSseStore`.
-- Connection states: `idle | connecting | connected | reconnecting | disconnected`.
+- Connection states: `idle | connecting | connected | reconnecting | polling | disconnected`.
 - Reconnect: exponential backoff (500ms base, 30s cap). On transition
   back to `connected`, `fetchEmployees` is called to sync missed changes.
+- Polling fallback: after 3 consecutive EventSource connection failures,
+  client switches to polling `/events/poll` every 5s with `since_seq`
+  from `lastSeq`, and applies returned events through the same
+  `_handleEvent`/`applyServerEvent` pipeline.
 
 ## Testing
 
@@ -71,5 +78,7 @@ orgStore mutations inside `sseStore#applyServerEvent`.
   `?access_token=...`.
 - `app.ts` mounts `sseRoutes` BEFORE `orgRoutes` so the authenticated
   org router doesn't swallow `/orgs/:orgId/events`.
+- Long-lived SSE connections are not reliable on Vercel serverless due to
+  request timeouts; `/events/poll` is the Vercel-compatible fallback path.
 - Always call `eventBus.reset()` in afterAll of SSE tests to avoid
   lingering clients pointing at torn-down servers.

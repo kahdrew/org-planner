@@ -31,6 +31,10 @@ Server env file location: `packages/server/.env`.
 ## Dependency Notes
 
 - **Zod v4** is used in server validation; use v4 API semantics (`error.issues`, no v3-only patterns).
+- `api/tsconfig.json` is intended for Vercel bundling/runtime and can raise
+  **TS6059** (`rootDir` / file inclusion conflict) if run directly via
+  `npx tsc --noEmit -p api/tsconfig.json`. Use root `npm run typecheck`
+  (server + client projects) for mission validation instead.
 
 ## Platform
 

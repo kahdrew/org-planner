@@ -1,0 +1,31 @@
+{
+  "featureId": "vercel-sse-polling-fallback",
+  "reviewedAt": "2026-04-19T16:15:21Z",
+  "commitId": "85ae0ae",
+  "transcriptSkeletonReviewed": true,
+  "diffReviewed": true,
+  "status": "pass",
+  "codeReview": {
+    "summary": "Reviewed commit 85ae0ae against the feature contract: server eventBus now retains a per-org 100-event ring buffer with seq/ts metadata, GET /api/orgs/:orgId/events/poll is implemented with the same Bearer/access_token auth+membership checks as SSE, client sseStore switches to polling after 3 consecutive SSE failures and polls every 5s using since_seq/lastSeq, and ConnectionStatusIndicator renders a polling state. No blocking or non-blocking correctness issues were found in feature scope.",
+    "issues": []
+  },
+  "sharedStateObservations": [
+    {
+      "area": "skills",
+      "observation": "The implementation-worker skill mandates agent-browser verification for any UI behavior change, but this feature changed ConnectionStatusIndicator UI and the transcript skeleton shows no agent-browser invocation while handoff.skillFeedback still reports followedProcedure=true.",
+      "evidence": "Skill requirement: /Users/andy/Documents/GitHub/org-planner/.factory/skills/implementation-worker/SKILL.md lines 18, 59-65. Transcript check for workerSessionId d83e4569-da50-4107-a45b-2f5a4b83225f: jq contains(\"agent-browser\") => false in /Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a/worker-transcripts.jsonl; handoff marks followedProcedure=true."
+    },
+    {
+      "area": "knowledge",
+      "observation": "Shared SSE reference is now stale after this feature: it documents only the stream endpoint and omits polling fallback endpoint/status semantics.",
+      "evidence": "/Users/andy/Documents/GitHub/org-planner/.factory/library/sse.md line 9 documents only GET /api/orgs/:orgId/events; line 54 lists connection states as idle|connecting|connected|reconnecting|disconnected (missing polling) and has no /events/poll guidance."
+    },
+    {
+      "area": "conventions",
+      "observation": "Mission AGENTS.md says all protected routes use auth middleware, but SSE (including new /events/poll) intentionally performs controller-level token extraction for EventSource compatibility. The convention is too broad and can mislead workers reviewing SSE-auth paths.",
+      "evidence": "/Users/andy/.factory/missions/80c5e196-cca5-4acd-9581-c44e4271690a/AGENTS.md line 37: 'All protected routes use the auth middleware'. /Users/andy/Documents/GitHub/org-planner/packages/server/src/routes/sseRoutes.ts comments and route design explicitly bypass global auth middleware for SSE-compatible token handling."
+    }
+  ],
+  "addressesFailureFrom": null,
+  "summary": "PASS: implementation satisfies the polling-fallback feature requirements end-to-end with no actionable code defects found; noted shared-state gaps around skill procedure compliance signaling and SSE documentation/convention clarity."
+}
