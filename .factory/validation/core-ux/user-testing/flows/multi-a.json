@@ -7,7 +7,7 @@
     "apiUrl": "http://localhost:3001",
     "credentials": {
       "email": "coreux.multi.a.v1@example.com",
-      "password": "TestPass123!"
+      "password": "<test-credential>"
     },
     "orgName": "CoreUX Multi A Org v1",
     "scenarioName": "CoreUX Multi A Scenario v1"

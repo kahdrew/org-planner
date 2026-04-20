@@ -18,6 +18,7 @@ import path from "path";
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 import { registerAgent, type TestAgent } from "./helpers/authAgent";
+import { TEST_PASSWORD } from "./helpers/testConstants";
 import mongoose from "mongoose";
 import app from "../app";
 import User from "../models/User";
@@ -51,7 +52,7 @@ function todayIso(): string {
 function testCreds(suffix: string) {
   return {
     email: `${TEST_PREFIX}_${suffix}@example.com`,
-    password: "TestPass123!",
+    password: TEST_PASSWORD,
     name: `${suffix} User`,
   };
 }

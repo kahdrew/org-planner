@@ -6,7 +6,7 @@
     "appUrl": "http://localhost:5173",
     "credentials": {
       "email": "coreux_ms_g1@example.com",
-      "password": "TestPass123!"
+      "password": "<test-credential>"
     },
     "orgName": "CoreUX MS G1 Org Rerun",
     "scenarioName": "Baseline G1 Rerun",

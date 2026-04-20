@@ -4,8 +4,14 @@
   "isolation": {
     "namespace": "coreux_cross_g4",
     "appUrl": "http://localhost:5173",
-    "credentialsA": "coreux_cross_a@example.com / TestPass123!",
-    "credentialsB": "coreux_cross_b@example.com / TestPass123!",
+    "credentialsA": {
+      "email": "coreux_cross_a@example.com",
+      "password": "<test-credential>"
+    },
+    "credentialsB": {
+      "email": "coreux_cross_b@example.com",
+      "password": "<test-credential>"
+    },
     "orgNamePrefix": "CoreUX CROSS G4",
     "scenarioNamePrefix": "Baseline G4"
   },

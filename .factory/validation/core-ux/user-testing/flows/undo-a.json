@@ -7,7 +7,7 @@
     "apiUrl": "http://localhost:3001",
     "credentials": {
       "email": "coreux.undo.a.v1@example.com",
-      "password": "TestPass123!"
+      "password": "<test-credential>"
     },
     "orgName": "CoreUX Undo A Org v1",
     "scenarioName": "CoreUX Undo A Scenario v1"

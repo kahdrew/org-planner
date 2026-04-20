@@ -6,6 +6,7 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 import request from "supertest";
 import { registerAgent, type TestAgent } from "./helpers/authAgent";
+import { TEST_PASSWORD } from "./helpers/testConstants";
 import mongoose from "mongoose";
 import app from "../app";
 import User from "../models/User";
@@ -15,7 +16,7 @@ import Employee from "../models/Employee";
 
 const TEST_PREFIX = `bugfix_test_${Date.now()}`;
 const testEmail = `${TEST_PREFIX}@example.com`;
-const testPassword = "TestPass123!";
+const testPassword = TEST_PASSWORD;
 const testName = "BugfixTestUser";
 
 let agent: TestAgent;

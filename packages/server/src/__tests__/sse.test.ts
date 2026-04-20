@@ -11,6 +11,7 @@ import {
   registerAndGetCookie,
   type TestAgent,
 } from "./helpers/authAgent";
+import { TEST_PASSWORD } from "./helpers/testConstants";
 import mongoose from "mongoose";
 
 import app from "../app";
@@ -31,9 +32,9 @@ import { eventBus } from "../sse/eventBus";
  */
 
 const TEST_PREFIX = `sse_test_${Date.now()}`;
-// Shared test password — identical for both users. Not a real credential;
-// only used against the ephemeral MongoDB test DB.
-const TEST_PASSWORD = process.env.TEST_PASSWORD ?? "TestPass123!";
+// Shared test password — identical for both users. Sourced from the shared
+// test constants module (which reads TEST_PASSWORD from env with a
+// non-credential fallback). Only used against the ephemeral MongoDB test DB.
 
 const userAEmail = `${TEST_PREFIX}_a@example.com`;
 const userAName = "SseUserA";

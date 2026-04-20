@@ -5,6 +5,7 @@ import path from "path";
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 import { registerAgent, type TestAgent } from "./helpers/authAgent";
+import { TEST_PASSWORD } from "./helpers/testConstants";
 import mongoose from "mongoose";
 import app from "../app";
 import User from "../models/User";
@@ -16,12 +17,12 @@ const TEST_PREFIX = `authz_test_${Date.now()}`;
 
 // User A — org owner
 const userAEmail = `${TEST_PREFIX}_a@example.com`;
-const userAPassword = "TestPass123!";
+const userAPassword = TEST_PASSWORD;
 const userAName = "AuthzUserA";
 
 // User B — unauthorized user (separate org)
 const userBEmail = `${TEST_PREFIX}_b@example.com`;
-const userBPassword = "TestPass123!";
+const userBPassword = TEST_PASSWORD;
 const userBName = "AuthzUserB";
 
 let agentA: TestAgent;

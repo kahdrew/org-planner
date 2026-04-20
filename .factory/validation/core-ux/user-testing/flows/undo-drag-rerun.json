@@ -6,7 +6,7 @@
     "appUrl": "http://localhost:5173",
     "credentials": {
       "email": "coreux_undo_g3@example.com",
-      "password": "TestPass123!"
+      "password": "<test-credential>"
     },
     "orgNamePrefix": "CoreUX UNDO G3",
     "scenarioNamePrefix": "Baseline G3"

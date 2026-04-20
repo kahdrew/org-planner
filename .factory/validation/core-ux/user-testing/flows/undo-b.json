@@ -5,7 +5,10 @@
     "namespace": "coreux-undo-b-v1",
     "appUrl": "http://localhost:5173",
     "apiUrl": "http://localhost:3001",
-    "credentials": "coreux.undo.b.v1@example.com / TestPass123!",
+    "credentials": {
+      "email": "coreux.undo.b.v1@example.com",
+      "password": "<test-credential>"
+    },
     "orgName": "CoreUX Undo B Org v1",
     "scenarioName": "CoreUX Undo B Scenario v1"
   },

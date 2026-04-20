@@ -6,7 +6,7 @@
     "appUrl": "http://localhost:5173",
     "credentials": {
       "email": "coreux_key_g2@example.com",
-      "password": "TestPass123!"
+      "password": "<test-credential>"
     },
     "orgNamePrefix": "CoreUX KEY G2",
     "scenarioNamePrefix": "Baseline G2"
