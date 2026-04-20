@@ -46,7 +46,7 @@
         {
           "action": "Create distinct employee sets in scenario A and B, then call diff endpoint",
           "expected": "Unique-to-B employee in added, unique-to-A in removed, shared employee in unchanged",
-          "observed": "added=['fdn_bugfix_api_CharlieAdded_20260417T002330'], removed=['fdn_bugfix_api_BobRemoved_20260417T002330'], unchanged=['fdn_bugfix_api_Alice_20260417T002330']"
+          "observed": "Diff returned correct added, removed, and unchanged employee sets matching test fixtures"
         }
       ],
       "evidence": {

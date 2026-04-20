@@ -14,7 +14,7 @@ A full-stack org chart and headcount planning application. Build, visualize, and
 | **Drag & Drop** | @dnd-kit |
 | **Backend** | Express 4, Node.js |
 | **Database** | MongoDB (Mongoose 8) |
-| **Auth** | JWT (jsonwebtoken + bcryptjs) |
+| **Auth** | Session cookies (express-session + bcryptjs) |
 | **Validation** | Zod |
 | **Deployment** | Vercel |
 
@@ -52,15 +52,15 @@ cp packages/server/.env.example packages/server/.env
 Edit `packages/server/.env`:
 
 ```env
-MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/<dbname>
-JWT_SECRET=<your-random-secret>
+MONGODB_URI=<your-mongodb-connection-string>
+SESSION_SECRET=<your-random-secret>
 PORT=3001
 ```
 
 | Variable | Description |
 |----------|-------------|
 | `MONGODB_URI` | MongoDB connection string (use MongoDB Atlas or a local instance) |
-| `JWT_SECRET` | Secret key for signing JWT tokens — use a long random string |
+| `SESSION_SECRET` | Secret key for signing session cookies — use a long random string |
 | `PORT` | API server port (defaults to `3001`) |
 
 > **⚠️ Never commit `.env` files.** The `.gitignore` already excludes them.
@@ -124,7 +124,7 @@ The app is configured for deployment on **Vercel**:
 Set the following environment variables in your Vercel project settings:
 
 - `MONGODB_URI` — your MongoDB Atlas connection string
-- `JWT_SECRET` — your JWT signing secret
+- `SESSION_SECRET` — your session signing secret
 
 ## Project Structure
 
